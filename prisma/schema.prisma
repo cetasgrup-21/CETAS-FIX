@@ -1,0 +1,344 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleCode {
+  SUPER_ADMIN
+  EVENT_ADMIN
+  PROD_ADMIN
+  SCANNER_STAFF
+  EVENT_ORGANIZER
+  PUBLIC_USER
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  FINISHED
+  CANCELLED
+}
+
+enum AdPlacement {
+  HOME_HERO
+  EVENT_PAGE
+  TICKET_FOOTER
+}
+
+enum VoteType {
+  FREE
+  PAID
+}
+
+enum OrderType {
+  TICKET
+  VOTE
+  PRODUCTION
+  REGISTRATION
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum ProductCategory {
+  MERCHANDISE
+  SOUND_SYSTEM
+  LIGHTING
+  LED_VIDEOTRON
+  LIVE_STREAMING
+  BOOTH_VENDOR
+}
+
+model User {
+  id           String            @id @default(uuid())
+  name         String
+  email        String            @unique
+  phone        String?
+  passwordHash String
+  avatarUrl    String?
+  role         RoleCode          @default(PUBLIC_USER)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  submissions  EventSubmission[]
+  orders       Order[]
+  attendances  EventAttendee[]
+  auditLogs    AuditLog[]
+  checkedInTickets Ticket[]      @relation("CheckedInByStaff")
+
+  @@index([email])
+}
+
+model EventSubmission {
+  id                String           @id @default(uuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id])
+  eventName         String
+  proposalFileUrl   String?
+  targetAudience    String?
+  featuresRequested String           // JSON or comma separated: TICKETING, VOTE, REGISTRATION
+  status            SubmissionStatus @default(PENDING)
+  reviewNotes       String?
+  submittedAt       DateTime         @default(now())
+  reviewedAt        DateTime?
+
+  approvedEvent     Event?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Event {
+  id                 String           @id @default(uuid())
+  submissionId       String?          @unique
+  submission         EventSubmission? @relation(fields: [submissionId], references: [id])
+  title              String
+  slug               String           @unique
+  description        String
+  bannerUrl          String?
+  location           String
+  startDate          DateTime
+  endDate            DateTime
+  status             EventStatus      @default(DRAFT)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  ads                CetasAd[]
+  ticketTiers        TicketTier[]
+  voteCategories     VoteCategory[]
+  registrationFields RegistrationField[]
+  attendees          EventAttendee[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+model CetasAd {
+  id               String       @id @default(uuid())
+  eventId          String?
+  event            Event?       @relation(fields: [eventId], references: [id])
+  title            String
+  bannerImageUrl   String
+  targetLink       String
+  placementType    AdPlacement  @default(HOME_HERO)
+  totalImpressions Int          @default(0)
+  totalClicks      Int          @default(0)
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+
+  @@index([placementType, isActive])
+}
+
+model TicketTier {
+  id             String    @id @default(uuid())
+  eventId        String
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name           String    // e.g. Early Bird, Presale, VIP
+  price          Decimal   @db.Decimal(12, 2)
+  quotaTotal     Int
+  quotaRemaining Int
+  saleStart      DateTime
+  saleEnd        DateTime
+
+  tickets        Ticket[]
+  orderItems     OrderItem[]
+
+  @@index([eventId])
+}
+
+model Ticket {
+  id            String      @id @default(uuid())
+  orderId       String
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tierId        String
+  tier          TicketTier  @relation(fields: [tierId], references: [id])
+  ticketCode    String      @unique // e.g. CETAS-TCK-928374
+  qrHash        String      // HMAC-SHA256 signature for gate security
+  holderName    String
+  holderEmail   String
+  holderPhone   String?
+  isCheckedIn   Boolean     @default(false)
+  checkedInAt   DateTime?
+  checkedInById String?
+  checkedInBy   User?       @relation("CheckedInByStaff", fields: [checkedInById], references: [id])
+
+  @@index([ticketCode])
+  @@index([orderId])
+  @@index([isCheckedIn])
+}
+
+model VoteCategory {
+  id            String          @id @default(uuid())
+  eventId       String
+  event         Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title         String          // e.g. Duta Terfavorit 2026
+  voteType      VoteType        @default(PAID)
+  pricePerVote  Decimal         @default(0) @db.Decimal(12, 2)
+  endVotingAt   DateTime
+
+  candidates    VoteCandidate[]
+
+  @@index([eventId])
+}
+
+model VoteCandidate {
+  id              String       @id @default(uuid())
+  categoryId      String
+  category        VoteCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  candidateNumber String       // e.g. "01", "02"
+  name            String
+  photoUrl        String?
+  visionMission   String?
+  totalVotes      Int          @default(0)
+
+  voteLogs        VoteLog[]
+
+  @@index([categoryId])
+}
+
+model VoteLog {
+  id          String        @id @default(uuid())
+  candidateId String
+  candidate   VoteCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  orderId     String?
+  order       Order?        @relation(fields: [orderId], references: [id])
+  voteCount   Int           @default(1)
+  voterIp     String?
+  recordedAt  DateTime      @default(now())
+
+  @@index([candidateId])
+}
+
+model RegistrationField {
+  id          String   @id @default(uuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  label       String   // e.g. Nomor Induk Mahasiswa / Instansi
+  fieldType   String   // text, email, select, file
+  isRequired  Boolean  @default(true)
+  optionsJson String?  // serialized json for dropdown choices
+
+  @@index([eventId])
+}
+
+model EventAttendee {
+  id             String    @id @default(uuid())
+  eventId        String
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id])
+  name           String
+  email          String
+  phone          String
+  customDataJson String?   // Answers to dynamic RegistrationField
+  qrCode         String    @unique
+  isPresent      Boolean   @default(false)
+  registeredAt   DateTime  @default(now())
+
+  @@index([eventId])
+  @@index([email])
+}
+
+model ProductionProduct {
+  id             String          @id @default(uuid())
+  name           String
+  category       ProductCategory
+  basePrice      Decimal         @db.Decimal(12, 2)
+  stock          Int             @default(0)
+  specifications String?
+  imageUrl       String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+
+  orderItems     OrderItem[]
+
+  @@index([category])
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
+  orderNumber   String        @unique // e.g. CETAS-ORD-20261002-XXXX
+  orderType     OrderType
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  paymentStatus PaymentStatus @default(PENDING)
+  customerName  String
+  customerEmail String
+  customerPhone String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items         OrderItem[]
+  payment       Payment?
+  tickets       Ticket[]
+  voteLogs      VoteLog[]
+
+  @@index([orderNumber])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id                  String             @id @default(uuid())
+  orderId             String
+  order               Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tierId              String?
+  ticketTier          TicketTier?        @relation(fields: [tierId], references: [id])
+  productionProductId String?
+  productionProduct   ProductionProduct? @relation(fields: [productionProductId], references: [id])
+  itemDescription     String             // Name/title of ticket, merch, or vote package
+  quantity            Int
+  unitPrice           Decimal            @db.Decimal(12, 2)
+  subtotal            Decimal            @db.Decimal(12, 2)
+
+  @@index([orderId])
+}
+
+model Payment {
+  id                   String        @id @default(uuid())
+  orderId              String        @unique
+  order                Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  snapToken            String?
+  redirectUrl          String?
+  gatewayTransactionId String?       @unique // Midtrans transaction_id
+  paymentType          String?       // qris, bank_transfer, gopay, etc.
+  vaNumber             String?       // Virtual Account Number if available
+  amountPaid           Decimal?      @db.Decimal(12, 2)
+  status               PaymentStatus @default(PENDING)
+  payloadJson          String?       // Full raw webhook notification payload
+  settledAt            DateTime?
+
+  @@index([gatewayTransactionId])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String   // e.g. EVENT_APPROVED, REFUND_ISSUED, TICKET_SCANNED
+  entityName  String   // e.g. Event, Order, Ticket
+  entityId    String
+  detailsJson String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([entityName])
+}

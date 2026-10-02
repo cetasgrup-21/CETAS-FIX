@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Award, Zap, CheckCircle2, ShieldCheck, Heart, Users } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
@@ -52,6 +52,17 @@ export default function VotePage() {
       votes: 702,
     },
   ]);
+
+  useEffect(() => {
+    fetch("/api/vote")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.candidates && data.candidates.length > 0) {
+          setCandidates(data.candidates);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [voteCount, setVoteCount] = useState<number>(5);

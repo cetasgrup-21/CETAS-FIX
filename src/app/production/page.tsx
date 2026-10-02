@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShoppingBag, Check, ShieldCheck, ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
+import { UnifiedProduct } from "@/lib/production-unified-data";
 
 interface Product {
   id: string;
@@ -15,63 +16,86 @@ interface Product {
   description: string;
 }
 
+const DEFAULT_PRODUCTS: Product[] = [
+  {
+    id: "prod-01",
+    name: "Kaos Komunitas & Event Cotton Combed 24s",
+    category: "MERCHANDISE",
+    price: 65000,
+    unit: "pcs (min. 24 pcs)",
+    imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
+    description: "Sablon DTF / Plastisol presisi tinggi, bahan dingin dan nyaman untuk panitia & peserta.",
+  },
+  {
+    id: "prod-02",
+    name: "Lanyard & ID Card Panitia Hologram",
+    category: "MERCHANDISE",
+    price: 15000,
+    unit: "set",
+    imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
+    description: "Tali tisu 2cm cetak sublim 2 sisi + card holder plastik tebal anti-gores.",
+  },
+  {
+    id: "prod-03",
+    name: "Paket Sound System Konser Line-Array 10.000 Watt",
+    category: "EQUIPMENT",
+    price: 4500000,
+    unit: "hari (termasuk operator)",
+    imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
+    description: "Sistem audio panggung outdoor / indoor lengkap dengan digital mixer & wireless mic Shure.",
+  },
+  {
+    id: "prod-04",
+    name: "Lighting Stage Show (Moving Beam + Par LED)",
+    category: "EQUIPMENT",
+    price: 3200000,
+    unit: "hari",
+    imageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=400&q=80",
+    description: "8 Moving Beam 230W, 12 Par LED RGBW, Smoke Gun / Haze Machine, dan lighting programmer.",
+  },
+  {
+    id: "prod-05",
+    name: "LED Videotron P3.9 Outdoor (Ukuran 4x2 Meter)",
+    category: "EQUIPMENT",
+    price: 6000000,
+    unit: "hari",
+    imageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80",
+    description: "Layar visual tajam anti-silau siang hari lengkap dengan rigging truss dan video switcher processor.",
+  },
+  {
+    id: "prod-06",
+    name: "Jasa Live Streaming Multicam 3 Kamera Full HD",
+    category: "EQUIPMENT",
+    price: 2800000,
+    unit: "event",
+    imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=400&q=80",
+    description: "Broadcast YouTube / Zoom profesional dengan ATEM Mini switcher, audio interface, & grafis lower-third.",
+  },
+];
+
 export default function ProductionPage() {
-  const products: Product[] = [
-    {
-      id: "prod-01",
-      name: "Kaos Komunitas & Event Cotton Combed 24s",
-      category: "MERCHANDISE",
-      price: 65000,
-      unit: "pcs (min. 24 pcs)",
-      imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
-      description: "Sablon DTF / Plastisol presisi tinggi, bahan dingin dan nyaman untuk panitia & peserta.",
-    },
-    {
-      id: "prod-02",
-      name: "Lanyard & ID Card Panitia Hologram",
-      category: "MERCHANDISE",
-      price: 15000,
-      unit: "set",
-      imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
-      description: "Tali tisu 2cm cetak sublim 2 sisi + card holder plastik tebal anti-gores.",
-    },
-    {
-      id: "prod-03",
-      name: "Paket Sound System Konser Line-Array 10.000 Watt",
-      category: "EQUIPMENT",
-      price: 4500000,
-      unit: "hari (termasuk operator)",
-      imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
-      description: "Sistem audio panggung outdoor / indoor lengkap dengan digital mixer & wireless mic Shure.",
-    },
-    {
-      id: "prod-04",
-      name: "Lighting Stage Show (Moving Beam + Par LED)",
-      category: "EQUIPMENT",
-      price: 3200000,
-      unit: "hari",
-      imageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=400&q=80",
-      description: "8 Moving Beam 230W, 12 Par LED RGBW, Smoke Gun / Haze Machine, dan lighting programmer.",
-    },
-    {
-      id: "prod-05",
-      name: "LED Videotron P3.9 Outdoor (Ukuran 4x2 Meter)",
-      category: "EQUIPMENT",
-      price: 6000000,
-      unit: "hari",
-      imageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80",
-      description: "Layar visual tajam anti-silau siang hari lengkap dengan rigging truss dan video switcher processor.",
-    },
-    {
-      id: "prod-06",
-      name: "Jasa Live Streaming Multicam 3 Kamera Full HD",
-      category: "EQUIPMENT",
-      price: 2800000,
-      unit: "event",
-      imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=400&q=80",
-      description: "Broadcast YouTube / Zoom profesional dengan ATEM Mini switcher, audio interface, & grafis lower-third.",
-    },
-  ];
+  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.products && data.products.length > 0) {
+          setProducts(
+            data.products.map((p: UnifiedProduct) => ({
+              id: p.id,
+              name: p.name,
+              category: p.category,
+              price: p.price,
+              unit: p.unit,
+              imageUrl: p.imageUrl,
+              description: p.description,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [cart, setCart] = useState<{ [id: string]: number }>({});

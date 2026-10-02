@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Ticket,
   Calendar,
@@ -15,6 +15,7 @@ import {
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
 import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
+import { UnifiedEvent } from "@/lib/events-unified-data";
 
 interface TicketTier {
   id: string;
@@ -45,36 +46,63 @@ interface IssuedTicket {
   qrDataUrl: string;
 }
 
+const DEFAULT_EVENTS: EventItem[] = [
+  {
+    id: "ev-01",
+    title: "Cetas SoundFest 2026: Live Music & Creative Carnival",
+    date: "2026-11-20",
+    location: "Stadion Madya GBK, Senayan, Jakarta",
+    bannerUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80",
+    description:
+      "Konser musik spektakuler yang menampilkan 12 musisi papan atas Indonesia dengan tata panggung dan sound system dari Cetas Production.",
+    tiers: [
+      { id: "tier-01", name: "Festival Early Bird", price: 150000, quotaRemaining: 18, quotaTotal: 200 },
+      { id: "tier-02", name: "Festival Regular", price: 250000, quotaRemaining: 340, quotaTotal: 500 },
+      { id: "tier-03", name: "VIP Lounge (Front Row + Merch)", price: 650000, quotaRemaining: 42, quotaTotal: 100 },
+    ],
+  },
+  {
+    id: "ev-02",
+    title: "Seminar Nasional: Masa Depan Ekonomi Kreatif & AI",
+    date: "2026-12-05",
+    location: "Auditorium Graha Cakrawala & Hybrid Live Stream",
+    bannerUrl: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80",
+    description:
+      "Konferensi industri kreatif bersama para founder startup dan pelaku industri seni visual terkemuka.",
+    tiers: [
+      { id: "tier-04", name: "Online Streaming Pass", price: 50000, quotaRemaining: 210, quotaTotal: 500 },
+      { id: "tier-05", name: "Offline All Access + E-Sertifikat", price: 120000, quotaRemaining: 65, quotaTotal: 150 },
+    ],
+  },
+];
+
 export default function EventsPage() {
-  const events: EventItem[] = [
-    {
-      id: "ev-01",
-      title: "Cetas SoundFest 2026: Live Music & Creative Carnival",
-      date: "2026-11-20",
-      location: "Stadion Madya GBK, Senayan, Jakarta",
-      bannerUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80",
-      description:
-        "Konser musik spektakuler yang menampilkan 12 musisi papan atas Indonesia dengan tata panggung dan sound system dari Cetas Production.",
-      tiers: [
-        { id: "tier-01", name: "Festival Early Bird", price: 150000, quotaRemaining: 18, quotaTotal: 200 },
-        { id: "tier-02", name: "Festival Regular", price: 250000, quotaRemaining: 340, quotaTotal: 500 },
-        { id: "tier-03", name: "VIP Lounge (Front Row + Merch)", price: 650000, quotaRemaining: 42, quotaTotal: 100 },
-      ],
-    },
-    {
-      id: "ev-02",
-      title: "Seminar Nasional: Masa Depan Ekonomi Kreatif & AI",
-      date: "2026-12-05",
-      location: "Auditorium Graha Cakrawala & Hybrid Live Stream",
-      bannerUrl: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80",
-      description:
-        "Konferensi industri kreatif bersama para founder startup dan pelaku industri seni visual terkemuka.",
-      tiers: [
-        { id: "tier-04", name: "Online Streaming Pass", price: 50000, quotaRemaining: 210, quotaTotal: 500 },
-        { id: "tier-05", name: "Offline All Access + E-Sertifikat", price: 120000, quotaRemaining: 65, quotaTotal: 150 },
-      ],
-    },
-  ];
+  const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS);
+
+  useEffect(() => {
+    fetch("/api/events")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.events && data.events.length > 0) {
+          // Filter events that have ticketing enabled
+          const ticketingEvents = data.events
+            .filter((e: UnifiedEvent) => e.isOpenTicketing && e.tiers && e.tiers.length > 0)
+            .map((e: UnifiedEvent) => ({
+              id: e.id,
+              title: e.title,
+              date: e.date,
+              location: e.location,
+              bannerUrl: e.bannerUrl,
+              description: e.description,
+              tiers: e.tiers,
+            }));
+          if (ticketingEvents.length > 0) {
+            setEvents(ticketingEvents);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [selectedTier, setSelectedTier] = useState<{ event: EventItem; tier: TicketTier } | null>(null);
   const [ticketQty, setTicketQty] = useState(1);

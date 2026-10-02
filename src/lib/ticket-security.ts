@@ -13,11 +13,14 @@ export interface TicketPayload {
  * Universal Base64URL encoder yang aman di Node.js maupun Browser
  */
 function toBase64Url(str: string): string {
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(str, "utf-8").toString("base64url");
+  if (typeof window === "undefined" && typeof Buffer !== "undefined") {
+    try {
+      return Buffer.from(str, "utf-8").toString("base64url");
+    } catch {
+      // fallback
+    }
   }
-  // Browser fallback
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))))
+  return btoa(unescape(encodeURIComponent(str)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
@@ -27,21 +30,20 @@ function toBase64Url(str: string): string {
  * Universal Base64URL decoder yang aman di Node.js maupun Browser
  */
 function fromBase64Url(str: string): string {
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(str, "base64url").toString("utf-8");
+  if (typeof window === "undefined" && typeof Buffer !== "undefined") {
+    try {
+      return Buffer.from(str, "base64url").toString("utf-8");
+    } catch {
+      // fallback
+    }
   }
-  // Browser fallback
   let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   while (base64.length % 4) {
     base64 += "=";
   }
-  return decodeURIComponent(
-    atob(base64)
-      .split("")
-      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-      .join("")
-  );
+  return decodeURIComponent(escape(atob(base64)));
 }
+
 
 /**
  * Universal HMAC / Signature generator yang kompatibel di Server dan Browser

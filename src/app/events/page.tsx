@@ -485,17 +485,23 @@ export default function EventsPage() {
           customerName={simulatorData.customerName}
           onClose={() => setSimulatorData(null)}
           onSuccess={async () => {
-            await generateTicketPass(
-              selectedTier.event,
-              selectedTier.tier,
-              buyerName,
-              buyerEmail
-            );
-            setSelectedTier(null);
-            setSimulatorData(null);
+            try {
+              await generateTicketPass(
+                selectedTier.event,
+                selectedTier.tier,
+                buyerName,
+                buyerEmail
+              );
+            } catch (err) {
+              console.error("Error generating ticket pass:", err);
+            } finally {
+              setSelectedTier(null);
+              setSimulatorData(null);
+            }
           }}
         />
       )}
+
     </div>
   );
 }

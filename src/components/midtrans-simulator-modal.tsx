@@ -29,13 +29,17 @@ export function MidtransSimulatorModal({
   const handleSimulatePayment = () => {
     setIsPaying(true);
     setTimeout(() => {
-      setIsPaying(false);
-      onSuccess();
-    }, 600);
+      try {
+        setIsPaying(false);
+        onSuccess();
+      } catch (err) {
+        console.error("Error running onSuccess callback:", err);
+      }
+    }, 250);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Midtrans Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">

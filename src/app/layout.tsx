@@ -5,6 +5,7 @@ import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { MascotWhatsAppWidget } from "@/components/mascot-whatsapp-widget";
+import { MobileBottomDock } from "@/components/mobile-bottom-dock";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -47,9 +48,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#FCFBFE] text-slate-900 selection:bg-purple-600 selection:text-white">
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <Footer />
         <MascotWhatsAppWidget />
+        <MobileBottomDock />
       </body>
     </html>
   );

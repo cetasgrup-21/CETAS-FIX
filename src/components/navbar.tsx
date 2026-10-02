@@ -25,6 +25,7 @@ export function Navbar() {
     { href: "/", label: "Beranda", icon: Calendar },
     { href: "/events", label: "Cetas Ticketing", icon: Ticket },
     { href: "/vote", label: "Cetas Vote", icon: Award },
+    { href: "/pelatih", label: "Akses Pelatih", icon: UserCheck },
     { href: "/production", label: "Cetas Production", icon: ShoppingBag },
     { href: "/ajukan-event", label: "Ajukan Event", icon: Send },
   ];

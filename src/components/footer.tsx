@@ -59,6 +59,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/pelatih" className="text-slate-600 hover:text-purple-700 transition">
+                  Akses Pelatih & Rekap Nilai Live
+                </Link>
+              </li>
+              <li>
                 <Link href="/ajukan-event" className="text-slate-600 hover:text-purple-700 transition">
                   Pengajuan Event & Iklan Cetas Kita
                 </Link>

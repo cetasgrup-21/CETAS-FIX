@@ -80,7 +80,7 @@ export function Navbar() {
         <div className="flex items-center gap-2.5">
           {/* WhatsApp Direct Help Link */}
           <a
-            href="https://wa.me/6281299887766?text=Halo%20Admin%20Cetas%2C%20saya%20butuh%20bantuan%20seputar%20web%20Cetas."
+            href="https://wa.me/6281584682345?text=Halo%20Admin%20Cetas%2C%20saya%20butuh%20bantuan%20seputar%20web%20Cetas."
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs"
@@ -145,13 +145,13 @@ export function Navbar() {
               Pendaftaran Peserta Lomba / Event
             </Link>
             <a
-              href="https://wa.me/6281299887766"
+              href="https://wa.me/6281584682345"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 transition shadow-xs"
             >
               <MessageCircle className="h-4 w-4 fill-white" />
-              Chat WhatsApp CS Official
+              Chat WhatsApp CS (0815-8468-2345)
             </a>
           </div>
         </div>

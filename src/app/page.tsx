@@ -102,11 +102,11 @@ export default function HomePage() {
 
               {/* Punchy Main Headline with Berry Violet Accent */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 leading-[1.12]">
-                Satu Ekosistem untuk{" "}
+                Pusat Operasional{" "}
                 <span className="bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 bg-clip-text text-transparent">
-                  Sukseskan Turnamen & Acara
+                  E-Voting, Tiketing & Produksi
                 </span>{" "}
-                Anda
+                Turnamen
               </h1>
 
               <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
@@ -130,7 +130,7 @@ export default function HomePage() {
                   Bilik Cetas Vote Live
                 </Link>
                 <a
-                  href="https://wa.me/6281299887766?text=Halo%20Anty%20dan%20Tim%20Cetas%2C%20saya%20ingin%20konsultasi%20sewa%20alat%20atau%20tiket."
+                  href="https://wa.me/6281584682345?text=Halo%20Anty%20dan%20Tim%20Cetas%2C%20saya%20ingin%20konsultasi%20sewa%20alat%20atau%20tiket."
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 font-bold px-4 py-3.5 text-sm border border-emerald-200 transition shadow-xs"
@@ -198,7 +198,7 @@ export default function HomePage() {
                     {/* Speech Tag Overlay */}
                     <div className="absolute bottom-2 inset-x-3 rounded-xl bg-white/95 border border-purple-200 p-2.5 text-center shadow-md backdrop-blur-xs">
                       <p className="text-xs font-semibold text-slate-800">
-                        &ldquo;Dadah semuanya! 👋 Tanganku melambai 3D nyapa kamu! Butuh tiket, vote, atau sewa panggung?&rdquo;
+                        &ldquo;Halo sobat turnamen! 👋 Butuh tiket masuk, voting jagoan, atau konsultasi sound panggung? Tanya Anty di WhatsApp!&rdquo;
                       </p>
                     </div>
                   </div>
@@ -206,14 +206,14 @@ export default function HomePage() {
                   {/* Quick Action Buttons */}
                   <div className="space-y-2 pt-1">
                     <a
-                      href="https://wa.me/6281299887766?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20Cetas."
+                      href="https://wa.me/6281584682345?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20Cetas."
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full flex items-center justify-between p-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition transform active:scale-95"
                     >
                       <div className="flex items-center gap-2">
                         <MessageCircle className="h-4 w-4 fill-white" />
-                        <span>Chat WhatsApp Anty (+62 812-9988-7766)</span>
+                        <span>Chat WhatsApp Anty (0815-8468-2345)</span>
                       </div>
                       <ChevronRight className="h-4 w-4" />
                     </a>
@@ -264,7 +264,7 @@ export default function HomePage() {
                 Lihat Paket Alat & Sewa
               </Link>
               <a
-                href="https://wa.me/6281299887766?text=Halo%20Tim%20Cetas%20Production%2C%20saya%20ingin%20konsultasi%20sewa%20sound%20dan%20panggung."
+                href="https://wa.me/6281584682345?text=Halo%20Tim%20Cetas%20Production%2C%20saya%20ingin%20konsultasi%20sewa%20sound%20dan%20panggung."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-xl bg-purple-950/80 hover:bg-purple-900 text-white font-bold px-5 py-3.5 text-xs sm:text-sm border border-purple-400/40 transition text-center flex items-center justify-center gap-1.5"
@@ -454,13 +454,13 @@ export default function HomePage() {
 
             <div className="pt-2 flex justify-center">
               <a
-                href="https://wa.me/6281299887766?text=Halo%20Admin%20Cetas%2C%20saya%20ingin%20bertanya%20seputar%20turnamen%20dan%20layanan%20Cetas."
+                href="https://wa.me/6281584682345?text=Halo%20Admin%20Cetas%2C%20saya%20ingin%20bertanya%20seputar%20turnamen%20dan%20layanan%20Cetas."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm px-6 py-3.5 shadow-md shadow-emerald-500/20 transition transform active:scale-95"
               >
                 <MessageCircle className="h-5 w-5 fill-white" />
-                Chat WhatsApp CS Official (+62 812-9988-7766)
+                Chat WhatsApp CS Official (0815-8468-2345)
               </a>
             </div>
           </div>

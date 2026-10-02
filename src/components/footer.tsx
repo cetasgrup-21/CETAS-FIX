@@ -106,12 +106,12 @@ export function Footer() {
               <li className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4 text-emerald-600 shrink-0" />
                 <a
-                  href="https://wa.me/6281299887766"
+                  href="https://wa.me/6281584682345"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-700 font-semibold hover:underline"
                 >
-                  WhatsApp Support: +62 812-9988-7766
+                  WhatsApp Support: 0815-8468-2345
                 </a>
               </li>
               <li className="flex items-center gap-2">

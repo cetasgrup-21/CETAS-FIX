@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { AntmanMascot } from "@/components/antman-mascot";
 
-const WHATSAPP_NUMBER = "6281299887766"; // Official Cetas Support
+const WHATSAPP_NUMBER = "6281584682345"; // Official Cetas Support (081584682345)
 
 interface QuickAction {
   id: string;
@@ -344,7 +344,7 @@ export function MascotWhatsAppWidget() {
             {/* Footer / WhatsApp Submit CTA */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
               <div className="text-[11px] text-slate-500 hidden sm:block">
-                Nomor CS: <span className="font-mono font-bold text-slate-700">+62 812-9988-7766</span>
+                Nomor CS: <span className="font-mono font-bold text-slate-700">0815-8468-2345</span>
               </div>
 
               <button

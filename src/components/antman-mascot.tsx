@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React from "react";
 import Image from "next/image";
 
 interface AntmanMascotProps {
@@ -20,46 +20,16 @@ export function AntmanMascot({
   speechText,
   enable3DArm = true,
 }: AntmanMascotProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
-
-  // Subtle 3D perspective tilt towards mouse cursor
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const dx = e.clientX - centerX;
-      const dy = e.clientY - centerY;
-
-      const maxTilt = 8;
-      const tiltY = Math.max(-maxTilt, Math.min(maxTilt, (dx / window.innerWidth) * 16));
-      const tiltX = Math.max(-maxTilt, Math.min(maxTilt, -(dy / window.innerHeight) * 16));
-      setTilt({ rotateX: tiltX, rotateY: tiltY });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
-
   return (
     <div
-      ref={containerRef}
       className={`relative inline-flex flex-col items-center select-none ${className}`}
       style={{
         width: size,
         height: size,
       }}
     >
-      {/* 3D Perspective Container */}
-      <div
-        className="relative w-full h-full transition-transform duration-200 ease-out"
-        style={{
-          perspective: 800,
-          transform: `perspective(800px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
-        }}
-      >
+      {/* Mascot Viewport Container (Rock-Solid Grounded, Only Arm Waves) */}
+      <div className="relative w-full h-full">
         {pose === "thumbsup" ? (
           /* THUMBS UP POSE (DOUBLE THUMBS UP CELEBRATION) */
           <div className="relative w-full h-full flex items-center justify-center">
@@ -69,13 +39,13 @@ export function AntmanMascot({
               width={size}
               height={size}
               priority
-              className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.25)]"
+              className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.22)]"
             />
           </div>
         ) : (
-          /* WAVING POSE: ONLY THE HAND/ARM MOVES IN 3D! ("Tangan aja yang gerak jadi 3D") */
+          /* WAVING POSE: ONLY THE HAND/ARM MOVES IN 3D ("Tangan aja yang gerak jadi 3D") */
           <div className="relative w-full h-full">
-            {/* 1. Anchored Body Layer (Steady & Clean) */}
+            {/* 1. Anchored Body Layer (Steady, Grounded, Full Shoulder Pad) */}
             <div className="absolute inset-0 flex items-center justify-center">
               <Image
                 src="/mascot/anty_purple_body.png"
@@ -83,7 +53,7 @@ export function AntmanMascot({
                 width={size}
                 height={size}
                 priority
-                className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.2)]"
+                className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.18)]"
               />
             </div>
 
@@ -92,7 +62,7 @@ export function AntmanMascot({
               <div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none animate-arm-wave-3d"
                 style={{
-                  transformOrigin: "34% 53%", // exact anatomical shoulder joint
+                  transformOrigin: "33.2% 48.3%", // exact anatomical shoulder joint
                   willChange: "transform",
                 }}
               >
@@ -102,7 +72,7 @@ export function AntmanMascot({
                   width={size}
                   height={size}
                   priority
-                  className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(124,58,237,0.3)]"
+                  className="w-full h-full object-contain"
                 />
               </div>
             ) : (

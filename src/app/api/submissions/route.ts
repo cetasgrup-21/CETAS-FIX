@@ -103,7 +103,7 @@ export async function GET() {
           featuresRequested: "Cetas Ticketing, Iklan Cetas Kita",
           status: "PENDING",
           submittedAt: new Date().toISOString(),
-          user: { name: "Komunitas Nada Kita", email: "nada@event.com", phone: "081299887766" },
+          user: { name: "Komunitas Nada Kita", email: "nada@event.com", phone: "081584682345" },
         },
       ],
     });

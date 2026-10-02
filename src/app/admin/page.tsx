@@ -208,7 +208,7 @@ export default function AdminDashboardPage() {
       id: "sub-01",
       eventName: "Festival Seni & Musik Indie Jakarta 2026",
       organizer: "Komunitas Nada Kita",
-      phone: "081299887766",
+      phone: "081584682345",
       features: "Cetas Ticketing, Iklan Cetas Kita",
       status: "PENDING",
       submittedAt: "2026-10-02T10:15:00",

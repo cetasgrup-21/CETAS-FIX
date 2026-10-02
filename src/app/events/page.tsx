@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Ticket,
   Calendar,
@@ -276,9 +277,17 @@ export default function EventsPage() {
                       </span>
                     </div>
 
-                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-3">
-                      {event.title}
-                    </h2>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                        {event.title}
+                      </h2>
+                      <Link
+                        href={`/vote?eventId=${event.id}`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-xs font-black shrink-0 hover:bg-orange-200 transition"
+                      >
+                        Buka Dashboard Event &rarr;
+                      </Link>
+                    </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
                       {event.description}
                     </p>
@@ -327,9 +336,9 @@ export default function EventsPage() {
 
       {/* Buy Ticket Form Modal */}
       {selectedTier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4 shrink-0">
               <div>
                 <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
                   Konfirmasi Pembelian Tiket
@@ -347,7 +356,7 @@ export default function EventsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleBuyTicket} className="space-y-4">
+            <form onSubmit={handleBuyTicket} className="overflow-y-auto flex-1 pr-1 space-y-4 my-2">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Jumlah Tiket
@@ -414,7 +423,7 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 py-2 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-500">Total Pembayaran Tiket</div>
                   <div className="text-base font-black text-blue-600 dark:text-blue-400">
@@ -437,8 +446,8 @@ export default function EventsPage() {
 
       {/* Official E-Ticket Pass Modal */}
       {issuedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-md rounded-3xl bg-slate-950 text-white p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex items-center justify-center bg-black/75 backdrop-blur-md">
+          <div className="relative w-full max-w-md rounded-3xl bg-slate-950 text-white p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200 my-4">
             {/* Header Ticket */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
               <div className="flex items-center gap-2">

@@ -54,13 +54,13 @@ const MOCK_CONTINGENTS: ContingentScore[] = [
     coachName: "Bambang Sudarsono, S.Pd",
     dantonName: "Rizky Firmansyah",
     status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 94.5,
-    variasiFormasi: 96.0,
-    dantonScore: 93.5,
-    kostumScore: 95.0,
+    pbbMurni: 945,
+    variasiFormasi: 960,
+    dantonScore: 935,
+    kostumScore: 950,
     penaltyTime: 0,
     penaltyBoundary: 0,
-    totalScore: 379.0,
+    totalScore: 3790,
     rank: 1,
     scheduledTime: "08:30 WIB",
     dp1Time: "08:00 WIB",
@@ -76,13 +76,13 @@ const MOCK_CONTINGENTS: ContingentScore[] = [
     coachName: "Hendra Wijaya",
     dantonName: "Farhan Maulana",
     status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 92.0,
-    variasiFormasi: 94.5,
-    dantonScore: 91.0,
-    kostumScore: 93.0,
+    pbbMurni: 920,
+    variasiFormasi: 945,
+    dantonScore: 910,
+    kostumScore: 930,
     penaltyTime: 0,
     penaltyBoundary: 0,
-    totalScore: 370.5,
+    totalScore: 3705,
     rank: 2,
     scheduledTime: "09:00 WIB",
     dp1Time: "08:30 WIB",
@@ -98,13 +98,13 @@ const MOCK_CONTINGENTS: ContingentScore[] = [
     coachName: "Dedi Suherman, S.Pd",
     dantonName: "Ahmad Zaki",
     status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 89.5,
-    variasiFormasi: 92.0,
-    dantonScore: 89.0,
-    kostumScore: 91.0,
+    pbbMurni: 895,
+    variasiFormasi: 920,
+    dantonScore: 890,
+    kostumScore: 910,
     penaltyTime: 0,
     penaltyBoundary: 0,
-    totalScore: 361.5,
+    totalScore: 3615,
     rank: 3,
     scheduledTime: "09:30 WIB",
     dp1Time: "09:00 WIB",
@@ -120,13 +120,13 @@ const MOCK_CONTINGENTS: ContingentScore[] = [
     coachName: "Siti Rahmawati",
     dantonName: "Dimas Anggara",
     status: "SEDANG_PENILAIAN",
-    pbbMurni: 88.0,
-    variasiFormasi: 90.5,
-    dantonScore: 87.0,
-    kostumScore: 89.5,
+    pbbMurni: 880,
+    variasiFormasi: 905,
+    dantonScore: 870,
+    kostumScore: 895,
     penaltyTime: 0,
     penaltyBoundary: 0,
-    totalScore: 355.0,
+    totalScore: 3550,
     rank: 4,
     scheduledTime: "10:00 WIB",
     dp1Time: "09:30 WIB",
@@ -141,19 +141,173 @@ const MOCK_CONTINGENTS: ContingentScore[] = [
     drawNumber: 5,
     coachName: "Agus Prasetyo",
     dantonName: "Fajar Nugraha",
-    status: "BELUM_TAMPIL",
-    pbbMurni: 0,
-    variasiFormasi: 0,
-    dantonScore: 0,
-    kostumScore: 0,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 0,
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 865,
+    variasiFormasi: 890,
+    dantonScore: 855,
+    kostumScore: 880,
+    penaltyTime: 20,
+    penaltyBoundary: 10,
+    totalScore: 3460,
     rank: 5,
     scheduledTime: "10:30 WIB",
     dp1Time: "10:00 WIB",
     dp2Time: "10:15 WIB",
     dp3Time: "10:25 WIB",
+  },
+  {
+    contingentId: "KTG-06",
+    schoolName: "SMP Negeri 1 Cibinong",
+    teamName: "Gita Wiratama",
+    category: "Tingkat SMP / Sederajat",
+    drawNumber: 6,
+    coachName: "Rudi Hartono, M.Pd",
+    dantonName: "Galih Pratama",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 860,
+    variasiFormasi: 885,
+    dantonScore: 850,
+    kostumScore: 870,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3465,
+    rank: 6,
+    scheduledTime: "11:00 WIB",
+    dp1Time: "10:30 WIB",
+    dp2Time: "10:45 WIB",
+    dp3Time: "10:55 WIB",
+  },
+  {
+    contingentId: "KTG-07",
+    schoolName: "SMA Negeri 3 Bogor",
+    teamName: "Kresna Duta Pratama",
+    category: "Tingkat SMA / Sederajat",
+    drawNumber: 7,
+    coachName: "Wahyu Hidayat",
+    dantonName: "Bayu Aji",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 850,
+    variasiFormasi: 870,
+    dantonScore: 840,
+    kostumScore: 860,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3420,
+    rank: 7,
+    scheduledTime: "11:30 WIB",
+    dp1Time: "11:00 WIB",
+    dp2Time: "11:15 WIB",
+    dp3Time: "11:25 WIB",
+  },
+  {
+    contingentId: "KTG-08",
+    schoolName: "SMK Negeri 2 Tangerang",
+    teamName: "Pandawa Sakti",
+    category: "Tingkat SMA / Sederajat",
+    drawNumber: 8,
+    coachName: "Arif Kurniawan",
+    dantonName: "Bagus Setiawan",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 840,
+    variasiFormasi: 865,
+    dantonScore: 835,
+    kostumScore: 850,
+    penaltyTime: 10,
+    penaltyBoundary: 0,
+    totalScore: 3380,
+    rank: 8,
+    scheduledTime: "13:00 WIB",
+    dp1Time: "12:30 WIB",
+    dp2Time: "12:45 WIB",
+    dp3Time: "12:55 WIB",
+  },
+  {
+    contingentId: "KTG-09",
+    schoolName: "SMP Negeri 5 Bekasi",
+    teamName: "Satya Wira Negara",
+    category: "Tingkat SMP / Sederajat",
+    drawNumber: 9,
+    coachName: "Endang Supriyatna",
+    dantonName: "Rian Saputra",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 830,
+    variasiFormasi: 850,
+    dantonScore: 825,
+    kostumScore: 840,
+    penaltyTime: 0,
+    penaltyBoundary: 10,
+    totalScore: 3335,
+    rank: 9,
+    scheduledTime: "13:30 WIB",
+    dp1Time: "13:00 WIB",
+    dp2Time: "13:15 WIB",
+    dp3Time: "13:25 WIB",
+  },
+  {
+    contingentId: "KTG-10",
+    schoolName: "SMA Negeri 2 Bekasi",
+    teamName: "Panca Tri Tunggal",
+    category: "Tingkat SMA / Sederajat",
+    drawNumber: 10,
+    coachName: "Teguh Santoso",
+    dantonName: "Danang Wijaya",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 825,
+    variasiFormasi: 840,
+    dantonScore: 820,
+    kostumScore: 835,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3320,
+    rank: 10,
+    scheduledTime: "14:00 WIB",
+    dp1Time: "13:30 WIB",
+    dp2Time: "13:45 WIB",
+    dp3Time: "13:55 WIB",
+  },
+  {
+    contingentId: "KTG-11",
+    schoolName: "SMA Negeri 68 Jakarta",
+    teamName: "Srikandi Nusantara",
+    category: "Tingkat SMA / Sederajat",
+    drawNumber: 11,
+    coachName: "Tri Wulandari, S.Pd",
+    dantonName: "Anisa Rahma",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 815,
+    variasiFormasi: 830,
+    dantonScore: 810,
+    kostumScore: 830,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3285,
+    rank: 11,
+    scheduledTime: "14:30 WIB",
+    dp1Time: "14:00 WIB",
+    dp2Time: "14:15 WIB",
+    dp3Time: "14:25 WIB",
+  },
+  {
+    contingentId: "KTG-12",
+    schoolName: "PPI Purna Paskibraka",
+    teamName: "Dharma Bangsa",
+    category: "Tingkat Purna / Senior",
+    drawNumber: 12,
+    coachName: "Eko Prasetyo, S.H",
+    dantonName: "Surya Dharma",
+    status: "SELESAI_TERVERIFIKASI",
+    pbbMurni: 910,
+    variasiFormasi: 935,
+    dantonScore: 900,
+    kostumScore: 920,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3665,
+    rank: 12,
+    scheduledTime: "15:00 WIB",
+    dp1Time: "14:30 WIB",
+    dp2Time: "14:45 WIB",
+    dp3Time: "14:55 WIB",
   },
 ];
 
@@ -335,8 +489,8 @@ export default function PelatihPortalPage() {
                   Akumulasi Nilai Akhir
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-3xl font-black tracking-tight">
-                    {activeContingent.totalScore > 0 ? activeContingent.totalScore.toFixed(1) : "0.0"}
+                  <span className="text-3xl font-black tracking-tight font-mono">
+                    {activeContingent.totalScore > 0 ? `${activeContingent.totalScore} Poin` : "0 Poin"}
                   </span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
                     Grade A+ Unggul
@@ -476,8 +630,8 @@ export default function PelatihPortalPage() {
                     </p>
                     <div className="w-full bg-purple-100 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-purple-600 h-full rounded-full"
-                        style={{ width: `${(activeContingent.pbbMurni / 100) * 100}%` }}
+                        className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${(activeContingent.pbbMurni / 1000) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -497,8 +651,8 @@ export default function PelatihPortalPage() {
                     </p>
                     <div className="w-full bg-purple-100 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-purple-600 h-full rounded-full"
-                        style={{ width: `${(activeContingent.variasiFormasi / 100) * 100}%` }}
+                        className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${(activeContingent.variasiFormasi / 1000) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -518,8 +672,8 @@ export default function PelatihPortalPage() {
                     </p>
                     <div className="w-full bg-purple-100 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-purple-600 h-full rounded-full"
-                        style={{ width: `${(activeContingent.dantonScore / 100) * 100}%` }}
+                        className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${(activeContingent.dantonScore / 1000) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -539,8 +693,8 @@ export default function PelatihPortalPage() {
                     </p>
                     <div className="w-full bg-purple-100 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-purple-600 h-full rounded-full"
-                        style={{ width: `${(activeContingent.kostumScore / 100) * 100}%` }}
+                        className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${(activeContingent.kostumScore / 1000) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -553,11 +707,17 @@ export default function PelatihPortalPage() {
                       Pinalti & Pengurangan Nilai Resmi
                     </div>
                     <div className="text-slate-500 text-[11px]">
-                      Pelanggaran garis batas (0 poin) • Pelanggaran kelebihan waktu tampil (0 poin)
+                      Pelanggaran garis batas ({activeContingent.penaltyBoundary} poin) • Pelanggaran kelebihan waktu tampil ({activeContingent.penaltyTime} poin)
                     </div>
                   </div>
-                  <div className="font-black text-sm text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
-                    0 Poin (Nihil Pinalti)
+                  <div className={`font-black text-sm px-3 py-1 rounded-xl border ${
+                    activeContingent.penaltyTime + activeContingent.penaltyBoundary > 0
+                      ? "text-rose-600 bg-rose-50 border-rose-200"
+                      : "text-emerald-600 bg-emerald-50 border-emerald-200"
+                  }`}>
+                    {activeContingent.penaltyTime + activeContingent.penaltyBoundary > 0
+                      ? `-${activeContingent.penaltyTime + activeContingent.penaltyBoundary} Poin (Pinalti)`
+                      : "0 Poin (Nihil Pinalti)"}
                   </div>
                 </div>
 
@@ -565,7 +725,7 @@ export default function PelatihPortalPage() {
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 border-t border-purple-50 gap-2">
                   <span>Dicatat otomatis melalui Sistem Penilaian Digital CETAS</span>
                   <span className="font-mono text-purple-700 font-bold">
-                    Hash Verifikasi: hmac_sha256_verified_379.0
+                    Hash Verifikasi: hmac_sha256_verified_{activeContingent.totalScore}
                   </span>
                 </div>
               </div>

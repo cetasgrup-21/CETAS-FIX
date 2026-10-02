@@ -120,7 +120,7 @@ export function MascotWhatsAppWidget() {
   return (
     <>
       {/* FLOATING MASCOT BUTTON CONTAINER (Bottom-Right) */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end select-none">
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end select-none no-print">
         {/* SPEECH BUBBLE TEASER (Contextual Preview) */}
         {!isOpen && showBubble && (
           <div className="relative mb-2 max-w-[270px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">

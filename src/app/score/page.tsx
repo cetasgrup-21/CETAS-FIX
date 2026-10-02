@@ -36,7 +36,39 @@ import {
   Info,
   ShieldAlert,
   User,
+  Download,
+  VolumeX,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
+
+export function playArenaTone(freq: number, durationMs: number, type: OscillatorType = "sine", count = 1) {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    for (let i = 0; i < count; i++) {
+      const startTime = ctx.currentTime + (i * (durationMs + 100)) / 1000;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.28, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + durationMs / 1000);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + durationMs / 1000);
+    }
+  } catch (e) {
+    console.warn("Audio Context not supported or allowed", e);
+  }
+}
 
 export type ScoreSystemRole = "juri" | "panitia" | "pelatih" | "publik";
 
@@ -262,6 +294,118 @@ const INITIAL_PARTICIPANTS: ParticipantScore[] = [
     awardTitle: "Juara Harapan 2",
     isLocked: false,
   },
+  {
+    drawNumber: 6,
+    schoolName: "SMP Negeri 1 Cibinong",
+    teamName: "Gita Wiratama",
+    level: "SMP",
+    pbbScore: 860,
+    variasiScore: 885,
+    dantonScore: 850,
+    kostumScore: 870,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3465,
+    rank: 6,
+    awardTitle: "Juara Harapan 3",
+    isLocked: false,
+  },
+  {
+    drawNumber: 7,
+    schoolName: "SMA Negeri 3 Bogor",
+    teamName: "Kresna Duta Pratama",
+    level: "SMA",
+    pbbScore: 850,
+    variasiScore: 870,
+    dantonScore: 840,
+    kostumScore: 860,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3420,
+    rank: 7,
+    awardTitle: "Peringkat #7 Utama",
+    isLocked: false,
+  },
+  {
+    drawNumber: 8,
+    schoolName: "SMK Negeri 2 Tangerang",
+    teamName: "Pandawa Sakti",
+    level: "SMA",
+    pbbScore: 840,
+    variasiScore: 865,
+    dantonScore: 835,
+    kostumScore: 850,
+    penaltyTime: 10,
+    penaltyBoundary: 0,
+    totalScore: 3380,
+    rank: 8,
+    awardTitle: "Peringkat #8 Utama",
+    isLocked: false,
+  },
+  {
+    drawNumber: 9,
+    schoolName: "SMP Negeri 5 Bekasi",
+    teamName: "Satya Wira Negara",
+    level: "SMP",
+    pbbScore: 830,
+    variasiScore: 850,
+    dantonScore: 825,
+    kostumScore: 840,
+    penaltyTime: 0,
+    penaltyBoundary: 10,
+    totalScore: 3335,
+    rank: 9,
+    awardTitle: "Peringkat #9 Madya",
+    isLocked: false,
+  },
+  {
+    drawNumber: 10,
+    schoolName: "SMA Negeri 2 Bekasi",
+    teamName: "Panca Tri Tunggal",
+    level: "SMA",
+    pbbScore: 825,
+    variasiScore: 840,
+    dantonScore: 820,
+    kostumScore: 835,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3320,
+    rank: 10,
+    awardTitle: "Peringkat #10 Madya",
+    isLocked: false,
+  },
+  {
+    drawNumber: 11,
+    schoolName: "SMA Negeri 68 Jakarta",
+    teamName: "Srikandi Nusantara",
+    level: "SMA",
+    pbbScore: 815,
+    variasiScore: 830,
+    dantonScore: 810,
+    kostumScore: 830,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3285,
+    rank: 11,
+    awardTitle: "Peringkat #11 Madya",
+    isLocked: false,
+  },
+  {
+    drawNumber: 12,
+    schoolName: "PPI Purna Paskibraka",
+    teamName: "Dharma Bangsa",
+    level: "PURNA",
+    pbbScore: 910,
+    variasiScore: 935,
+    dantonScore: 900,
+    kostumScore: 920,
+    penaltyTime: 0,
+    penaltyBoundary: 0,
+    totalScore: 3665,
+    rank: 12,
+    awardTitle: "Juara Kategori Purna",
+    isLocked: true,
+  },
 ];
 
 export default function CetasScorePage() {
@@ -353,16 +497,60 @@ export default function CetasScorePage() {
   });
 
   // Timer Arena State
+  // Timer Arena State & Audio
   const [timerSeconds, setTimerSeconds] = useState<number>(600); // 10 minutes
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [boundaryPenalties, setBoundaryPenalties] = useState<number>(0);
+  const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
 
-  // Timer Effect
+  // LocalStorage Persistence for Gladi Kotor & Production Rehearsal
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cetas_gladi_participants_v2");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setParticipants(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("LocalStorage load error", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("cetas_gladi_participants_v2", JSON.stringify(participants));
+    } catch (e) {
+      console.warn("LocalStorage save error", e);
+    }
+  }, [participants]);
+
+  // Timer Effect with Automatic Arena Sound Alert / Horns
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (isTimerRunning && timerSeconds > 0) {
       interval = setInterval(() => {
-        setTimerSeconds((prev) => prev - 1);
+        setTimerSeconds((prev) => {
+          const nextVal = prev - 1;
+          // Audio cues during arena performance
+          if (isAudioEnabled) {
+            if (nextVal === 180) {
+              // Peringatan 3 menit tersisa (1x bel chime bersih 880Hz)
+              playArenaTone(880, 500, "triangle", 1);
+            } else if (nextVal === 60) {
+              // Peringatan 1 menit tersisa (2x beep waspada 1046Hz)
+              playArenaTone(1046, 220, "sine", 2);
+            } else if (nextVal === 10) {
+              // Hitung mundur 10 detik terakhir
+              playArenaTone(750, 150, "sine", 1);
+            } else if (nextVal === 0) {
+              // WAKTU HABIS! Klakson Buzzer Panjang Resmi Arena (sawtooth 440Hz 2.5 detik)
+              playArenaTone(440, 2500, "sawtooth", 1);
+            }
+          }
+          return nextVal;
+        });
       }, 1000);
     } else if (timerSeconds === 0) {
       setIsTimerRunning(false);
@@ -370,7 +558,7 @@ export default function CetasScorePage() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isTimerRunning, timerSeconds]);
+  }, [isTimerRunning, timerSeconds, isAudioEnabled]);
 
   const formatTimer = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);
@@ -380,6 +568,107 @@ export default function CetasScorePage() {
 
   const currentParticipant =
     participants.find((p) => p.drawNumber === selectedDrawNumber) || participants[0];
+
+  // Helper Gladi: Lanjut ke Peserta Berikutnya
+  const handleNextParticipant = () => {
+    const currentIdx = participants.findIndex((p) => p.drawNumber === selectedDrawNumber);
+    const nextIdx = (currentIdx + 1) % participants.length;
+    const nextParticipant = participants[nextIdx];
+    setSelectedDrawNumber(nextParticipant.drawNumber);
+    
+    // Reset judgeScores to default peak for clean grading
+    const critList = CRITERIA_BY_CATEGORY[selectedJudgeCategory] || [];
+    const defaultScores: Record<string, number> = {};
+    critList.forEach((c) => {
+      defaultScores[c.id] = c.peak;
+    });
+    setJudgeScores(defaultScores);
+
+    setToast({
+      type: "info",
+      text: `Beralih ke Kontingen #${nextParticipant.drawNumber}: ${nextParticipant.schoolName}`,
+    });
+  };
+
+  // Helper Gladi: Reset Data Simulasi
+  const handleResetGladiData = () => {
+    if (confirm("Reset seluruh data simulasi gladi kotor kembali ke formasi awal 12 kontingen?")) {
+      try {
+        localStorage.removeItem("cetas_gladi_participants_v2");
+      } catch {}
+      setParticipants(INITIAL_PARTICIPANTS);
+      setToast({
+        type: "success",
+        text: "Data simulasi gladi kotor telah direset ke posisi awal (12 kontingen).",
+      });
+    }
+  };
+
+  // Helper Gladi: Ekspor CSV untuk Panitia
+  const handleExportCSV = () => {
+    const headers = [
+      "Peringkat",
+      "No Undian",
+      "Nama Sekolah",
+      "Nama Pasukan",
+      "Kategori",
+      "Skor PBB Murni",
+      "Skor Variasi & Formasi",
+      "Skor Danton",
+      "Skor Kostum",
+      "Pinalti Waktu",
+      "Pinalti Garis",
+      "Total Nilai",
+      "Predikat Juara",
+      "Status Kunci",
+    ];
+
+    const rows = participants.map((p) => [
+      p.rank,
+      p.drawNumber,
+      `"${p.schoolName}"`,
+      `"${p.teamName}"`,
+      p.level,
+      p.pbbScore,
+      p.variasiScore,
+      p.dantonScore,
+      p.kostumScore,
+      p.penaltyTime,
+      p.penaltyBoundary,
+      p.totalScore,
+      `"${p.awardTitle || ""}"`,
+      p.isLocked ? "Terkunci Sah" : "Draft",
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8,\uFEFF" +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `Rekapitulasi_LKBB_Pandawa_2026_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setToast({
+      type: "success",
+      text: "Data rekapitulasi berhasil diekspor ke format CSV (Bisa dibuka di Excel / Google Sheets)!",
+    });
+  };
+
+  // Helper Fullscreen Panggung Videotron
+  const handleToggleFullscreen = () => {
+    if (typeof document === "undefined") return;
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   // RBAC Handlers
   const handleAuthenticateJudge = (e?: React.FormEvent) => {
@@ -581,7 +870,7 @@ export default function CetasScorePage() {
   return (
     <div className="min-h-screen bg-[#F8F6FF] text-slate-800 pb-28 selection:bg-purple-600 selection:text-white">
       {/* 1. CETAS SCORE TOP BRANDING BAR */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-purple-950 via-[#1e1135] to-purple-900 text-white pt-10 pb-12 border-b border-purple-800/40 shadow-lg">
+      <section className="relative overflow-hidden bg-gradient-to-r from-purple-950 via-[#1e1135] to-purple-900 text-white pt-10 pb-12 border-b border-purple-800/40 shadow-lg no-print">
         <div className="absolute top-0 right-1/4 w-80 h-80 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
 
@@ -813,7 +1102,7 @@ export default function CetasScorePage() {
       </section>
 
       {/* 2. BODY CONTENT BASED ON ACTIVE MODE */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8 print:m-0 print:p-0 print:max-w-none">
         {/* OVERVIEW DASHBOARD */}
         {activeMode === "overview" && (
           <div className="space-y-6">
@@ -837,6 +1126,44 @@ export default function CetasScorePage() {
                 <div className="text-[11px] font-bold text-slate-500 uppercase">Keamanan Nilai</div>
                 <div className="text-3xl font-black text-indigo-700 mt-1">HMAC SHA-256</div>
                 <div className="text-xs text-slate-500 font-semibold mt-1">Kunci Nilai Juri Sah</div>
+              </div>
+            </div>
+
+            {/* Rehearsal & Gladi Kotor Quick Operations Bar */}
+            <div className="p-4 rounded-3xl bg-white border border-purple-100 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-purple-100 text-purple-800 flex items-center justify-center font-black">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-slate-900">
+                    Mode Simulasi Gladi Kotor Aktif ({participants.length} Kontingen Lengkap Siap)
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Gunakan fitur ini untuk latihan alur panggung, pengetesan klakson buzzer line-array, dan simulasi juri.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 transition active:scale-95"
+                  title="Unduh backup data rekapitulasi ke Excel"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Cadangkan ke Excel (CSV)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetGladiData}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-bold text-xs border border-slate-200 transition active:scale-95"
+                  title="Kembalikan data ke formasi awal"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset Data Simulasi</span>
+                </button>
               </div>
             </div>
 
@@ -1120,14 +1447,25 @@ export default function CetasScorePage() {
                     </div>
 
                     {canJudge ? (
-                      <button
-                        type="button"
-                        onClick={handleSubmitJudgeScore}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition active:scale-95"
-                      >
-                        <Lock className="h-4 w-4" />
-                        Kunci & Kirim Nilai Juri Terenkripsi
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={handleNextParticipant}
+                          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-xs border border-purple-200 transition active:scale-95"
+                          title="Lanjut ke kontingen berikutnya"
+                        >
+                          <span>Peserta Berikutnya</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSubmitJudgeScore}
+                          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md shadow-purple-600/30 transition active:scale-95"
+                        >
+                          <Lock className="h-4 w-4" />
+                          Kunci & Kirim Nilai Juri Terenkripsi
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"
@@ -1135,7 +1473,7 @@ export default function CetasScorePage() {
                           setIsJudgeAuthModalOpen(true);
                           setPinError("Silakan otentikasi PIN Juri Anda untuk mengunci dan mengirim nilai.");
                         }}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition active:scale-95"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition active:scale-95"
                       >
                         <Lock className="h-4 w-4" />
                         Masuk Sebagai Juri untuk Menilai
@@ -1174,13 +1512,13 @@ export default function CetasScorePage() {
                 {formatTimer(timerSeconds)}
               </div>
 
-              {/* Timer Controls */}
-              <div className="flex flex-wrap justify-center gap-3">
+              {/* Timer Controls & Arena Sound Action */}
+              <div className="flex flex-wrap justify-center items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setIsTimerRunning(!isTimerRunning)}
-                  className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-white font-bold text-sm shadow-md transition ${
-                    isTimerRunning ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"
+                  className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl text-white font-black text-sm shadow-md transition active:scale-95 ${
+                    isTimerRunning ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
                   }`}
                 >
                   {isTimerRunning ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -1193,7 +1531,7 @@ export default function CetasScorePage() {
                     setIsTimerRunning(false);
                     setTimerSeconds(600);
                   }}
-                  className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
+                  className="inline-flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
                 >
                   <RotateCcw className="h-5 w-5" />
                   Reset 10:00
@@ -1202,38 +1540,109 @@ export default function CetasScorePage() {
                 <button
                   type="button"
                   onClick={() => setTimerSeconds((prev) => prev + 30)}
-                  className="px-4 py-3.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-sm transition"
+                  className="px-4 py-3.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-sm transition"
                 >
                   +30 Detik
+                </button>
+
+                {/* Sound Buzzer Test for Line Array / Production */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playArenaTone(440, 2000, "sawtooth", 1);
+                    setToast({
+                      type: "info",
+                      text: "Menguji Klakson / Buzzer Arena 440Hz (Sound Line-Array Test)",
+                    });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition"
+                  title="Tes Klakson Buzzer untuk Cek Sound Lapangan"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  <span>Test Buzzer Arena</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-3.5 rounded-2xl text-xs font-bold transition border ${
+                    isAudioEnabled
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-slate-100 text-slate-500 border-slate-200"
+                  }`}
+                  title={isAudioEnabled ? "Buzzer otomatis aktif" : "Buzzer dibisukan"}
+                >
+                  {isAudioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  <span>{isAudioEnabled ? "Suara Aktif" : "Bisu"}</span>
                 </button>
               </div>
 
               {/* Lapangan Line Boundary Penalty */}
               <div className="pt-6 border-t border-purple-50 max-w-md mx-auto space-y-3">
-                <div className="text-xs font-bold text-slate-700">
-                  Pelanggaran Garis Lapangan / Garuk (Pinalti -10 Poin):
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>Pelanggaran Garis Lapangan / Garuk (-10 Poin/injak):</span>
+                  <span className="text-purple-700">No. Undian #{currentParticipant.drawNumber}</span>
                 </div>
                 <div className="flex items-center justify-center gap-4">
                   <button
                     type="button"
-                    onClick={() => setBoundaryPenalties((prev) => Math.max(0, prev - 1))}
-                    className="h-10 w-10 rounded-xl bg-slate-100 hover:bg-slate-200 font-black text-slate-700 flex items-center justify-center text-lg"
+                    onClick={() => {
+                      setBoundaryPenalties((prev) => Math.max(0, prev - 1));
+                      playArenaTone(350, 100, "sine");
+                    }}
+                    className="h-11 w-11 rounded-2xl bg-slate-100 hover:bg-slate-200 font-black text-slate-700 flex items-center justify-center text-lg active:scale-90 transition"
                   >
                     -
                   </button>
-                  <span className="font-mono text-2xl font-black text-purple-900 w-16 text-center">
+                  <span className="font-mono text-3xl font-black text-purple-950 w-20 text-center">
                     {boundaryPenalties}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setBoundaryPenalties((prev) => prev + 1)}
-                    className="h-10 w-10 rounded-xl bg-purple-100 hover:bg-purple-200 font-black text-purple-800 flex items-center justify-center text-lg"
+                    onClick={() => {
+                      setBoundaryPenalties((prev) => prev + 1);
+                      playArenaTone(520, 150, "sine");
+                    }}
+                    className="h-11 w-11 rounded-2xl bg-purple-100 hover:bg-purple-200 font-black text-purple-800 flex items-center justify-center text-lg active:scale-90 transition"
                   >
                     +
                   </button>
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Total Pengurangan Pinalti: <strong className="text-rose-600">-{boundaryPenalties * 10} Poin</strong>
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-slate-500">
+                    Total Potongan: <strong className="text-rose-600 font-black">-{boundaryPenalties * 10} Poin</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const deduction = boundaryPenalties * 10;
+                      setParticipants((prev) => {
+                        const updated = prev.map((p) => {
+                          if (p.drawNumber !== selectedDrawNumber) return p;
+                          const penaltyBoundary = deduction;
+                          const totalScore =
+                            p.pbbScore +
+                            p.variasiScore +
+                            p.dantonScore +
+                            p.kostumScore -
+                            (p.penaltyTime + penaltyBoundary);
+                          return {
+                            ...p,
+                            penaltyBoundary,
+                            totalScore,
+                          };
+                        });
+                        return assignAwardsAndRanks(updated);
+                      });
+                      setToast({
+                        type: "success",
+                        text: `Pinalti garis (-${deduction} Poin) berhasil disimpan ke Kontingen #${currentParticipant.drawNumber}!`,
+                      });
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs transition active:scale-95"
+                  >
+                    Simpan ke Rekap
+                  </button>
                 </div>
               </div>
             </div>
@@ -1295,6 +1704,15 @@ export default function CetasScorePage() {
                 >
                   <Lock className="h-4 w-4" />
                   Kunci Semua Hasil
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active:scale-95"
+                  title="Ekspor rekapitulasi ke file CSV (Excel)"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Ekspor CSV (Excel)</span>
                 </button>
                 <button
                   type="button"
@@ -1457,49 +1875,102 @@ export default function CetasScorePage() {
 
         {/* TAB 4: LAYAR DISPLAY VIDEOTRON PANGGUNG (BIG SCREEN) */}
         {activeMode === "display" && (
-          <div className="rounded-3xl border border-purple-900 bg-slate-950 text-white p-8 sm:p-12 shadow-2xl space-y-8">
-            <div className="flex items-center justify-between border-b border-purple-800/40 pb-4">
+          <div className="rounded-3xl border border-purple-900 bg-slate-950 text-white p-6 sm:p-10 shadow-2xl space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-purple-800/40 pb-4">
               <div className="flex items-center gap-3">
                 <Image
                   src="/logo/cetas_score_logo.png"
                   alt="CETAS SCORE"
-                  width={40}
-                  height={40}
+                  width={44}
+                  height={44}
                   className="object-contain bg-white rounded-xl p-1"
                 />
                 <div>
-                  <h3 className="text-xl font-black text-white tracking-wider">
-                    CETAS SCORE • LIVE LEADERBOARD ARENA
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-wider flex items-center gap-2">
+                    <span>CETAS.SCORE • ARENA BROADCAST</span>
+                    <span className="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-black uppercase animate-pulse">
+                      LIVE
+                    </span>
                   </h3>
                   <p className="text-xs text-purple-300">
-                    Rekapitulasi Dewan Juri Resmi • LKBB Pandawa Jaya Nusantara 2026
+                    LKBB Pandawa Jaya Nusantara 2026 • GOR Soemantri Brodjonegoro
                   </p>
                 </div>
               </div>
-              <span className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-full border border-emerald-500/40">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
-                Live Broadcast Videotron
-              </span>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleToggleFullscreen}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-800 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition active:scale-95"
+                  title="Masuk mode layar penuh videotron"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                  <span>Fullscreen Layar Panggung</span>
+                </button>
+                <span className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-950/80 px-3.5 py-2 rounded-xl border border-emerald-500/40">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  Output P3.9 LED Aktif
+                </span>
+              </div>
             </div>
 
-            {/* Ranking Podium Grid */}
+            {/* Arena Live Status Banner (Sedang Tampil & Timer) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-900/80 via-indigo-900/60 to-purple-950 border border-purple-500/40 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-center md:text-left">
+                <div className="h-12 w-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xl shrink-0">
+                  #{currentParticipant.drawNumber}
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    SEDANG TAMPIL DI LAPANGAN UTAMA:
+                  </span>
+                  <div className="text-lg sm:text-xl font-black text-white leading-tight">
+                    {currentParticipant.schoolName}
+                  </div>
+                  <div className="text-xs text-purple-200">
+                    &ldquo;{currentParticipant.teamName}&rdquo; • Kategori {currentParticipant.level}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 bg-black/40 px-5 py-2.5 rounded-2xl border border-white/10">
+                <div className="text-right">
+                  <div className="text-[10px] text-purple-300 font-bold uppercase">Sisa Waktu Arena:</div>
+                  <div
+                    className={`font-mono text-3xl sm:text-4xl font-black tracking-wider ${
+                      timerSeconds > 180
+                        ? "text-emerald-400"
+                        : timerSeconds > 60
+                        ? "text-amber-400 animate-pulse"
+                        : "text-rose-500 animate-bounce"
+                    }`}
+                  >
+                    {formatTimer(timerSeconds)}
+                  </div>
+                </div>
+                <Clock className="h-7 w-7 text-purple-400" />
+              </div>
+            </div>
+
+            {/* Top 3 Ranking Podium Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {participants.slice(0, 3).map((item, idx) => (
                 <div
                   key={item.schoolName}
                   className={`p-6 rounded-3xl border relative transition-transform ${
                     idx === 0
-                      ? "bg-gradient-to-b from-amber-500/20 to-purple-950 border-amber-400/60 scale-105 shadow-xl shadow-amber-500/10"
+                      ? "bg-gradient-to-b from-amber-500/25 to-purple-950 border-amber-400/80 md:scale-105 shadow-2xl shadow-amber-500/20"
                       : idx === 1
-                      ? "bg-purple-950/60 border-purple-600/40"
-                      : "bg-purple-950/40 border-purple-700/30"
+                      ? "bg-purple-950/70 border-purple-600/50"
+                      : "bg-purple-950/50 border-purple-700/40"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span
-                      className={`text-2xl font-black h-10 w-10 rounded-2xl flex items-center justify-center ${
+                      className={`text-2xl font-black h-11 w-11 rounded-2xl flex items-center justify-center ${
                         idx === 0
-                          ? "bg-amber-400 text-amber-950"
+                          ? "bg-amber-400 text-amber-950 shadow-md"
                           : idx === 1
                           ? "bg-slate-300 text-slate-900"
                           : "bg-amber-800 text-amber-100"
@@ -1507,12 +1978,12 @@ export default function CetasScorePage() {
                     >
                       #{idx + 1}
                     </span>
-                    <span className="text-xs font-extrabold text-purple-200">
+                    <span className="text-xs font-black text-purple-200 font-mono">
                       No. Undian #{item.drawNumber}
                     </span>
                   </div>
 
-                  <h4 className="text-lg font-black text-white leading-tight">
+                  <h4 className="text-xl font-black text-white leading-tight">
                     {item.schoolName}
                   </h4>
                   <p className="text-xs font-bold text-purple-300 mt-0.5">
@@ -1521,19 +1992,56 @@ export default function CetasScorePage() {
 
                   <div className="mt-4 pt-3 border-t border-purple-800/40 flex items-baseline justify-between">
                     <span className="text-xs text-purple-300">Total Skor Juri:</span>
-                    <span className="text-2xl font-black text-amber-300">
+                    <span className="text-3xl font-black text-amber-300 font-mono">
                       {item.totalScore} Poin
                     </span>
                   </div>
 
-                  <div className="mt-2 text-center py-1 rounded-xl bg-white/10 text-[10px] font-black uppercase text-purple-200">
+                  <div className="mt-3 text-center py-1.5 rounded-xl bg-white/10 text-[11px] font-black uppercase text-purple-200 border border-white/10">
                     {item.awardTitle}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="text-center pt-4">
+            {/* Standing Rank 4 to 12 Arena Ticker Table */}
+            <div className="rounded-2xl border border-purple-900/60 bg-purple-950/30 p-4">
+              <div className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2.5">
+                Klasemen Sementara Lengkap (Peringkat 4 s/d {participants.length}):
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                {participants.slice(3).map((p) => (
+                  <div
+                    key={p.drawNumber}
+                    className="p-2.5 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="h-6 w-6 rounded-lg bg-purple-900 text-purple-200 font-black text-[11px] inline-flex items-center justify-center shrink-0">
+                        #{p.rank}
+                      </span>
+                      <span className="font-bold text-white truncate max-w-[150px]">
+                        {p.schoolName}
+                      </span>
+                    </div>
+                    <span className="font-mono font-black text-amber-300 text-xs shrink-0">
+                      {p.totalScore} Poin
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom Running News Ticker */}
+            <div className="overflow-hidden rounded-xl bg-black/60 border border-purple-500/30 py-2.5 px-4 text-xs font-semibold text-purple-200 flex items-center gap-3">
+              <span className="shrink-0 px-2 py-0.5 rounded bg-purple-600 text-white font-black text-[10px] uppercase">
+                INFO ARENA
+              </span>
+              <div className="truncate text-slate-300">
+                🔴 LIVE STREAMING & DISPLAY PANGGUNG CETAS.SCORE • SISTEM REKAPITULASI RESMI LKBB PANDAWA JAYA 2026 • SOUND SYSTEM DIDUKUNG CETAS PRODUCTION LINE-ARRAY 20.000W & VIDEOTRON LED P3.9 • ENKRIPSI NILAI DIGITAL JURI SAH
+              </div>
+            </div>
+
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={() => setActiveMode("overview")}
@@ -1548,8 +2056,8 @@ export default function CetasScorePage() {
 
         {/* TAB 5: FORMAT CETAK F4 LANDSCAPE (BERITA ACARA RESMI) */}
         {activeMode === "print" && (
-          <div className="max-w-5xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="max-w-5xl mx-auto space-y-6 print:max-w-none print:m-0 print:p-0">
+            <div className="flex items-center justify-between no-print">
               <div>
                 <h3 className="text-lg font-black text-slate-900">
                   Preview Format F4 Landscape • Berita Acara Rekapitulasi Resmi
@@ -1561,7 +2069,7 @@ export default function CetasScorePage() {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-600/30 transition cursor-pointer"
               >
                 <Printer className="h-4 w-4" />
                 Cetak Lembar F4 Sekarang
@@ -1569,7 +2077,7 @@ export default function CetasScorePage() {
             </div>
 
             {/* F4 Printable Paper Mockup */}
-            <div className="rounded-2xl border-2 border-slate-300 bg-white p-8 sm:p-12 shadow-xl space-y-6 text-slate-900 text-xs">
+            <div className="print-area rounded-2xl border-2 border-slate-300 bg-white p-8 sm:p-12 shadow-xl space-y-6 text-slate-900 text-xs print:border-none print:shadow-none print:p-0">
               {/* Kop Surat Panitia */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
                 <div className="text-base font-black tracking-wider uppercase">

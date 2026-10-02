@@ -58,7 +58,7 @@ export function MobileBottomDock() {
   ];
 
   return (
-    <div className="fixed bottom-3 inset-x-3 z-40 md:hidden pointer-events-none select-none">
+    <div className="fixed bottom-3 inset-x-3 z-40 md:hidden pointer-events-none select-none dock-container no-print">
       <nav
         aria-label="Mobile Bottom Navigation"
         className="pointer-events-auto mx-auto max-w-md rounded-2xl bg-white/92 backdrop-blur-2xl border border-purple-200/90 shadow-[0_10px_35px_-5px_rgba(109,40,217,0.22)] px-2 py-1.5 flex items-center justify-around"

@@ -83,3 +83,58 @@ body {
   box-shadow: 0 15px 35px -5px rgba(124, 58, 237, 0.2), 0 8px 10px -6px rgba(124, 58, 237, 0.1);
   transform: translateY(-2px);
 }
+
+/* Standar Ukuran Kertas Resmi Lomba: F4 / Folio Landscape (330mm x 215mm) */
+@page {
+  size: 330mm 215mm landscape;
+  margin: 8mm;
+}
+
+@media print {
+  /* Sembunyikan semua elemen UI web interaktif saat cetak */
+  header,
+  nav,
+  button,
+  .no-print,
+  .dock-container,
+  footer,
+  aside,
+  .fixed {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-area {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  table {
+    page-break-inside: auto;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th, td {
+    border-color: #000000 !important;
+    color: #000000 !important;
+  }
+}
+

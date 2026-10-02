@@ -224,7 +224,7 @@ export default function EventsPage() {
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="max-w-3xl mb-10">
-        <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-950/60 px-3.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2 border border-blue-200 dark:border-blue-800/60">
+        <div className="inline-flex items-center gap-2 rounded-full bg-purple-50 px-3.5 py-1 text-xs font-semibold text-purple-700 mb-2 border border-purple-200">
           <Ticket className="h-3.5 w-3.5" />
           Cetas Ticketing • Sistem Tiket Digital Ber-QR Aman
         </div>
@@ -467,17 +467,17 @@ export default function EventsPage() {
             </div>
 
             {/* Ant-Man Thumbs Up Celebration Banner */}
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-950/70 border border-blue-500/40">
-              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-slate-900 border border-cyan-400/40 flex items-center justify-center">
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-purple-950/80 border border-purple-500/40">
+              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-slate-900 border border-purple-400/40 flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/mascot/antman_thumbsup.png"
+                  src="/mascot/anty_purple_thumbsup.png"
                   alt="Anty Thumbs Up"
                   className="h-11 w-11 object-contain"
                 />
               </div>
               <div>
-                <div className="text-xs font-bold text-cyan-300 flex items-center gap-1">
+                <div className="text-xs font-bold text-purple-200 flex items-center gap-1">
                   <span>Anty: Mantap! Tiket Berhasil Diterbitkan!</span>
                   <span>👍</span>
                 </div>

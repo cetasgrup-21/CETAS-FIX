@@ -51,11 +51,11 @@ export function PaymentSuccessModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 text-center shadow-2xl border border-blue-100 overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 text-center shadow-2xl border border-purple-100 overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Soft blue celebration background glow */}
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-b from-blue-100 to-transparent rounded-full blur-2xl pointer-events-none" />
+        {/* Soft purple celebration background glow */}
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-b from-purple-100 to-transparent rounded-full blur-2xl pointer-events-none" />
 
         {/* Close Button */}
         <button
@@ -72,7 +72,6 @@ export function PaymentSuccessModal({
           <div className="relative mb-2">
             <AntmanMascot
               pose="thumbsup"
-              interactive={true}
               size={170}
               className="drop-shadow-lg"
             />
@@ -107,7 +106,7 @@ export function PaymentSuccessModal({
             </div>
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
               <span className="text-xs font-bold text-slate-600">Total Dibayar</span>
-              <span className="text-base font-black text-blue-600">
+              <span className="text-base font-black text-purple-700">
                 {formatRupiah(grossAmount)}
               </span>
             </div>
@@ -122,7 +121,7 @@ export function PaymentSuccessModal({
                   onAction();
                   onClose();
                 }}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 text-sm shadow-md shadow-blue-500/25 transition transform active:scale-95"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 text-sm shadow-md shadow-purple-500/25 transition transform active:scale-95"
               >
                 <span>{actionLabel}</span>
                 <ArrowRight className="h-4 w-4" />

@@ -1,165 +1,130 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 
 interface AntmanMascotProps {
   pose?: "waving" | "thumbsup";
-  interactive?: boolean;
-  enableWaving?: boolean;
   size?: number;
   className?: string;
   speechText?: string;
+  enable3DArm?: boolean;
+  interactive?: boolean;
+  enableWaving?: boolean;
 }
 
 export function AntmanMascot({
   pose = "waving",
-  interactive = true,
-  enableWaving = true,
-  size = 180,
+  size = 200,
   className = "",
   speechText,
+  enable3DArm = true,
 }: AntmanMascotProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [eyeOffset, setEyeOffset] = useState({ x: 0, y: 0 });
-  const [headTilt, setHeadTilt] = useState({ rotateX: 0, rotateY: 0 });
-  const [isBlinking, setIsBlinking] = useState(false);
+  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
 
-  // Blinking effect periodically
+  // Subtle 3D perspective tilt towards mouse cursor
   useEffect(() => {
-    const blinkInterval = setInterval(() => {
-      setIsBlinking(true);
-      setTimeout(() => setIsBlinking(false), 180);
-    }, 4500);
-    return () => clearInterval(blinkInterval);
-  }, []);
-
-  // Eye & Head cursor tracking
-  useEffect(() => {
-    if (!interactive) return;
-
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = e.clientX - centerX;
+      const dy = e.clientY - centerY;
 
-      // Estimate eye level position in container (approx top 28% and center)
-      const eyeCenterX = rect.left + rect.width * 0.5;
-      const eyeCenterY = rect.top + rect.height * 0.28;
-
-      const deltaX = e.clientX - eyeCenterX;
-      const deltaY = e.clientY - eyeCenterY;
-      const distance = Math.hypot(deltaX, deltaY);
-      const angle = Math.atan2(deltaY, deltaX);
-
-      // Max eye pupil shift (6px max)
-      const maxOffset = 5.5;
-      const moveDist = Math.min(distance / 50, maxOffset);
-      const pupilX = Math.cos(angle) * moveDist;
-      const pupilY = Math.sin(angle) * moveDist;
-
-      setEyeOffset({ x: pupilX, y: pupilY });
-
-      // Subtle 3D head tilt toward mouse
-      const maxTilt = 10; // degrees
-      const tiltY = Math.max(-maxTilt, Math.min(maxTilt, (deltaX / window.innerWidth) * 20));
-      const tiltX = Math.max(-maxTilt, Math.min(maxTilt, -(deltaY / window.innerHeight) * 20));
-
-      setHeadTilt({ rotateX: tiltX, rotateY: tiltY });
+      const maxTilt = 8;
+      const tiltY = Math.max(-maxTilt, Math.min(maxTilt, (dx / window.innerWidth) * 16));
+      const tiltX = Math.max(-maxTilt, Math.min(maxTilt, -(dy / window.innerHeight) * 16));
+      setTilt({ rotateX: tiltX, rotateY: tiltY });
     };
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [interactive]);
-
-  const imgSrc =
-    pose === "thumbsup"
-      ? "/mascot/antman_thumbsup.png"
-      : "/mascot/antman_waving.png";
+  }, []);
 
   return (
     <div
       ref={containerRef}
       className={`relative inline-flex flex-col items-center select-none ${className}`}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+      }}
     >
-      {/* 3D Perspective Wrapper */}
+      {/* 3D Perspective Container */}
       <div
-        className="relative w-full h-full transition-transform duration-150 ease-out"
+        className="relative w-full h-full transition-transform duration-200 ease-out"
         style={{
           perspective: 800,
-          transform: `perspective(800px) rotateX(${headTilt.rotateX}deg) rotateY(${headTilt.rotateY}deg)`,
+          transform: `perspective(800px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
         }}
       >
-        {/* Ant-Man Mascot Image */}
-        <div
-          className={`relative w-full h-full flex items-center justify-center ${
-            enableWaving && pose === "waving" ? "animate-ant-wave" : ""
-          }`}
-        >
-          <Image
-            src={imgSrc}
-            alt="Anty - Maskot Manusia Semut Cetas"
-            width={size}
-            height={size}
-            priority
-            className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(37,99,235,0.18)]"
-          />
-
-          {/* Interactive Gaze Pupils (Visor Overlay) */}
-          {pose === "waving" && !isBlinking && (
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                top: "24.5%",
-                left: "41.5%",
-                width: "17%",
-                height: "8%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              {/* Left Eye Pupil */}
-              <div
-                className="relative rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] flex items-center justify-center transition-transform duration-75 ease-out"
-                style={{
-                  width: "36%",
-                  height: "75%",
-                  transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`,
-                }}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-white shadow-inner" />
-              </div>
-
-              {/* Right Eye Pupil */}
-              <div
-                className="relative rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] flex items-center justify-center transition-transform duration-75 ease-out"
-                style={{
-                  width: "36%",
-                  height: "75%",
-                  transform: `translate(${eyeOffset.x}px, ${eyeOffset.y}px)`,
-                }}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-white shadow-inner" />
-              </div>
-            </div>
-          )}
-
-          {/* Antenna Glow Indicator */}
-          <div
-            className="absolute top-[3%] left-1/2 -translate-x-1/2 flex justify-between pointer-events-none opacity-80"
-            style={{ width: "35%" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-ping" />
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 animate-ping" />
+        {pose === "thumbsup" ? (
+          /* THUMBS UP POSE (DOUBLE THUMBS UP CELEBRATION) */
+          <div className="relative w-full h-full flex items-center justify-center">
+            <Image
+              src="/mascot/anty_purple_thumbsup.png"
+              alt="Anty si Manusia Semut - Kasih Jempol"
+              width={size}
+              height={size}
+              priority
+              className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.25)]"
+            />
           </div>
-        </div>
+        ) : (
+          /* WAVING POSE: ONLY THE HAND/ARM MOVES IN 3D! ("Tangan aja yang gerak jadi 3D") */
+          <div className="relative w-full h-full">
+            {/* 1. Anchored Body Layer (Steady & Clean) */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Image
+                src="/mascot/anty_purple_body.png"
+                alt="Anty si Manusia Semut Cetas"
+                width={size}
+                height={size}
+                priority
+                className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.2)]"
+              />
+            </div>
+
+            {/* 2. Isolated Arm Layer Moving in True 3D (Shoulder Pivot) */}
+            {enable3DArm ? (
+              <div
+                className="absolute inset-0 flex items-center justify-center pointer-events-none animate-arm-wave-3d"
+                style={{
+                  transformOrigin: "34% 53%", // exact anatomical shoulder joint
+                  willChange: "transform",
+                }}
+              >
+                <Image
+                  src="/mascot/anty_purple_arm.png"
+                  alt="Anty Waving Arm 3D"
+                  width={size}
+                  height={size}
+                  priority
+                  className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(124,58,237,0.3)]"
+                />
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Image
+                  src="/mascot/anty_purple_arm.png"
+                  alt="Anty Waving Arm"
+                  width={size}
+                  height={size}
+                  priority
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Optional Speech Bubble */}
       {speechText && (
         <div className="mt-2 text-center">
-          <div className="inline-block rounded-2xl bg-white px-3.5 py-1.5 text-xs font-bold text-slate-800 shadow-md border border-blue-100">
+          <div className="inline-block rounded-2xl bg-white px-3.5 py-1.5 text-xs font-bold text-slate-800 shadow-md border border-purple-200">
             {speechText}
           </div>
         </div>

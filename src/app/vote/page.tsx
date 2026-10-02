@@ -552,20 +552,20 @@ function VotePageContent() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
           {/* Header Banner Katalog */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold bg-blue-950/80 text-cyan-300 border border-blue-500/40 shadow-sm">
-              <Sparkles className="h-4 w-4 text-cyan-400" />
-              Direktori Resmi Event Cetas Ecosystem
+            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-sm">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              Direktori Resmi CETAS - Centralized Electronic Tournament & Award System
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
               Papan Event & Pemilihan Favorit
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
               Pilih event di bawah untuk langsung masuk ke <strong>Dashboard Resmi Event Tersebut</strong> yang memuat bilik voting multi-kategori, pembelian tiket masuk resmi, serta pendaftaran peserta online.
             </p>
           </div>
 
           {/* Search Bar & Filter Chips */}
-          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="relative w-full md:max-w-md">
                 <input
@@ -573,7 +573,7 @@ function VotePageContent() {
                   placeholder="Cari event (nama acara, tema, lokasi, atau EO)..."
                   value={eventSearch}
                   onChange={(e) => setEventSearch(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 pl-10 pr-4 py-3 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
               </div>

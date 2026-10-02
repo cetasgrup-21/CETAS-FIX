@@ -214,14 +214,14 @@ export default function ProductionPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-950/80 px-3.5 py-1 text-xs font-semibold text-cyan-300 mb-2 border border-blue-500/40">
+          <div className="inline-flex items-center gap-2 rounded-full bg-purple-50 px-3.5 py-1 text-xs font-semibold text-purple-700 mb-2 border border-purple-200">
             <ShoppingBag className="h-3.5 w-3.5" />
             Lini Bisnis Resmi Cetas Production
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
             Katalog Merchandise & Rental Peralatan Event
           </h1>
-          <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
+          <p className="mt-2 text-xs sm:text-sm text-slate-600 max-w-2xl">
             Solusi vendor terpercaya untuk seluruh kebutuhan perlengkapan panggung, sound system, lighting, videotron, serta cetak merchandise berkualitas tinggi.
           </p>
         </div>
@@ -230,7 +230,7 @@ export default function ProductionPage() {
         {cartItemsList.length > 0 && (
           <button
             onClick={() => setIsCheckoutOpen(true)}
-            className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold px-5 py-3 text-xs shadow-lg shadow-blue-500/30 transition active:scale-95"
+            className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold px-5 py-3 text-xs shadow-lg shadow-purple-500/25 transition active:scale-95"
           >
             <ShoppingCart className="h-4 w-4" />
             <span>Keranjang ({cartItemsList.length} Item)</span>

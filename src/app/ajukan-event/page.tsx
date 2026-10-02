@@ -103,11 +103,11 @@ export default function AjukanEventPage() {
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-950/80 px-3.5 py-1 text-xs font-semibold text-cyan-300 mb-3 border border-blue-500/40">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-3.5 py-1 text-xs font-semibold text-purple-700 mb-3 border border-purple-200">
           <Megaphone className="h-3.5 w-3.5" />
           Kemitraan & Penyelenggaraan Event
         </div>
-        <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
           Formulir Pengajuan Event & Iklan Cetas Kita
         </h1>
         <p className="mt-3 text-sm text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
@@ -282,7 +282,7 @@ export default function AjukanEventPage() {
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold px-7 py-3 text-sm shadow-lg shadow-blue-500/25 transition active:scale-95"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold px-7 py-3 text-sm shadow-lg shadow-purple-500/25 transition active:scale-95"
           >
             <Send className="h-4 w-4" />
             {loading ? "Mengirim Proposal..." : "Kirim Pengajuan ke Admin Cetas"}

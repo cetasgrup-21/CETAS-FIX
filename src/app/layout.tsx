@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CETAS Ecosystem - Event, Ticketing, E-Voting & Production",
+  title: "CETAS - Centralized Electronic Tournament & Award System",
   description:
-    "Platform terpadu untuk pengajuan event, tiket aman ber-QR dynamic, Cetas Vote e-voting, pendaftaran peserta, dan layanan Cetas Production.",
+    "Platform resmi Centralized Electronic Tournament & Award System (CETAS): e-voting terintegrasi, ticketing berkeamanan tinggi ber-QR HMAC, registrasi peserta, dan layanan Cetas Production.",
 };
 
 const midtransClientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "SB-Mid-client-DEV_KEY_PLACEHOLDER";
@@ -44,7 +44,7 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
+      <body className="min-h-full flex flex-col bg-[#FCFBFE] text-slate-900 selection:bg-purple-600 selection:text-white">
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />

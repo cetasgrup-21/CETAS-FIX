@@ -1,25 +1,37 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Sparkles, Shield, Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-white text-slate-600">
+    <footer className="border-t border-purple-100 bg-white text-slate-600">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand Info */}
+          {/* Brand Info with Official Logo */}
           <div className="space-y-4 md:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-extrabold text-lg shadow-sm">
-                C
+            <div className="flex items-center gap-2.5">
+              <div className="relative h-10 w-10 shrink-0">
+                <Image
+                  src="/logo/cetas_logo_transparent.png"
+                  alt="CETAS Official Logo"
+                  width={40}
+                  height={40}
+                  className="object-contain"
+                />
               </div>
-              <span className="font-black text-xl tracking-tight text-slate-900">
-                CETAS<span className="text-blue-600">.</span>
-              </span>
+              <div className="flex flex-col">
+                <span className="font-black text-xl tracking-tight text-slate-900 leading-none">
+                  CETAS<span className="text-purple-600">.</span>
+                </span>
+                <span className="text-[8.5px] font-bold text-purple-700 uppercase tracking-tight mt-0.5">
+                  Centralized Electronic Tournament & Award System
+                </span>
+              </div>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-normal">
-              Ekosistem platform all-in-one untuk pengajuan event, e-voting (Cetas Vote), ticketing berkeamanan tinggi, registrasi peserta, dan vendor Cetas Production.
+              Platform turnamen dan penghargaan elektronik terpusat untuk e-voting turnamen, tiket berkeamanan tinggi, registrasi peserta, dan Cetas Production.
             </p>
-            <div className="flex items-center gap-2 text-xs text-blue-600 font-semibold">
+            <div className="flex items-center gap-2 text-xs text-purple-700 font-semibold">
               <Sparkles className="h-4 w-4" />
               Didukung Pembayaran Otomatis Midtrans
             </div>
@@ -32,22 +44,22 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/events" className="text-slate-600 hover:text-blue-600 transition">
+                <Link href="/events" className="text-slate-600 hover:text-purple-700 transition">
                   Cetas Ticketing & Gate Scanner
                 </Link>
               </li>
               <li>
-                <Link href="/vote" className="text-slate-600 hover:text-blue-600 transition">
-                  Cetas Vote (E-Voting Live)
+                <Link href="/vote" className="text-slate-600 hover:text-purple-700 transition">
+                  Cetas Vote (E-Voting Live Turnamen)
                 </Link>
               </li>
               <li>
-                <Link href="/production" className="text-slate-600 hover:text-blue-600 transition">
+                <Link href="/production" className="text-slate-600 hover:text-purple-700 transition">
                   Cetas Production (Merch & Alat Event)
                 </Link>
               </li>
               <li>
-                <Link href="/ajukan-event" className="text-slate-600 hover:text-blue-600 transition">
+                <Link href="/ajukan-event" className="text-slate-600 hover:text-purple-700 transition">
                   Pengajuan Event & Iklan Cetas Kita
                 </Link>
               </li>
@@ -61,12 +73,12 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/admin" className="text-slate-600 hover:text-blue-600 transition">
+                <Link href="/admin" className="text-slate-600 hover:text-purple-700 transition">
                   Portal Lingkup Kerja Admin
                 </Link>
               </li>
               <li>
-                <Link href="/scanner" className="text-slate-600 hover:text-blue-600 transition">
+                <Link href="/scanner" className="text-slate-600 hover:text-purple-700 transition">
                   Scanner Pintu Masuk (Validator)
                 </Link>
               </li>
@@ -84,11 +96,11 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs text-slate-500">
               <li className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <MapPin className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
                 <span>Jl. Cetas Kreatif No. 88, Jakarta Selatan, Indonesia</span>
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-blue-600 shrink-0" />
+                <Phone className="h-4 w-4 text-purple-600 shrink-0" />
                 <span>+62 (021) 555-CETAS</span>
               </li>
               <li className="flex items-center gap-2">
@@ -103,15 +115,15 @@ export function Footer() {
                 </a>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-blue-600 shrink-0" />
+                <Mail className="h-4 w-4 text-purple-600 shrink-0" />
                 <span>support@cetas.id</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-8 pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Cetas Ecosystem. Hak cipta dilindungi undang-undang.</p>
+        <div className="mt-8 pt-8 border-t border-purple-50 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
+          <p>© {new Date().getFullYear()} CETAS (Centralized Electronic Tournament & Award System). Hak cipta dilindungi undang-undang.</p>
           <p className="mt-2 sm:mt-0">Ditenagai oleh Midtrans Snap API & Next.js 15</p>
         </div>
       </div>

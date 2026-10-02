@@ -516,11 +516,45 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteEvent = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus event ini?")) {
+    if (confirm("Apakah Anda yakin ingin menghapus event ini beserta bilik votingnya?")) {
       setEventsList((prev) => prev.filter((ev) => ev.id !== id));
+      // Sinkronkan juga hapus bilik voting untuk event ini
+      setEventVotings((prev) => {
+        const remaining = prev.filter((ev) => ev.eventId !== id);
+        if (selectedVoteEventId === id && remaining.length > 0) {
+          setSelectedVoteEventId(remaining[0].eventId);
+          if (remaining[0].categories.length > 0) {
+            setSelectedVoteCategoryId(remaining[0].categories[0].id);
+          }
+        }
+        return remaining;
+      });
       try {
         await fetch(`/api/events?id=${id}`, { method: "DELETE" });
       } catch {}
+      try {
+        await fetch(`/api/vote?eventId=${id}`, { method: "DELETE" });
+      } catch {}
+    }
+  };
+
+  const handleDeleteEventVoting = async (eventId: string, eventTitle: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus & menutup bilik voting untuk '${eventTitle}'?`)) {
+      setEventVotings((prev) => {
+        const remaining = prev.filter((ev) => ev.eventId !== eventId);
+        if (selectedVoteEventId === eventId && remaining.length > 0) {
+          setSelectedVoteEventId(remaining[0].eventId);
+          if (remaining[0].categories.length > 0) {
+            setSelectedVoteCategoryId(remaining[0].categories[0].id);
+          }
+        }
+        return remaining;
+      });
+      try {
+        await fetch(`/api/vote?eventId=${eventId}`, { method: "DELETE" });
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -633,11 +667,44 @@ export default function AdminDashboardPage() {
     }
   }, [selectedVoteEventId, activeVoteEvent, selectedVoteCategoryId]);
 
-  // A. Tambah Event Baru ke Voting
+  // A. Buka modal & Hubungkan Event Baru ke Voting
+  const handleOpenAddEventVoteModal = () => {
+    const available = eventsList.filter((ev) => !eventVotings.some((v) => v.eventId === ev.id));
+    if (available.length > 0) {
+      setSelectedEventToConnect(available[0].id);
+    } else if (eventsList.length > 0) {
+      setSelectedEventToConnect(eventsList[0].id);
+    } else {
+      setSelectedEventToConnect("");
+    }
+    setIsAddEventVoteModalOpen(true);
+  };
+
   const handleConnectEventToVote = async (e: React.FormEvent) => {
     e.preventDefault();
-    const eventObj = eventsList.find((e) => e.id === selectedEventToConnect);
-    if (!eventObj) return;
+    const targetId = selectedEventToConnect || eventsList[0]?.id;
+    if (!targetId) {
+      alert("Belum ada event di Cetas. Silakan buat event terlebih dahulu di tab Manajemen Event.");
+      return;
+    }
+
+    const eventObj = eventsList.find((e) => e.id === targetId);
+    if (!eventObj) {
+      alert("Event tidak ditemukan. Silakan pilih kembali.");
+      return;
+    }
+
+    // Jika bilik voting event sudah aktif, arahkan langsung tanpa membuat duplikat
+    const existing = eventVotings.find((v) => v.eventId === eventObj.id);
+    if (existing) {
+      alert(`Bilik voting untuk event '${eventObj.title}' sudah aktif! Mengalihkan ke bilik tersebut.`);
+      setSelectedVoteEventId(existing.eventId);
+      if (existing.categories.length > 0) {
+        setSelectedVoteCategoryId(existing.categories[0].id);
+      }
+      setIsAddEventVoteModalOpen(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/vote", {
@@ -648,15 +715,23 @@ export default function AdminDashboardPage() {
           eventId: eventObj.id,
           eventTitle: eventObj.title,
           bannerUrl: eventObj.bannerUrl,
+          themePreset: eventObj.themePreset,
         }),
       });
       const data = await res.json();
       if (data.success && data.eventVoting) {
-        setEventVotings([data.eventVoting, ...eventVotings]);
+        setEventVotings((prev) => [
+          data.eventVoting,
+          ...prev.filter((v) => v.eventId !== data.eventVoting.eventId),
+        ]);
         setSelectedVoteEventId(data.eventVoting.eventId);
         setSelectedVoteCategoryId(data.eventVoting.categories[0]?.id || "");
+      } else {
+        alert(data.message || "Gagal membuka bilik voting.");
       }
-    } catch {}
+    } catch {
+      alert("Terjadi kesalahan koneksi saat membuka bilik voting.");
+    }
     setIsAddEventVoteModalOpen(false);
   };
 
@@ -1087,6 +1162,7 @@ export default function AdminDashboardPage() {
   const isSuperAdmin = currentUser.role === "SUPER_ADMIN";
   const canManageEvents = currentUser.canApproveEvents || isSuperAdmin;
   const canManageProd = currentUser.canManageProduction || isSuperAdmin;
+  const canManageVote = currentUser.canApproveEvents || isSuperAdmin;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
@@ -1371,7 +1447,7 @@ export default function AdminDashboardPage() {
               {/* Action Buttons Top */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setIsAddEventVoteModalOpen(true)}
+                  onClick={handleOpenAddEventVoteModal}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 font-extrabold text-xs hover:bg-amber-100 transition active:scale-95 shadow-sm"
                 >
                   <FolderPlus className="h-4 w-4 text-amber-600" />
@@ -1399,32 +1475,51 @@ export default function AdminDashboardPage() {
                 {eventVotings.map((ev) => {
                   const isSelected = ev.eventId === activeVoteEvent?.eventId;
                   return (
-                    <button
+                    <div
                       key={ev.eventId}
-                      onClick={() => {
-                        setSelectedVoteEventId(ev.eventId);
-                        if (ev.categories.length > 0) {
-                          setSelectedVoteCategoryId(ev.categories[0].id);
-                        }
-                      }}
-                      className={`px-4 py-3 rounded-2xl border text-left transition shrink-0 flex items-center gap-3 ${
+                      className={`group relative px-4 py-3 rounded-2xl border text-left transition shrink-0 flex items-center justify-between gap-3 ${
                         isSelected
                           ? "border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 ring-2 ring-amber-500/20 shadow-md"
                           : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:border-slate-300"
                       }`}
                     >
-                      <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shrink-0">
-                        <Award className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
-                          {ev.eventTitle}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVoteEventId(ev.eventId);
+                          if (ev.categories.length > 0) {
+                            setSelectedVoteCategoryId(ev.categories[0].id);
+                          }
+                        }}
+                        className="flex items-center gap-3 text-left"
+                      >
+                        <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shrink-0">
+                          <Award className="h-5 w-5" />
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">
-                          {ev.categories.length} Kategori • {ev.eventDate}
+                        <div>
+                          <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
+                            {ev.eventTitle}
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {ev.categories.length} Kategori • {ev.eventDate}
+                          </div>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+
+                      {canManageVote && (
+                        <button
+                          type="button"
+                          title="Hapus / Tutup Bilik Voting Event"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEventVoting(ev.eventId, ev.eventTitle);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition ml-2 shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -2293,9 +2388,9 @@ export default function AdminDashboardPage() {
       {/* MODAL: TAMBAH / EDIT KANDIDAT VOTE (PESERTA) */}
       {/* ------------------------------------------------------------------ */}
       {isCandidateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <span className="text-[10px] font-extrabold uppercase text-orange-600 dark:text-orange-400 tracking-wider">
                   Kategori: {activeVoteCategory?.title}
@@ -2307,13 +2402,13 @@ export default function AdminDashboardPage() {
               </div>
               <button
                 onClick={() => setIsCandidateModalOpen(false)}
-                className="text-slate-400 text-xs font-bold"
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveCandidate} className="space-y-3.5">
+            <form onSubmit={handleSaveCandidate} className="overflow-y-auto flex-1 pr-1 space-y-3.5 my-3">
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -2439,7 +2534,7 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 py-2">
                 <button
                   type="button"
                   onClick={() => setIsCandidateModalOpen(false)}
@@ -2463,22 +2558,22 @@ export default function AdminDashboardPage() {
       {/* MODAL: TAMBAH / EDIT KATEGORI VOTE (SMP, SMA, PURNA) */}
       {/* ------------------------------------------------------------------ */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <FolderPlus className="h-5 w-5 text-orange-500" />
                 {editingCategoryId ? "Edit Kategori Lomba" : "Tambah Kategori Baru di Event Ini"}
               </h3>
               <button
                 onClick={() => setIsCategoryModalOpen(false)}
-                className="text-slate-400 text-xs font-bold"
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} className="space-y-3.5">
+            <form onSubmit={handleSaveCategory} className="overflow-y-auto flex-1 pr-1 space-y-3.5 my-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Nama Kategori (Misal: Tingkat SMP, Tingkat SMA, Purna) *
@@ -2523,7 +2618,7 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(false)}
@@ -2547,8 +2642,8 @@ export default function AdminDashboardPage() {
       {/* MODAL: HUBUNGKAN EVENT BARU KE VOTING */}
       {/* ------------------------------------------------------------------ */}
       {isAddEventVoteModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 my-8">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl my-4 sm:my-8 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <FolderPlus className="h-5 w-5 text-orange-500" />
@@ -2556,7 +2651,7 @@ export default function AdminDashboardPage() {
               </h3>
               <button
                 onClick={() => setIsAddEventVoteModalOpen(false)}
-                className="text-slate-400 text-xs font-bold"
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
                 ✕
               </button>
@@ -2567,19 +2662,28 @@ export default function AdminDashboardPage() {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Pilih Dari Event Yang Ada di Cetas:
                 </label>
-                <select
-                  value={selectedEventToConnect}
-                  onChange={(e) => setSelectedEventToConnect(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-bold"
-                >
-                  {eventsList.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title} ({ev.date})
-                    </option>
-                  ))}
-                </select>
+                {eventsList.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                    Belum ada event terdaftar di Cetas. Silakan buat event terlebih dahulu di tab Manajemen Event.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedEventToConnect}
+                    onChange={(e) => setSelectedEventToConnect(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-bold"
+                  >
+                    {eventsList.map((ev) => {
+                      const isConnected = eventVotings.some((v) => v.eventId === ev.id);
+                      return (
+                        <option key={ev.id} value={ev.id} disabled={isConnected}>
+                          {ev.title} ({ev.date}) {isConnected ? "— [Bilik Sudah Aktif]" : "— [Tersedia]"}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Sistem akan otomatis menginisialisasi 3 kategori default: <strong>Tingkat SMP, Tingkat SMA, dan Kategori Purna</strong>.
+                  Sistem otomatis menginisialisasi 3 kategori default: <strong>Tingkat SMP, Tingkat SMA, dan Kategori Purna</strong>.
                 </p>
               </div>
 
@@ -2593,7 +2697,8 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md"
+                  disabled={eventsList.length === 0}
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 text-white font-black text-xs shadow-md transition"
                 >
                   Buka Bilik Voting ✓
                 </button>
@@ -2607,9 +2712,9 @@ export default function AdminDashboardPage() {
       {/* MODAL: CREATE / EDIT EVENT */}
       {/* ------------------------------------------------------------------ */}
       {isEventModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-orange-500" />
                 {editingEventId ? "Edit Informasi Event" : "Buat Event Baru di Cetas"}
@@ -2622,7 +2727,7 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEvent} className="space-y-4">
+            <form onSubmit={handleSaveEvent} className="overflow-y-auto flex-1 pr-1 space-y-4 my-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -2813,7 +2918,7 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 py-2">
                 <button
                   type="button"
                   onClick={() => setIsEventModalOpen(false)}
@@ -2837,9 +2942,9 @@ export default function AdminDashboardPage() {
       {/* MODAL: CREATE / EDIT PRODUCT PRODUCTION */}
       {/* ------------------------------------------------------------------ */}
       {isProductModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Package className="h-5 w-5 text-purple-500" />
                 {editingProductId ? "Edit Produk / Alat Rental" : "Tambah Produk / Alat Baru"}
@@ -2852,7 +2957,7 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-4">
+            <form onSubmit={handleSaveProduct} className="overflow-y-auto flex-1 pr-1 space-y-4 my-2">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Nama Produk / Alat *
@@ -2916,7 +3021,7 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 py-2">
                 <button
                   type="button"
                   onClick={() => setIsProductModalOpen(false)}

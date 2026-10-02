@@ -19,6 +19,16 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
 
+  // Deduplikasi in-memory berdasarkan eventId agar data selalu unik & sinkron
+  if (global.__cetasEventVotings) {
+    const seen = new Set<string>();
+    global.__cetasEventVotings = global.__cetasEventVotings.filter((ev) => {
+      if (seen.has(ev.eventId)) return false;
+      seen.add(ev.eventId);
+      return true;
+    });
+  }
+
   let result = global.__cetasEventVotings || [];
   if (eventId) {
     const single = result.find((ev) => ev.eventId === eventId);
@@ -130,12 +140,29 @@ export async function POST(req: NextRequest) {
 
     // 4. TAMBAH EVENT VOTING BARU (DARI EVENT YANG ADA)
     if (action === "ADD_EVENT_VOTING") {
-      const { eventId, eventTitle, bannerUrl } = body;
+      const { eventId, eventTitle, bannerUrl, themePreset } = body;
+
+      if (!global.__cetasEventVotings) {
+        global.__cetasEventVotings = [];
+      }
+
+      // Hindari duplikasi: cek jika sudah pernah dibuat bilik voting
+      const existing = global.__cetasEventVotings.find((ev) => ev.eventId === eventId);
+      if (existing) {
+        return NextResponse.json({
+          success: true,
+          message: `Bilik voting untuk event '${existing.eventTitle}' sudah aktif!`,
+          eventVoting: existing,
+          isAlreadyExists: true,
+        });
+      }
+
       const newEventVoting: EventVotingConfig = {
         eventId: eventId || `ev-${Date.now()}`,
         eventTitle: eventTitle || "Event Baru Cetas Vote",
         eventDate: "Desember 2026",
         bannerUrl: bannerUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+        themePreset: themePreset || "FLAME",
         categories: [
           {
             id: `cat-${Date.now()}-1`,
@@ -161,7 +188,7 @@ export async function POST(req: NextRequest) {
         ],
       };
 
-      global.__cetasEventVotings?.unshift(newEventVoting);
+      global.__cetasEventVotings.unshift(newEventVoting);
 
       return NextResponse.json({
         success: true,
@@ -228,13 +255,28 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: Hapus Kategori atau Hapus Peserta
+// DELETE: Hapus Bilik Voting Event, Kategori, atau Peserta
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get("eventId");
     const categoryId = searchParams.get("categoryId");
     const candidateId = searchParams.get("candidateId");
+
+    if (!eventId) {
+      return NextResponse.json({ success: false, message: "Parameter eventId wajib disertakan" }, { status: 400 });
+    }
+
+    // 1. HAPUS SELURUH BILIK VOTING EVENT
+    if (eventId && !categoryId && !candidateId) {
+      if (global.__cetasEventVotings) {
+        global.__cetasEventVotings = global.__cetasEventVotings.filter((ev) => ev.eventId !== eventId);
+      }
+      return NextResponse.json({
+        success: true,
+        message: "Bilik voting event berhasil dihapus dari sistem!",
+      });
+    }
 
     const targetEvent = global.__cetasEventVotings?.find((ev) => ev.eventId === eventId);
     if (!targetEvent) {

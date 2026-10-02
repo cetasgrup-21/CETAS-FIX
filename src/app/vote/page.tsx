@@ -429,9 +429,9 @@ export default function VotePage() {
       {/* MODAL CHECKOUT VOTE VIA MIDTRANS */}
       {/* ------------------------------------------------------------- */}
       {selectedCandidate && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl my-4 sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <span className="text-[10px] font-extrabold uppercase text-orange-600 tracking-wider">
                   Kategori: {activeCategory.title}
@@ -442,13 +442,13 @@ export default function VotePage() {
               </div>
               <button
                 onClick={() => setSelectedCandidate(null)}
-                className="text-slate-400 text-xs font-bold"
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handlePayVote} className="space-y-4">
+            <form onSubmit={handlePayVote} className="overflow-y-auto flex-1 pr-1 space-y-4 my-2">
               {/* Pilihan Paket Vote */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -521,7 +521,7 @@ export default function VotePage() {
               </div>
 
               {/* Total & Action */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 py-2 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase font-bold block">
                     Total Pembayaran

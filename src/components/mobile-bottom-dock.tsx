@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
+  ShieldCheck,
   Ticket,
   Award,
   UserCheck,
@@ -23,6 +24,13 @@ export function MobileBottomDock() {
       isActive: pathname === "/",
     },
     {
+      href: "/score",
+      label: "Score",
+      icon: ShieldCheck,
+      isActive: pathname.startsWith("/score"),
+      badge: "LIVE",
+    },
+    {
       href: "/events",
       label: "Tiket",
       icon: Ticket,
@@ -39,12 +47,6 @@ export function MobileBottomDock() {
       label: "Pelatih",
       icon: UserCheck,
       isActive: pathname.startsWith("/pelatih"),
-    },
-    {
-      href: "/production",
-      label: "Produksi",
-      icon: Speaker,
-      isActive: pathname.startsWith("/production"),
     },
     {
       href: "https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20ingin%20konsultasi%20turnamen.",

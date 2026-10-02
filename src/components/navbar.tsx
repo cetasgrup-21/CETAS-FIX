@@ -23,6 +23,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Beranda", icon: Calendar },
+    { href: "/score", label: "Cetas.Score", icon: ShieldCheck, badge: "LIVE" },
     { href: "/events", label: "Cetas Ticketing", icon: Ticket },
     { href: "/vote", label: "Cetas Vote", icon: Award },
     { href: "/pelatih", label: "Akses Pelatih", icon: UserCheck },
@@ -72,6 +73,11 @@ export function Navbar() {
               >
                 <Icon className={`h-4 w-4 ${isActive ? "text-purple-600" : "text-slate-400"}`} />
                 {item.label}
+                {item.badge && (
+                  <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-wider animate-pulse">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -131,7 +137,12 @@ export function Navbar() {
                 }`}
               >
                 <Icon className={`h-4 w-4 ${isActive ? "text-purple-600" : "text-slate-400"}`} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.badge && (
+                  <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-wider">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

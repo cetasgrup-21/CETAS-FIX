@@ -44,6 +44,12 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
+                <Link href="/score" className="text-purple-700 font-bold hover:underline flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Cetas.Score (Scoring & Rekap Juri)
+                </Link>
+              </li>
+              <li>
                 <Link href="/events" className="text-slate-600 hover:text-purple-700 transition">
                   Cetas Ticketing & Gate Scanner
                 </Link>

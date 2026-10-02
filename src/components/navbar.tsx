@@ -58,13 +58,6 @@ export function Navbar() {
         {/* Right CTA */}
         <div className="flex items-center gap-3">
           <Link
-            href="/scanner"
-            className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 transition"
-          >
-            <Ticket className="h-3.5 w-3.5 text-orange-500" />
-            Scanner Gate
-          </Link>
-          <Link
             href="/admin"
             className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 text-xs font-semibold px-4 py-2.5 rounded-lg shadow-sm transition"
           >
@@ -72,6 +65,7 @@ export function Navbar() {
             Lingkup Kerja Cetas
           </Link>
         </div>
+
       </div>
     </header>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   ShieldCheck,
   TrendingUp,
@@ -89,12 +90,20 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/scanner"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-md transition"
+          >
+            <Ticket className="h-3.5 w-3.5" />
+            Buka Scanner Gate Panitia
+          </Link>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-700 dark:text-emerald-400">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             Midtrans Gateway Online
           </span>
         </div>
+
       </div>
 
       {/* KPI Financial Overview Cards */}

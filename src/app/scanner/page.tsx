@@ -14,11 +14,22 @@ import {
   RefreshCw,
   UploadCloud,
   ChevronDown,
+  Lock,
+  LogOut,
+  KeyRound,
+  UserCheck,
 } from "lucide-react";
 import { createTicketQRString } from "@/lib/ticket-security";
 import { Html5Qrcode } from "html5-qrcode";
 
 export default function GateScannerPage() {
+  // Staff Gatekeeper Authentication
+  const [isStaffAuthenticated, setIsStaffAuthenticated] = useState<boolean>(false);
+  const [staffPin, setStaffPin] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  // Scanner state
   const [ticketInput, setTicketInput] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -42,6 +53,37 @@ export default function GateScannerPage() {
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Cek sesi login panitia
+  useEffect(() => {
+    const savedAuth = sessionStorage.getItem("cetas_staff_auth");
+    if (savedAuth === "true") {
+      setIsStaffAuthenticated(true);
+      setStaffName(sessionStorage.getItem("cetas_staff_name") || "Panitia Gate 1");
+    }
+  }, []);
+
+  const handleStaffLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // PIN resmi panitia (demo: 2026 atau 1234)
+    if (staffPin === "2026" || staffPin === "1234") {
+      const name = staffName.trim() || "Petugas Gate 1";
+      sessionStorage.setItem("cetas_staff_auth", "true");
+      sessionStorage.setItem("cetas_staff_name", name);
+      setIsStaffAuthenticated(true);
+      setPinError(null);
+    } else {
+      setPinError("Kode PIN Panitia salah! Masukkan PIN resmi Cetas (Demo PIN: 2026).");
+    }
+  };
+
+  const handleStaffLogout = () => {
+    stopCameraScanner();
+    sessionStorage.removeItem("cetas_staff_auth");
+    setIsStaffAuthenticated(false);
+    setStaffPin("");
+    setResult(null);
+  };
 
   // Audio synthesizer beep untuk feedback gate
   const playBeep = (type: "success" | "error") => {
@@ -72,6 +114,8 @@ export default function GateScannerPage() {
 
   // Muat daftar kamera saat pertama kali dibuka
   useEffect(() => {
+    if (!isStaffAuthenticated) return;
+
     Html5Qrcode.getCameras()
       .then((devices) => {
         if (devices && devices.length > 0) {
@@ -80,7 +124,6 @@ export default function GateScannerPage() {
             label: d.label || `Kamera ${d.id.slice(0, 5)}`,
           }));
           setCameras(camList);
-          // Prioritaskan kamera belakang jika ada, atau kamera pertama (laptop webcam)
           const backCam = camList.find(
             (c) =>
               c.label.toLowerCase().includes("back") ||
@@ -99,7 +142,7 @@ export default function GateScannerPage() {
         html5QrCodeRef.current.stop().catch(() => {});
       }
     };
-  }, []);
+  }, [isStaffAuthenticated, isScanning]);
 
   const handleVerifyPayload = async (qrPayload: string) => {
     if (!qrPayload.trim() || isVerifying) return;
@@ -113,7 +156,7 @@ export default function GateScannerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qrString: qrPayload.trim(),
-          staffId: "staff-gate-01",
+          staffId: staffName || "staff-gate-01",
         }),
       });
 
@@ -163,13 +206,11 @@ export default function GateScannerPage() {
     }
   };
 
-
   // Mulai Kamera dengan Fallback Bertingkat
   const startCameraScanner = async () => {
     setScannerError(null);
 
     try {
-      // Hentikan scanner lama jika ada
       if (html5QrCodeRef.current) {
         try {
           await html5QrCodeRef.current.stop();
@@ -182,7 +223,6 @@ export default function GateScannerPage() {
       const qrCode = new Html5Qrcode("reader");
       html5QrCodeRef.current = qrCode;
 
-      // Konfigurasi kamera: pilih cameraId spesifik, atau fallback ke user (webcam) jika di laptop
       let cameraConfig: string | { facingMode: string } = { facingMode: "user" };
 
       if (selectedCameraId) {
@@ -212,7 +252,6 @@ export default function GateScannerPage() {
     } catch (err: unknown) {
       console.warn("First camera attempt failed, trying fallback:", err);
 
-      // Coba fallback kedua: coba generic video stream tanpa constraint
       try {
         if (html5QrCodeRef.current) {
           await html5QrCodeRef.current.start(
@@ -254,7 +293,6 @@ export default function GateScannerPage() {
     setIsScanning(false);
   };
 
-  // Scan dari File Gambar QR (Sangat berguna saat di laptop)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -264,7 +302,7 @@ export default function GateScannerPage() {
       const decodedText = await qrCode.scanFile(file, true);
       setTicketInput(decodedText);
       handleVerifyPayload(decodedText);
-    } catch (err) {
+    } catch {
       alert("Tidak ditemukan kode QR yang terbaca pada gambar tersebut.");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -273,7 +311,6 @@ export default function GateScannerPage() {
 
   const [lastTestQR, setLastTestQR] = useState<string>("");
 
-  // Generate QR Valid untuk pengujian
   const handleTestNewTicket = () => {
     const samplePayload = {
       ticketCode: `CETAS-TCK-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -296,7 +333,81 @@ export default function GateScannerPage() {
     handleVerifyPayload(lastTestQR);
   };
 
+  // JIKA BELUM LOGIN SEBAGAI PANITIA: TAMPILKAN LAYAR PENGUNCI KEAMANAN
+  if (!isStaffAuthenticated) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl text-center space-y-6">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 dark:bg-orange-950/80 text-orange-600 dark:text-orange-400">
+            <Lock className="h-8 w-8" />
+          </div>
 
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-600 dark:text-orange-400">
+              Akses Terbatas • Khusus Panitia
+            </span>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+              Portal Scanner Pintu Masuk
+            </h1>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              Halaman ini hanya dapat dioperasikan oleh panitia resmi / petugas gatekeeper Cetas. Pengunjung biasa tidak diperkenankan melakukan scan mandiri.
+            </p>
+          </div>
+
+          {pinError && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium">
+              {pinError}
+            </div>
+          )}
+
+          <form onSubmit={handleStaffLogin} className="space-y-4 text-left">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Nama / Identitas Petugas
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Panitia Gate 1 (Budi)"
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                PIN Keamanan Panitia *
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  required
+                  placeholder="Masukkan 4 digit PIN (Demo: 2026)"
+                  value={staffPin}
+                  onChange={(e) => setStaffPin(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <KeyRound className="absolute right-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1">
+                Demo PIN Akses Panitia: <span className="font-mono font-bold text-orange-500">2026</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-bold py-3 text-xs shadow-md transition active:scale-95"
+            >
+              <UserCheck className="h-4 w-4" />
+              Buka Scanner Sebagai Panitia
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // JIKA SUDAH TERVERIFIKASI SEBAGAI PANITIA: TAMPILKAN APLIKASI SCANNER LENGKAP
   return (
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
       {/* Hidden dummy container untuk file scanner */}
@@ -308,6 +419,23 @@ export default function GateScannerPage() {
         accept="image/*"
         className="hidden"
       />
+
+      {/* Staff Session Status Bar */}
+      <div className="mb-4 flex items-center justify-between p-3 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-bold text-slate-800 dark:text-slate-200">
+            Petugas Aktif: <span className="text-orange-600 dark:text-orange-400">{staffName || "Panitia Gate"}</span>
+          </span>
+        </div>
+        <button
+          onClick={handleStaffLogout}
+          className="flex items-center gap-1 font-bold text-slate-500 hover:text-rose-600 transition"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Kunci Scanner
+        </button>
+      </div>
 
       {/* Scanner Card */}
       <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-xl">
@@ -393,7 +521,7 @@ export default function GateScannerPage() {
           </div>
 
           <div className="relative w-full rounded-2xl overflow-hidden min-h-[280px] bg-slate-950 border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center">
-            {/* Wadah khusus Html5Qrcode - Tidak boleh ada anak elemen React di dalamnya */}
+            {/* Wadah khusus Html5Qrcode */}
             <div id="reader" className="w-full h-full min-h-[280px]" />
 
             {/* Overlay placeholder saat kamera mati */}
@@ -405,7 +533,6 @@ export default function GateScannerPage() {
             )}
           </div>
 
-
           {scannerError && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 space-y-1">
               <div className="font-bold flex items-center gap-1.5">
@@ -416,7 +543,7 @@ export default function GateScannerPage() {
                 {scannerError}
               </p>
               <p className="text-[11px] text-slate-500 pt-1">
-                Tip: Jika menggunakan laptop tanpa webcam atau izin ditolak, Anda bisa menggunakan tombol <strong>&ldquo;Upload Foto QR&rdquo;</strong> atau <strong>&ldquo;Simulasi Tiket Sah&rdquo;</strong> di bawah.
+                Tip: Jika menggunakan laptop tanpa webcam atau izin ditolak, Anda bisa menggunakan tombol <strong>&ldquo;Upload Foto QR&rdquo;</strong> atau <strong>&ldquo;1. Tiket Baru&rdquo;</strong> di bawah.
               </p>
             </div>
           )}
@@ -518,7 +645,6 @@ export default function GateScannerPage() {
               2. Scan Ulang (Uji Duplikat)
             </button>
           </div>
-
         </form>
       </div>
     </div>

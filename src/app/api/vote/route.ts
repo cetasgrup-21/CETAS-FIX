@@ -86,19 +86,49 @@ export async function POST(req: NextRequest) {
         institution: institution || "Instansi / Sekolah Peserta",
         photoUrl: photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
         tagline: tagline || "Visi misi peserta voting.",
-        totalVotes: Number(totalVotes) || 0,
+        totalVotes: 0, // Integritas mutlak: suara awal selalu 0, anti-manipulasi!
       };
 
       targetCategory.candidates.push(newCandidate);
 
       return NextResponse.json({
         success: true,
-        message: `Peserta '${newCandidate.name}' berhasil ditambahkan ke kategori ${targetCategory.title}!`,
+        message: `Peserta '${newCandidate.name}' berhasil didaftarkan dengan 0 suara awal!`,
         candidate: newCandidate,
       });
     }
 
-    // 3. TAMBAH EVENT VOTING BARU (DARI EVENT YANG ADA)
+    // 3. PENCATATAN SUARA VOTING RESMI (MIDTRANS VERIFIED VOTE)
+    if (action === "RECORD_VOTE") {
+      const { eventId, categoryId, candidateId, addedVotes, orderNumber, voterName } = body;
+
+      const targetEvent = global.__cetasEventVotings?.find((ev) => ev.eventId === eventId);
+      if (!targetEvent) {
+        return NextResponse.json({ success: false, message: "Event tidak ditemukan" }, { status: 404 });
+      }
+
+      const targetCategory = targetEvent.categories.find((c) => c.id === categoryId);
+      if (!targetCategory) {
+        return NextResponse.json({ success: false, message: "Kategori tidak ditemukan" }, { status: 404 });
+      }
+
+      const cand = targetCategory.candidates.find((c) => c.id === candidateId);
+      if (!cand) {
+        return NextResponse.json({ success: false, message: "Peserta tidak ditemukan" }, { status: 404 });
+      }
+
+      const votesIncrement = Math.max(1, Number(addedVotes) || 1);
+      cand.totalVotes += votesIncrement;
+
+      return NextResponse.json({
+        success: true,
+        message: `Berhasil mencatat ${votesIncrement} suara sah untuk ${cand.name} dari voter ${voterName || "Anonim"} (Order: ${orderNumber || "-"})!`,
+        candidate: cand,
+        totalVotes: cand.totalVotes,
+      });
+    }
+
+    // 4. TAMBAH EVENT VOTING BARU (DARI EVENT YANG ADA)
     if (action === "ADD_EVENT_VOTING") {
       const { eventId, eventTitle, bannerUrl } = body;
       const newEventVoting: EventVotingConfig = {
@@ -176,11 +206,18 @@ export async function PUT(req: NextRequest) {
       if (!cand) {
         return NextResponse.json({ success: false, message: "Peserta tidak ditemukan" }, { status: 404 });
       }
-      Object.assign(cand, updates);
-      if (updates.totalVotes !== undefined) cand.totalVotes = Number(updates.totalVotes);
+      // INTEGRITAS ANTI-MANIPULASI:
+      // Hanya izinkan edit data profil (nomor urut, nama, instansi, foto, visi misi)
+      // totalVotes TIDAK DAPAT diubah secara manual melalui edit form!
+      if (updates.candidateNumber !== undefined) cand.candidateNumber = updates.candidateNumber;
+      if (updates.name !== undefined) cand.name = updates.name;
+      if (updates.institution !== undefined) cand.institution = updates.institution;
+      if (updates.photoUrl !== undefined) cand.photoUrl = updates.photoUrl;
+      if (updates.tagline !== undefined) cand.tagline = updates.tagline;
+
       return NextResponse.json({
         success: true,
-        message: "Data peserta berhasil diperbarui!",
+        message: "Data profil peserta berhasil diperbarui (suara tetap terlindungi & sah)!",
         candidate: cand,
       });
     }

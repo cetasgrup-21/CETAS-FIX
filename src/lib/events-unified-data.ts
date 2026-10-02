@@ -11,7 +11,7 @@ export interface UnifiedEvent {
   slug: string;
   title: string;
   organizer: string;
-  category: "CONCERT" | "WORKSHOP" | "HACKATHON" | "VOLUNTEER" | "SEMINAR";
+  category: string;
   date: string;
   time: string;
   location: string;

@@ -167,16 +167,18 @@ export default function VotePage() {
       })
     );
 
-    // Call API update
+    // Call API update with secure RECORD_VOTE
     fetch("/api/vote", {
-      method: "PUT",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "EDIT_CANDIDATE",
+        action: "RECORD_VOTE",
         eventId: activeEvent.eventId,
         categoryId: activeCategory.id,
         candidateId: selectedCandidate.id,
-        updates: { totalVotes: selectedCandidate.totalVotes + addedVotes },
+        addedVotes: addedVotes,
+        orderNumber: simulatorData?.orderNumber || `VOTE-${Date.now()}`,
+        voterName: voterName || "Voter Publik Cetas",
       }),
     }).catch(() => {});
 

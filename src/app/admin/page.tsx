@@ -89,6 +89,20 @@ interface AdItem {
   clicks: number;
 }
 
+const EVENT_CATEGORY_OPTIONS = [
+  { value: "Kompetisi & LKBB", label: "Perlombaan & Kompetisi (LKBB, Paskibra, Debat, Marching Band)" },
+  { value: "Turnamen Olahraga & E-Sports", label: "Turnamen Olahraga & E-Sports (Futsal, MLBB, Basket)" },
+  { value: "Konser Musik & Festival", label: "Konser Musik, Festival & Live Show" },
+  { value: "Workshop & Pelatihan", label: "Workshop, Pelatihan & Masterclass" },
+  { value: "Seminar & Konferensi", label: "Seminar, Konferensi & Talkshow" },
+  { value: "Seni & Kebudayaan", label: "Seni, Tari, Teater & Pentas Budaya" },
+  { value: "Pameran & Bazaar", label: "Pameran, Expo, Bazaar & Kuliner" },
+  { value: "Hackathon & IT", label: "Hackathon & Kompetisi Teknologi" },
+  { value: "Volunteer & Sosial", label: "Volunteer, Bakti Sosial & Komunitas" },
+  { value: "Pendidikan & Tryout", label: "Pendidikan, Olimpiade & Tryout Akbar" },
+  { value: "CUSTOM", label: "+ Ketik Kategori Lainnya (Bebas / Kustom Tanpa Batas)..." },
+];
+
 export default function AdminDashboardPage() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
@@ -113,10 +127,12 @@ export default function AdminDashboardPage() {
   const [eventsList, setEventsList] = useState<UnifiedEvent[]>(INITIAL_UNIFIED_EVENTS);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryText, setCustomCategoryText] = useState("");
   const [eventForm, setEventForm] = useState({
     title: "",
     organizer: "",
-    category: "WORKSHOP" as UnifiedEvent["category"],
+    category: "Kompetisi & LKBB",
     date: "",
     time: "09:00 - 17:00 WIB",
     location: "",
@@ -362,10 +378,12 @@ export default function AdminDashboardPage() {
   // ---------------- EVENT CRUD HANDLERS ----------------
   const handleOpenCreateEvent = () => {
     setEditingEventId(null);
+    setIsCustomCategory(false);
+    setCustomCategoryText("");
     setEventForm({
       title: "",
       organizer: "Cetas Official",
-      category: "WORKSHOP",
+      category: "Kompetisi & LKBB",
       date: new Date().toISOString().split("T")[0],
       time: "09:00 - 17:00 WIB",
       location: "Jakarta Convention Center",
@@ -386,6 +404,14 @@ export default function AdminDashboardPage() {
 
   const handleOpenEditEvent = (ev: UnifiedEvent) => {
     setEditingEventId(ev.id);
+    const isStandard = EVENT_CATEGORY_OPTIONS.some((opt) => opt.value === ev.category);
+    if (!isStandard) {
+      setIsCustomCategory(true);
+      setCustomCategoryText(ev.category);
+    } else {
+      setIsCustomCategory(false);
+      setCustomCategoryText("");
+    }
     setEventForm({
       title: ev.title,
       organizer: ev.organizer,
@@ -417,10 +443,14 @@ export default function AdminDashboardPage() {
       .map((s) => s.trim())
       .filter(Boolean);
 
+    const finalCategory = (isCustomCategory && customCategoryText.trim())
+      ? customCategoryText.trim()
+      : eventForm.category;
+
     const payload = {
       title: eventForm.title,
       organizer: eventForm.organizer,
-      category: eventForm.category,
+      category: finalCategory,
       date: eventForm.date,
       time: eventForm.time,
       location: eventForm.location,
@@ -760,7 +790,7 @@ export default function AdminDashboardPage() {
     if (!candidateForm.name.trim()) return;
 
     if (editingCandidateId) {
-      // EDIT PESERTA
+      // EDIT PESERTA (Hanya profil yang diubah, suara terkunci demi integritas)
       try {
         await fetch("/api/vote", {
           method: "PUT",
@@ -770,7 +800,13 @@ export default function AdminDashboardPage() {
             eventId: activeVoteEvent.eventId,
             categoryId: activeVoteCategory.id,
             candidateId: editingCandidateId,
-            updates: candidateForm,
+            updates: {
+              candidateNumber: candidateForm.candidateNumber,
+              name: candidateForm.name,
+              institution: candidateForm.institution,
+              photoUrl: candidateForm.photoUrl,
+              tagline: candidateForm.tagline,
+            },
           }),
         });
         setEventVotings((prev) =>
@@ -783,7 +819,16 @@ export default function AdminDashboardPage() {
                 return {
                   ...c,
                   candidates: c.candidates.map((cand) =>
-                    cand.id === editingCandidateId ? { ...cand, ...candidateForm } : cand
+                    cand.id === editingCandidateId
+                      ? {
+                          ...cand,
+                          candidateNumber: candidateForm.candidateNumber,
+                          name: candidateForm.name,
+                          institution: candidateForm.institution,
+                          photoUrl: candidateForm.photoUrl,
+                          tagline: candidateForm.tagline,
+                        }
+                      : cand
                   ),
                 };
               }),
@@ -792,7 +837,7 @@ export default function AdminDashboardPage() {
         );
       } catch {}
     } else {
-      // TAMBAH PESERTA BARU
+      // TAMBAH PESERTA BARU (Suara otomatis 0)
       try {
         const res = await fetch("/api/vote", {
           method: "POST",
@@ -801,7 +846,12 @@ export default function AdminDashboardPage() {
             action: "ADD_CANDIDATE",
             eventId: activeVoteEvent.eventId,
             categoryId: activeVoteCategory.id,
-            ...candidateForm,
+            candidateNumber: candidateForm.candidateNumber,
+            name: candidateForm.name,
+            institution: candidateForm.institution,
+            photoUrl: candidateForm.photoUrl,
+            tagline: candidateForm.tagline,
+            totalVotes: 0,
           }),
         });
         const data = await res.json();
@@ -2309,19 +2359,52 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Jumlah Suara (Votes)
-                </label>
-                <input
-                  type="number"
-                  value={candidateForm.totalVotes}
-                  onChange={(e) =>
-                    setCandidateForm({ ...candidateForm, totalVotes: Number(e.target.value) })
-                  }
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
-                />
-              </div>
+              {/* STATUS PEROLEHAN SUARA (ANTI-MANIPULASI MUTLAK) */}
+              {!editingCandidateId ? (
+                <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/90 dark:bg-emerald-950/40 p-3.5 flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                    <ShieldCheck className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-emerald-900 dark:text-emerald-200">
+                        Integritas Suara Terkunci (Anti-Manipulasi)
+                      </span>
+                      <span className="text-[10px] bg-emerald-200 text-emerald-950 dark:bg-emerald-800 dark:text-emerald-100 font-extrabold px-2 py-0.5 rounded-full">
+                        0 Suara Awal
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                      Peserta baru otomatis dimulai dari <strong>0 suara sah</strong>. Jumlah suara <strong>tidak dapat dimanipulasi manual</strong> oleh admin dan hanya akan bertambah secara transparan dan realtime saat publik melakukan voting resmi via Midtrans Payment Gateway.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+                      <Lock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        Perolehan Suara Sah
+                        <span className="text-[9px] bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 font-black px-1.5 py-0.2 rounded-full">
+                          🔒 Terkunci
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Murni hasil voting publik via Midtrans (Tidak dapat diedit atau dimanipulasi manual)
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-base font-black text-orange-600 dark:text-orange-400 font-mono">
+                      {candidateForm.totalVotes.toLocaleString("id-ID")}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-semibold">Suara Terverifikasi</div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
@@ -2536,23 +2619,78 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Kategori Event
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Kategori Event *</span>
+                    <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold">
+                      💡 Bebas Tambah / Ketik Sendiri Tanpa Batas
+                    </span>
                   </label>
                   <select
-                    value={eventForm.category}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, category: e.target.value as UnifiedEvent["category"] })
-                    }
+                    value={isCustomCategory ? "CUSTOM" : eventForm.category}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "CUSTOM") {
+                        setIsCustomCategory(true);
+                        setEventForm({ ...eventForm, category: customCategoryText || "Kompetisi & LKBB" });
+                      } else {
+                        setIsCustomCategory(false);
+                        setEventForm({ ...eventForm, category: val });
+                      }
+                    }}
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold"
                   >
-                    <option value="CONCERT">Konser Musik / Hiburan</option>
-                    <option value="WORKSHOP">Workshop / Pelatihan</option>
-                    <option value="HACKATHON">Hackathon / Kompetisi Tech</option>
-                    <option value="VOLUNTEER">Volunteer / Kegiatan Sosial</option>
-                    <option value="SEMINAR">Seminar / Konferensi</option>
+                    {EVENT_CATEGORY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
+
+                  {/* Input Kustom jika memilih opsi CUSTOM atau ingin mengetik bebas */}
+                  {isCustomCategory && (
+                    <div className="mt-2 space-y-1">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ketik kategori event kustom Anda (contoh: LKBB Cemara, Baris Berbaris / Paskibra)..."
+                        value={customCategoryText}
+                        onChange={(e) => {
+                          setCustomCategoryText(e.target.value);
+                          setEventForm({ ...eventForm, category: e.target.value });
+                        }}
+                        className="w-full rounded-xl border border-orange-400 dark:border-orange-500 bg-orange-50/60 dark:bg-orange-950/20 px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                      <p className="text-[10px] text-slate-500">
+                        ✨ Kategori kustom tersimpan dan otomatis menjadi tag resmi event ini.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Quick Preset Tags untuk pemilihan instan */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] text-slate-400 font-medium">Contoh Populer:</span>
+                    {[
+                      "LKBB / Paskibra",
+                      "Turnamen E-Sports",
+                      "Festival Tari Tradisional",
+                      "Olimpiade Sains",
+                      "Pentas Seni & Musik",
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory(true);
+                          setCustomCategoryText(preset);
+                          setEventForm({ ...eventForm, category: preset });
+                        }}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700 dark:bg-slate-800 dark:hover:bg-orange-950 dark:text-slate-300 dark:hover:text-orange-300 transition border border-slate-200 dark:border-slate-700 active:scale-95"
+                      >
+                        + {preset}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>

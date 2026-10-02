@@ -384,21 +384,19 @@ export default function GateScannerPage() {
             </div>
           </div>
 
-          <div
-            id="reader"
-            className={`w-full overflow-hidden rounded-2xl border-2 border-dashed transition ${
-              isScanning
-                ? "border-orange-500 bg-black min-h-[280px]"
-                : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-8 text-center text-xs text-slate-400"
-            }`}
-          >
+          <div className="relative w-full rounded-2xl overflow-hidden min-h-[280px] bg-slate-950 border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center">
+            {/* Wadah khusus Html5Qrcode - Tidak boleh ada anak elemen React di dalamnya */}
+            <div id="reader" className="w-full h-full min-h-[280px]" />
+
+            {/* Overlay placeholder saat kamera mati */}
             {!isScanning && (
-              <div className="py-6 flex flex-col items-center justify-center gap-2">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-8 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-900 rounded-2xl pointer-events-none">
                 <Camera className="h-8 w-8 text-slate-400 stroke-[1.5]" />
                 <p>Klik &ldquo;Nyalakan Kamera&rdquo; atau &ldquo;Upload Foto QR&rdquo; untuk memindai tiket</p>
               </div>
             )}
           </div>
+
 
           {scannerError && (
             <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 space-y-1">

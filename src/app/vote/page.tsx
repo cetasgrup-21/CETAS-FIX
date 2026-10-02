@@ -552,8 +552,8 @@ function VotePageContent() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
           {/* Header Banner Katalog */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 shadow-sm">
-              <Sparkles className="h-4 w-4 text-orange-500" />
+            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold bg-blue-950/80 text-cyan-300 border border-blue-500/40 shadow-sm">
+              <Sparkles className="h-4 w-4 text-cyan-400" />
               Direktori Resmi Event Cetas Ecosystem
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -573,7 +573,7 @@ function VotePageContent() {
                   placeholder="Cari event (nama acara, tema, lokasi, atau EO)..."
                   value={eventSearch}
                   onChange={(e) => setEventSearch(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 pl-10 pr-4 py-3 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 pl-10 pr-4 py-3 text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
               </div>

@@ -283,7 +283,7 @@ export default function EventsPage() {
                       </h2>
                       <Link
                         href={`/vote?eventId=${event.id}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-xs font-black shrink-0 hover:bg-orange-200 transition"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-950 text-cyan-300 border border-blue-500/40 text-xs font-bold shrink-0 hover:bg-blue-900/60 transition shadow-sm"
                       >
                         Buka Dashboard Event &rarr;
                       </Link>

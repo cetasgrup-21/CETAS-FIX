@@ -214,7 +214,7 @@ export default function ProductionPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-purple-100 dark:bg-purple-950/60 px-3.5 py-1 text-xs font-semibold text-purple-700 dark:text-purple-400 mb-2 border border-purple-200 dark:border-purple-800/60">
+          <div className="inline-flex items-center gap-2 rounded-full bg-blue-950/80 px-3.5 py-1 text-xs font-semibold text-cyan-300 mb-2 border border-blue-500/40">
             <ShoppingBag className="h-3.5 w-3.5" />
             Lini Bisnis Resmi Cetas Production
           </div>
@@ -230,7 +230,7 @@ export default function ProductionPage() {
         {cartItemsList.length > 0 && (
           <button
             onClick={() => setIsCheckoutOpen(true)}
-            className="flex items-center gap-2.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-3 text-xs shadow-lg shadow-orange-500/30 transition active:scale-95"
+            className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold px-5 py-3 text-xs shadow-lg shadow-blue-500/30 transition active:scale-95"
           >
             <ShoppingCart className="h-4 w-4" />
             <span>Keranjang ({cartItemsList.length} Item)</span>
@@ -288,7 +288,7 @@ export default function ProductionPage() {
 
               <div className="p-6 flex-1 flex flex-col justify-between">
                 <div>
-                  <div className="inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 mb-2">
+                  <div className="inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-950/80 text-cyan-300 border border-blue-500/30 mb-2">
                     {prod.category}
                   </div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5 leading-snug">
@@ -318,7 +318,7 @@ export default function ProductionPage() {
                       <span className="text-xs font-bold w-4 text-center">{qtyInCart}</span>
                       <button
                         onClick={() => addToCart(prod.id)}
-                        className="h-8 w-8 rounded-lg bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600"
+                        className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-500"
                       >
                         <Plus className="h-3 w-3" />
                       </button>
@@ -326,7 +326,7 @@ export default function ProductionPage() {
                   ) : (
                     <button
                       onClick={() => addToCart(prod.id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-bold px-3.5 py-2 text-xs transition"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-2 text-xs transition shadow-sm"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Pesan
@@ -434,14 +434,14 @@ export default function ProductionPage() {
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-500">Total Invoice Midtrans</div>
-                  <div className="text-base font-black text-orange-600 dark:text-orange-400">
+                  <div className="text-base font-black text-cyan-400">
                     {formatRupiah(cartTotal)}
                   </div>
                 </div>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-orange-500/25 transition active:scale-95 flex items-center gap-1.5"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4" />
                   {isProcessing ? "Menyiapkan Invoice..." : "Bayar via Midtrans"}

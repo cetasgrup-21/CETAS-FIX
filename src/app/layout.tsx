@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { MascotWhatsAppWidget } from "@/components/mascot-whatsapp-widget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,10 +44,11 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />
+        <MascotWhatsAppWidget />
       </body>
     </html>
   );

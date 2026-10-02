@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Award, Zap, CheckCircle2, ShieldCheck, Heart, Users } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
+import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
 
 interface Candidate {
   id: string;
@@ -61,6 +62,11 @@ export default function VotePage() {
   const [voterPhone, setVoterPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [voteStatus, setVoteStatus] = useState<string | null>(null);
+  const [simulatorData, setSimulatorData] = useState<{
+    orderNumber: string;
+    grossAmount: number;
+    customerName: string;
+  } | null>(null);
 
   const totalVotesOverall = candidates.reduce((sum, c) => sum + c.votes, 0);
 
@@ -107,8 +113,13 @@ export default function VotePage() {
         throw new Error(data.message || "Gagal membuat transaksi voting");
       }
 
-      // Jika Midtrans Snap aktif di browser
-      if (typeof window !== "undefined" && window.snap && data.snapToken) {
+      const isRealMidtransToken =
+        data.snapToken &&
+        !data.snapToken.startsWith("SNAP-SIMULATION") &&
+        !data.isSimulated;
+
+      // Jika Midtrans Snap aktif dan memiliki key live yang sah
+      if (typeof window !== "undefined" && window.snap && isRealMidtransToken) {
         window.snap.pay(data.snapToken, {
           onSuccess: function (result: unknown) {
             console.log("Midtrans payment success:", result);
@@ -135,16 +146,12 @@ export default function VotePage() {
           },
         });
       } else {
-        // Fallback simulasi jika di mode development tanpa kunci API live
-        setCandidates((prev) =>
-          prev.map((c) =>
-            c.id === selectedCandidate.id ? { ...c, votes: c.votes + voteCount } : c
-          )
-        );
-        setVoteStatus(
-          `[Simulasi Sukses] ${voteCount} suara berhasil diberikan kepada #${selectedCandidate.number} ${selectedCandidate.name}!`
-        );
-        setSelectedCandidate(null);
+        // Tampilkan simulator popup bawaan Cetas
+        setSimulatorData({
+          orderNumber: data.orderNumber,
+          grossAmount: currentPackagePrice,
+          customerName: voterName,
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kendala koneksi";
@@ -153,6 +160,7 @@ export default function VotePage() {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -361,6 +369,30 @@ export default function VotePage() {
           </div>
         </div>
       )}
+
+      {/* Midtrans Sandbox Simulator Modal */}
+      {simulatorData && selectedCandidate && (
+        <MidtransSimulatorModal
+          isOpen={!!simulatorData}
+          orderNumber={simulatorData.orderNumber}
+          grossAmount={simulatorData.grossAmount}
+          customerName={simulatorData.customerName}
+          onClose={() => setSimulatorData(null)}
+          onSuccess={() => {
+            setCandidates((prev) =>
+              prev.map((c) =>
+                c.id === selectedCandidate.id ? { ...c, votes: c.votes + voteCount } : c
+              )
+            );
+            setVoteStatus(
+              `Terima kasih! Pembayaran ${formatRupiah(currentPackagePrice)} berhasil. ${voteCount} suara telah ditambahkan ke ${selectedCandidate.name}.`
+            );
+            setSelectedCandidate(null);
+            setSimulatorData(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+

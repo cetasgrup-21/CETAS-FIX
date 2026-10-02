@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
+import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
 
 interface TicketTier {
   id: string;
@@ -84,6 +85,11 @@ export default function EventsPage() {
 
   // Digital Ticket Pass Modal
   const [issuedTicket, setIssuedTicket] = useState<IssuedTicket | null>(null);
+  const [simulatorData, setSimulatorData] = useState<{
+    orderNumber: string;
+    grossAmount: number;
+    customerName: string;
+  } | null>(null);
 
   const generateTicketPass = async (
     event: EventItem,
@@ -144,7 +150,12 @@ export default function EventsPage() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      if (typeof window !== "undefined" && window.snap && data.snapToken) {
+      const isRealMidtransToken =
+        data.snapToken &&
+        !data.snapToken.startsWith("SNAP-SIMULATION") &&
+        !data.isSimulated;
+
+      if (typeof window !== "undefined" && window.snap && isRealMidtransToken) {
         window.snap.pay(data.snapToken, {
           onSuccess: async function (snapResult: unknown) {
             console.log("Success:", snapResult);
@@ -161,14 +172,12 @@ export default function EventsPage() {
           },
         });
       } else {
-        // Mode development simulasi sukses
-        await generateTicketPass(
-          selectedTier.event,
-          selectedTier.tier,
-          buyerName,
-          buyerEmail
-        );
-        setSelectedTier(null);
+        // Tampilkan Midtrans Simulator Modal bawaan Cetas
+        setSimulatorData({
+          orderNumber: data.orderNumber,
+          grossAmount: selectedTier.tier.price * ticketQty,
+          customerName: buyerName,
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
@@ -177,6 +186,7 @@ export default function EventsPage() {
       setIsBuying(false);
     }
   };
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -465,6 +475,28 @@ export default function EventsPage() {
           </div>
         </div>
       )}
+
+      {/* Midtrans Sandbox Simulator Modal */}
+      {simulatorData && selectedTier && (
+        <MidtransSimulatorModal
+          isOpen={!!simulatorData}
+          orderNumber={simulatorData.orderNumber}
+          grossAmount={simulatorData.grossAmount}
+          customerName={simulatorData.customerName}
+          onClose={() => setSimulatorData(null)}
+          onSuccess={async () => {
+            await generateTicketPass(
+              selectedTier.event,
+              selectedTier.tier,
+              buyerName,
+              buyerEmail
+            );
+            setSelectedTier(null);
+            setSimulatorData(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+

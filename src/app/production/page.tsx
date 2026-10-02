@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShoppingBag, Check, ShieldCheck, ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
+import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
 
 interface Product {
   id: string;
@@ -78,6 +79,11 @@ export default function ProductionPage() {
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "" });
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderDoneMsg, setOrderDoneMsg] = useState<string | null>(null);
+  const [simulatorData, setSimulatorData] = useState<{
+    orderNumber: string;
+    grossAmount: number;
+    customerName: string;
+  } | null>(null);
 
   const filteredProducts =
     activeTab === "ALL" ? products : products.filter((p) => p.category === activeTab);
@@ -143,7 +149,12 @@ export default function ProductionPage() {
         throw new Error(data.message || "Gagal membuat invoice pesanan");
       }
 
-      if (typeof window !== "undefined" && window.snap && data.snapToken) {
+      const isRealMidtransToken =
+        data.snapToken &&
+        !data.snapToken.startsWith("SNAP-SIMULATION") &&
+        !data.isSimulated;
+
+      if (typeof window !== "undefined" && window.snap && isRealMidtransToken) {
         window.snap.pay(data.snapToken, {
           onSuccess: function (res: unknown) {
             console.log("Success:", res);
@@ -158,11 +169,12 @@ export default function ProductionPage() {
           },
         });
       } else {
-        setOrderDoneMsg(
-          `[Simulasi Sukses] Pesanan Production dengan Nomor ${data.orderNumber} berhasil dibuat!`
-        );
-        setCart({});
-        setIsCheckoutOpen(false);
+        // Tampilkan Midtrans Sandbox Simulator Cetas
+        setSimulatorData({
+          orderNumber: data.orderNumber,
+          grossAmount: cartTotal,
+          customerName: customer.name,
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan sistem";
@@ -171,6 +183,7 @@ export default function ProductionPage() {
       setIsProcessing(false);
     }
   };
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -414,6 +427,26 @@ export default function ProductionPage() {
           </div>
         </div>
       )}
+
+      {/* Midtrans Sandbox Simulator Modal */}
+      {simulatorData && (
+        <MidtransSimulatorModal
+          isOpen={!!simulatorData}
+          orderNumber={simulatorData.orderNumber}
+          grossAmount={simulatorData.grossAmount}
+          customerName={simulatorData.customerName}
+          onClose={() => setSimulatorData(null)}
+          onSuccess={() => {
+            setOrderDoneMsg(
+              `Pesanan Production ${simulatorData.orderNumber} berhasil dibayar! Tim logistik Cetas akan menghubungi WhatsApp Anda untuk koordinasi pengiriman/setup.`
+            );
+            setCart({});
+            setIsCheckoutOpen(false);
+            setSimulatorData(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+

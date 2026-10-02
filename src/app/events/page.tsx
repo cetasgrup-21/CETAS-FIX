@@ -1,8 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Ticket, Calendar, MapPin, ShieldCheck, CheckCircle2 } from "lucide-react";
+import {
+  Ticket,
+  Calendar,
+  MapPin,
+  ShieldCheck,
+  CheckCircle2,
+  Printer,
+  Sparkles,
+  QrCode as QrIcon,
+  Download,
+} from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
+import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
 
 interface TicketTier {
   id: string;
@@ -20,6 +31,17 @@ interface EventItem {
   bannerUrl: string;
   description: string;
   tiers: TicketTier[];
+}
+
+interface IssuedTicket {
+  ticketCode: string;
+  eventName: string;
+  tierName: string;
+  holderName: string;
+  holderEmail: string;
+  date: string;
+  location: string;
+  qrDataUrl: string;
 }
 
 export default function EventsPage() {
@@ -59,14 +81,42 @@ export default function EventsPage() {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [isBuying, setIsBuying] = useState(false);
-  const [ticketSuccess, setTicketSuccess] = useState<string | null>(null);
+
+  // Digital Ticket Pass Modal
+  const [issuedTicket, setIssuedTicket] = useState<IssuedTicket | null>(null);
+
+  const generateTicketPass = async (
+    event: EventItem,
+    tier: TicketTier,
+    holderName: string,
+    holderEmail: string
+  ) => {
+    const ticketCode = `CETAS-TCK-${Math.floor(100000 + Math.random() * 900000)}`;
+    const qrString = createTicketQRString({
+      ticketCode,
+      eventId: event.id,
+      tierId: tier.id,
+      issuedAt: Date.now(),
+    });
+    const qrDataUrl = await generateQRCodeDataUrl(qrString);
+
+    setIssuedTicket({
+      ticketCode,
+      eventName: event.title,
+      tierName: tier.name,
+      holderName,
+      holderEmail,
+      date: event.date,
+      location: event.location,
+      qrDataUrl,
+    });
+  };
 
   const handleBuyTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTier) return;
 
     setIsBuying(true);
-    setTicketSuccess(null);
 
     try {
       const res = await fetch("/api/checkout", {
@@ -96,10 +146,13 @@ export default function EventsPage() {
 
       if (typeof window !== "undefined" && window.snap && data.snapToken) {
         window.snap.pay(data.snapToken, {
-          onSuccess: function (res: unknown) {
-            console.log("Success:", res);
-            setTicketSuccess(
-              `Pembayaran tiket ${data.orderNumber} berhasil! E-Tiket ber-QR code aman telah dikirimkan ke email ${buyerEmail}.`
+          onSuccess: async function (snapResult: unknown) {
+            console.log("Success:", snapResult);
+            await generateTicketPass(
+              selectedTier.event,
+              selectedTier.tier,
+              buyerName,
+              buyerEmail
             );
             setSelectedTier(null);
           },
@@ -108,8 +161,12 @@ export default function EventsPage() {
           },
         });
       } else {
-        setTicketSuccess(
-          `[Simulasi Sukses] E-Tiket ber-QR Code untuk pesanan ${data.orderNumber} berhasil diterbitkan!`
+        // Mode development simulasi sukses
+        await generateTicketPass(
+          selectedTier.event,
+          selectedTier.tier,
+          buyerName,
+          buyerEmail
         );
         setSelectedTier(null);
       }
@@ -127,7 +184,7 @@ export default function EventsPage() {
       <div className="max-w-3xl mb-10">
         <div className="inline-flex items-center gap-2 rounded-full bg-blue-100 dark:bg-blue-950/60 px-3.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2 border border-blue-200 dark:border-blue-800/60">
           <Ticket className="h-3.5 w-3.5" />
-          Cetas Ticketing • Sistem Tiket QR Digital Aman
+          Cetas Ticketing • Sistem Tiket Digital Ber-QR Aman
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
           Jelajah & Beli Tiket Event Resmi
@@ -136,18 +193,6 @@ export default function EventsPage() {
           Setiap e-tiket dilengkapi tanda tangan digital HMAC SHA-256 untuk memastikan keaslian tiket di pintu masuk gerbang (anti-calo & anti-duplikasi).
         </p>
       </div>
-
-      {ticketSuccess && (
-        <div className="mb-8 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-5 flex items-start gap-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-              Penerbitan E-Tiket Berhasil!
-            </h4>
-            <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">{ticketSuccess}</p>
-          </div>
-        </div>
-      )}
 
       {/* Events List */}
       <div className="space-y-12">
@@ -230,7 +275,7 @@ export default function EventsPage() {
         ))}
       </div>
 
-      {/* Buy Ticket Modal */}
+      {/* Buy Ticket Form Modal */}
       {selectedTier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800">
@@ -253,7 +298,6 @@ export default function EventsPage() {
             </div>
 
             <form onSubmit={handleBuyTicket} className="space-y-4">
-              {/* Jumlah Tiket */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Jumlah Tiket
@@ -276,7 +320,6 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {/* Data Pemilik Tiket */}
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -321,7 +364,6 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {/* Total & Action */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-500">Total Pembayaran Tiket</div>
@@ -339,6 +381,87 @@ export default function EventsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Official E-Ticket Pass Modal */}
+      {issuedTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+          <div className="relative w-full max-w-md rounded-3xl bg-slate-950 text-white p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header Ticket */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-white font-extrabold text-xs">
+                  C
+                </div>
+                <span className="font-black text-sm tracking-tight">
+                  CETAS OFFICIAL E-TICKET
+                </span>
+              </div>
+              <button
+                onClick={() => setIssuedTicket(null)}
+                className="text-slate-400 hover:text-white font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Ticket Card Body */}
+            <div className="space-y-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400">
+                  {issuedTicket.tierName}
+                </span>
+                <h3 className="text-lg font-black leading-tight mt-0.5">
+                  {issuedTicket.eventName}
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                <div>
+                  <span className="text-[10px] text-slate-400">Nama Tamu</span>
+                  <div className="font-bold">{issuedTicket.holderName}</div>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400">Kode Tiket</span>
+                  <div className="font-mono font-bold text-orange-400">
+                    {issuedTicket.ticketCode}
+                  </div>
+                </div>
+                <div className="col-span-2 pt-1 border-t border-slate-800">
+                  <span className="text-[10px] text-slate-400">Lokasi Acara</span>
+                  <div className="text-[11px] text-slate-300 font-medium">
+                    {issuedTicket.location}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic QR Code */}
+              <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white text-slate-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={issuedTicket.qrDataUrl}
+                  alt="Dynamic QR Code"
+                  className="h-44 w-44 object-contain"
+                />
+                <span className="text-[10px] font-mono font-bold text-slate-600 mt-1 flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                  HMAC-SHA256 SECURED PASS
+                </span>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold py-2.5 text-xs shadow-md transition"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Cetak / Simpan Tiket
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

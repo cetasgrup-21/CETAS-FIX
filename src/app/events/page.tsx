@@ -466,10 +466,31 @@ export default function EventsPage() {
               </button>
             </div>
 
+            {/* Ant-Man Thumbs Up Celebration Banner */}
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-950/70 border border-blue-500/40">
+              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-slate-900 border border-cyan-400/40 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/mascot/antman_thumbsup.png"
+                  alt="Anty Thumbs Up"
+                  className="h-11 w-11 object-contain"
+                />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-cyan-300 flex items-center gap-1">
+                  <span>Anty: Mantap! Tiket Berhasil Diterbitkan!</span>
+                  <span>👍</span>
+                </div>
+                <div className="text-[10px] text-slate-300">
+                  Tunjukkan kode QR di bawah ke petugas gerbang scanner saat masuk acara.
+                </div>
+              </div>
+            </div>
+
             {/* Ticket Card Body */}
             <div className="space-y-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
                   {issuedTicket.tierName}
                 </span>
                 <h3 className="text-lg font-black leading-tight mt-0.5">
@@ -484,7 +505,7 @@ export default function EventsPage() {
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400">Kode Tiket</span>
-                  <div className="font-mono font-bold text-orange-400">
+                  <div className="font-mono font-bold text-cyan-400">
                     {issuedTicket.ticketCode}
                   </div>
                 </div>
@@ -514,7 +535,7 @@ export default function EventsPage() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 font-bold py-2.5 text-xs shadow-md transition"
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 text-xs shadow-md transition"
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Cetak / Simpan Tiket

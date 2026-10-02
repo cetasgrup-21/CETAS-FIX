@@ -1627,7 +1627,7 @@ function VotePageContent() {
               </button>
               <button
                 onClick={() => setIssuedTicket(null)}
-                className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md"
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md"
               >
                 Selesai & Tutup ✓
               </button>

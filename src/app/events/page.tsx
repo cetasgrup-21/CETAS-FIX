@@ -16,6 +16,7 @@ import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
 import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
 import { UnifiedEvent } from "@/lib/events-unified-data";
+import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 
 interface TicketTier {
   id: string;
@@ -32,6 +33,7 @@ interface EventItem {
   location: string;
   bannerUrl: string;
   description: string;
+  themePreset?: EventThemePreset;
   tiers: TicketTier[];
 }
 
@@ -94,6 +96,7 @@ export default function EventsPage() {
               location: e.location,
               bannerUrl: e.bannerUrl,
               description: e.description,
+              themePreset: e.themePreset,
               tiers: e.tiers,
             }));
           if (ticketingEvents.length > 0) {
@@ -234,83 +237,92 @@ export default function EventsPage() {
 
       {/* Events List */}
       <div className="space-y-12">
-        {events.map((event) => (
-          <div
-            key={event.id}
-            className="overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
-              {/* Event Image */}
-              <div className="lg:col-span-5 relative h-64 lg:h-auto overflow-hidden bg-slate-100 dark:bg-slate-800">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={event.bannerUrl}
-                  alt={event.title}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* Event Details & Tiers */}
-              <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">
-                    <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                      <Calendar className="h-4 w-4" />
-                      {formatDate(event.date)}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                      {event.location}
+        {events.map((event) => {
+          const theme = getEventTheme(event.themePreset);
+          return (
+            <div
+              key={event.id}
+              className={`overflow-hidden rounded-3xl border-2 bg-white dark:bg-slate-900 shadow-sm transition-all hover:shadow-md ${theme.borderLightClass}`}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
+                {/* Event Image */}
+                <div className="lg:col-span-5 relative h-64 lg:h-auto overflow-hidden bg-slate-100 dark:bg-slate-800">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={event.bannerUrl}
+                    alt={event.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                    <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full shadow-sm backdrop-blur-md bg-slate-950/80 text-white border border-white/20 flex items-center gap-1.5`}>
+                      <span className={`h-2 w-2 rounded-full ${theme.bgGradient}`} />
+                      Tema: {theme.name.split(" ")[0]}
                     </span>
                   </div>
-
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-3">
-                    {event.title}
-                  </h2>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
-                    {event.description}
-                  </p>
                 </div>
 
-                {/* Ticket Tiers */}
-                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Pilihan Kategori Tiket
+                {/* Event Details & Tiers */}
+                <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">
+                      <span className={`flex items-center gap-1 font-bold ${theme.textClass}`}>
+                        <Calendar className="h-4 w-4" />
+                        {formatDate(event.date)}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4 text-slate-400" />
+                        {event.location}
+                      </span>
+                    </div>
+
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-3">
+                      {event.title}
+                    </h2>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                      {event.description}
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {event.tiers.map((tier) => (
-                      <div
-                        key={tier.id}
-                        className="rounded-2xl border border-slate-200 dark:border-slate-700/80 p-3.5 flex flex-col justify-between bg-slate-50/50 dark:bg-slate-800/40"
-                      >
-                        <div>
-                          <div className="text-xs font-black text-slate-900 dark:text-white">
-                            {tier.name}
-                          </div>
-                          <div className="text-sm font-black text-orange-600 dark:text-orange-400 mt-1">
-                            {formatRupiah(tier.price)}
-                          </div>
-                          <div className="text-[10px] text-slate-400 mt-1">
-                            Sisa kuota: {tier.quotaRemaining} tiket
-                          </div>
-                        </div>
+                  {/* Ticket Tiers */}
+                  <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      Pilihan Kategori Tiket
+                    </div>
 
-                        <button
-                          onClick={() => setSelectedTier({ event, tier })}
-                          className="mt-3 w-full rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-bold py-2 text-xs transition"
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {event.tiers.map((tier) => (
+                        <div
+                          key={tier.id}
+                          className="rounded-2xl border border-slate-200 dark:border-slate-700/80 p-3.5 flex flex-col justify-between bg-slate-50/50 dark:bg-slate-800/40"
                         >
-                          Pilih Tiket
-                        </button>
-                      </div>
-                    ))}
+                          <div>
+                            <div className="text-xs font-black text-slate-900 dark:text-white">
+                              {tier.name}
+                            </div>
+                            <div className={`text-sm font-black mt-1 ${theme.textClass}`}>
+                              {formatRupiah(tier.price)}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Sisa kuota: {tier.quotaRemaining} tiket
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => setSelectedTier({ event, tier })}
+                            className={`mt-3 w-full rounded-xl font-bold py-2 text-xs transition active:scale-95 shadow-sm ${theme.buttonClass}`}
+                          >
+                            Pilih Tiket
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Buy Ticket Form Modal */}

@@ -34,10 +34,12 @@ import {
   School,
   GraduationCap,
   Medal,
-  ChevronRight,
   FolderPlus,
   UserPlus,
+  Palette,
 } from "lucide-react";
+import { FileUpload } from "@/components/ui/file-upload";
+import { EVENT_THEME_PRESETS, getEventTheme, EventThemePreset } from "@/lib/event-theme";
 import { formatRupiah, formatDateTime } from "@/lib/utils";
 import {
   AdminUser,
@@ -133,6 +135,7 @@ export default function AdminDashboardPage() {
     title: "",
     organizer: "",
     category: "Kompetisi & LKBB",
+    themePreset: "FLAME" as EventThemePreset,
     date: "",
     time: "09:00 - 17:00 WIB",
     location: "",
@@ -384,6 +387,7 @@ export default function AdminDashboardPage() {
       title: "",
       organizer: "Cetas Official",
       category: "Kompetisi & LKBB",
+      themePreset: "FLAME" as EventThemePreset,
       date: new Date().toISOString().split("T")[0],
       time: "09:00 - 17:00 WIB",
       location: "Jakarta Convention Center",
@@ -416,6 +420,7 @@ export default function AdminDashboardPage() {
       title: ev.title,
       organizer: ev.organizer,
       category: ev.category,
+      themePreset: ev.themePreset || "FLAME",
       date: ev.date,
       time: ev.time,
       location: ev.location,
@@ -451,6 +456,7 @@ export default function AdminDashboardPage() {
       title: eventForm.title,
       organizer: eventForm.organizer,
       category: finalCategory,
+      themePreset: eventForm.themePreset,
       date: eventForm.date,
       time: eventForm.time,
       location: eventForm.location,
@@ -1648,80 +1654,108 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {eventsList.map((ev) => (
-              <div
-                key={ev.id}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                      {ev.category}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {ev.isOpenTicketing && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                          🎫 Tiket Aktif
-                        </span>
+            {eventsList.map((ev) => {
+              const theme = getEventTheme(ev.themePreset);
+              return (
+                <div
+                  key={ev.id}
+                    className={`rounded-3xl border-2 bg-white dark:bg-slate-900 overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md ${theme.borderLightClass}`}
+                  >
+                    {/* Event Banner & Theme Header Strip */}
+                    <div className="relative h-28 w-full bg-slate-950 overflow-hidden">
+                      {ev.bannerUrl ? (
+                        <img
+                          src={ev.bannerUrl}
+                          alt={ev.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className={`w-full h-full ${theme.bgGradient} opacity-80`} />
                       )}
-                      {ev.isOpenOnlineRegistration && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                          🟢 RSVP Online
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-md bg-white/90 text-slate-900`}>
+                          {ev.category}
                         </span>
-                      )}
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                        {ev.status}
-                      </span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm bg-slate-950/80 text-white border border-white/20 flex items-center gap-1">
+                          <span className={`h-2 w-2 rounded-full ${theme.bgGradient}`} />
+                          Tema: {theme.name.split(" ")[0]}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">
+                            By {ev.organizer}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {ev.isOpenTicketing && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                🎫 Tiket Aktif
+                              </span>
+                            )}
+                            {ev.isOpenOnlineRegistration && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                🟢 RSVP Online
+                              </span>
+                            )}
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                              {ev.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white leading-snug">
+                          {ev.title}
+                        </h4>
+                        <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> {ev.date}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" /> {ev.location}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
+                          {ev.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                          {ev.isOpenTicketing
+                            ? `${ev.tiers?.length || 0} Tier Tiket`
+                            : "Registrasi Peserta"}
+                        </div>
+
+                        {canManageEvents && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenEditEvent(ev)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 text-xs font-bold transition"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                              Edit Event
+                            </button>
+                            {isSuperAdmin && (
+                              <button
+                                onClick={() => handleDeleteEvent(ev.id)}
+                                title="Hapus Event"
+                                className="p-1.5 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950 rounded-lg transition"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white leading-snug">
-                    {ev.title}
-                  </h4>
-                  <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" /> {ev.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {ev.location}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
-                    {ev.description}
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                    {ev.isOpenTicketing
-                      ? `${ev.tiers?.length || 0} Tier Tiket`
-                      : "Registrasi Peserta"}
-                  </div>
-
-                  {canManageEvents && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleOpenEditEvent(ev)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 text-xs font-bold transition"
-                      >
-                        <Edit3 className="h-3 w-3" />
-                        Edit Event
-                      </button>
-                      {isSuperAdmin && (
-                        <button
-                          onClick={() => handleDeleteEvent(ev.id)}
-                          title="Hapus Event"
-                          className="p-1.5 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950 rounded-lg transition"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+                );
+              })}
           </div>
         </div>
       )}
@@ -2330,17 +2364,16 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  URL Foto Profil Peserta
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
+                <FileUpload
+                  label="Foto Profil Peserta (Upload Langsung)"
+                  description="Upload foto potret resmi peserta voting (Format PNG, JPG, WEBP)"
+                  accept="image/*"
                   value={candidateForm.photoUrl}
-                  onChange={(e) =>
-                    setCandidateForm({ ...candidateForm, photoUrl: e.target.value })
+                  onChange={(dataUrl) =>
+                    setCandidateForm({ ...candidateForm, photoUrl: dataUrl })
                   }
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
+                  aspectRatio="square"
+                  required
                 />
               </div>
 
@@ -2719,6 +2752,65 @@ export default function AdminDashboardPage() {
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
                   />
                 </div>
+
+                {/* UPLOAD BANNER POSTER EVENT */}
+                <div className="sm:col-span-2">
+                  <FileUpload
+                    label="Banner Poster Acara (Upload Gambar)"
+                    description="Upload poster atau flyer resmi acara (Rasio 16:9 disarankan, format PNG, JPG, WEBP)"
+                    accept="image/*"
+                    value={eventForm.bannerUrl}
+                    onChange={(dataUrl) => setEventForm({ ...eventForm, bannerUrl: dataUrl })}
+                    aspectRatio="banner"
+                    required
+                  />
+                </div>
+
+                {/* PILIH TEMA TAMPILAN EVENT */}
+                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Palette className="h-4 w-4 text-orange-500" />
+                      Pilih Tema Tampilan Event (Warna & Aksen) *
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      Mempengaruhi kartu, banner, dan aksen e-tiket event
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {Object.values(EVENT_THEME_PRESETS).map((t) => {
+                      const isSelected = eventForm.themePreset === t.id;
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => setEventForm({ ...eventForm, themePreset: t.id })}
+                          className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                            isSelected
+                              ? `${t.borderClass} ${t.bgSoftClass} shadow-md scale-[1.02]`
+                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className={`h-4 w-10 rounded-full ${t.bgGradient}`} />
+                            {isSelected && (
+                              <span className="text-[10px] bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-extrabold px-1.5 py-0.2 rounded-full">
+                                Dipilih ✓
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+                              {t.name}
+                            </div>
+                            <div className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                              {t.tagline}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -2809,6 +2901,19 @@ export default function AdminDashboardPage() {
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
                   />
                 </div>
+              </div>
+
+              <div>
+                <FileUpload
+                  label="Foto Produk / Peralatan (Upload Gambar)"
+                  description="Upload foto visual produk atau alat rental (Format PNG, JPG, WEBP)"
+                  accept="image/*"
+                  value={productForm.imageUrl}
+                  onChange={(dataUrl) =>
+                    setProductForm({ ...productForm, imageUrl: dataUrl })
+                  }
+                  aspectRatio="square"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">

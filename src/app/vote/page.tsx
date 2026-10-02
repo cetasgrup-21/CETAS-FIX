@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Award, Zap, CheckCircle2, ShieldCheck, Heart, Users, Sparkles, School, GraduationCap, Medal, Calendar, ChevronRight } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
+import { getEventTheme } from "@/lib/event-theme";
 import {
   INITIAL_EVENT_VOTINGS,
   EventVotingConfig,
@@ -53,6 +54,8 @@ export default function VotePage() {
 
   const activeEvent =
     eventVotings.find((e) => e.eventId === selectedEventId) || eventVotings[0];
+
+  const theme = getEventTheme(activeEvent?.themePreset);
 
   const activeCategory =
     activeEvent.categories.find((c) => c.id === selectedCategoryId) ||
@@ -198,8 +201,8 @@ export default function VotePage() {
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
       {/* Header Banner */}
       <div className="text-center max-w-3xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 dark:bg-orange-950/70 px-4 py-1.5 text-xs font-bold text-orange-800 dark:text-orange-300 border border-orange-300 dark:border-orange-800">
-          <Award className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold border transition shadow-sm ${theme.badgeClass}`}>
+          <Award className="h-4 w-4" />
           Sistem E-Voting Terpadu Cetas Vote
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -227,27 +230,35 @@ export default function VotePage() {
         </div>
 
         <div className="flex items-center gap-3 overflow-x-auto pb-1">
-          {eventVotings.map((ev) => (
-            <button
-              key={ev.eventId}
-              onClick={() => setSelectedEventId(ev.eventId)}
-              className={`px-4 py-3 rounded-2xl border text-left transition shrink-0 flex items-center gap-3 ${
-                ev.eventId === activeEvent.eventId
-                  ? "border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 ring-2 ring-orange-500/20 shadow-sm"
-                  : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:border-slate-300"
-              }`}
-            >
-              <div className="h-10 w-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black text-sm shrink-0">
-                <Award className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
-                  {ev.eventTitle}
+          {eventVotings.map((ev) => {
+            const evTheme = getEventTheme(ev.themePreset);
+            const isActive = ev.eventId === activeEvent.eventId;
+            return (
+              <button
+                key={ev.eventId}
+                onClick={() => setSelectedEventId(ev.eventId)}
+                className={`px-4 py-3 rounded-2xl border text-left transition shrink-0 flex items-center gap-3 ${
+                  isActive
+                    ? `${evTheme.borderClass} ${evTheme.bgSoftClass} ring-2 ring-opacity-20 shadow-sm scale-[1.01]`
+                    : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:border-slate-300"
+                }`}
+              >
+                <div className={`h-10 w-10 rounded-xl text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm ${evTheme.bgGradient}`}>
+                  <Award className="h-5 w-5" />
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{ev.eventDate}</div>
-              </div>
-            </button>
-          ))}
+                <div>
+                  <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
+                    {ev.eventTitle}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                    <span>{ev.eventDate}</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                    <span className={`font-semibold ${evTheme.textClass}`}>{evTheme.name.split(" ")[0]}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -280,7 +291,7 @@ export default function VotePage() {
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={`px-4 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 border ${
                   isSelected
-                    ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-950 dark:border-white shadow-md scale-[1.02]"
+                    ? `${theme.buttonClass} shadow-md scale-[1.02]`
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                 }`}
               >
@@ -289,7 +300,7 @@ export default function VotePage() {
                 <span
                   className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                     isSelected
-                      ? "bg-orange-500 text-white"
+                      ? "bg-black/20 text-white"
                       : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                   }`}
                 >
@@ -388,7 +399,7 @@ export default function VotePage() {
                     {/* Progress Bar Suara */}
                     <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-orange-500 to-amber-400 h-full rounded-full transition-all duration-500"
+                        className={`h-full rounded-full transition-all duration-500 ${theme.bgGradient}`}
                         style={{ width: `${Math.max(percentage, 5)}%` }}
                       />
                     </div>
@@ -401,7 +412,7 @@ export default function VotePage() {
                         setVoteCount(5);
                         setVoteStatus(null);
                       }}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold py-2.5 text-xs shadow-md transition active:scale-95"
+                      className={`w-full inline-flex items-center justify-center gap-2 rounded-xl font-extrabold py-2.5 text-xs shadow-md transition active:scale-95 ${theme.buttonClass}`}
                     >
                       <Heart className="h-4 w-4" />
                       Vote #{cand.candidateNumber} {cand.name}

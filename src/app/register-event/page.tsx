@@ -25,6 +25,7 @@ import {
   RegisteredAttendee,
 } from "@/lib/events-registration-data";
 import { generateQRCodeDataUrl } from "@/lib/ticket-security";
+import { FileUpload } from "@/components/ui/file-upload";
 
 export default function RegisterEventPage() {
   const [events, setEvents] = useState<EventRegistrationItem[]>(INITIAL_REGISTRATION_EVENTS);
@@ -588,15 +589,13 @@ export default function RegisterEventPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Link Berkas / Portofolio / KTM (Opsional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://drive.google.com/..."
+                      <FileUpload
+                        label="Upload Berkas / KTM / Portofolio (Opsional)"
+                        description="Format didukung: PDF, JPG, PNG (Maksimal 10MB)"
+                        accept=".pdf,image/*"
                         value={form.portfolioUrl}
-                        onChange={(e) => setForm({ ...form, portfolioUrl: e.target.value })}
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        onChange={(dataUrl) => setForm({ ...form, portfolioUrl: dataUrl })}
+                        aspectRatio="document"
                       />
                     </div>
                   </div>

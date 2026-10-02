@@ -1,3 +1,5 @@
+import { EventThemePreset } from "./event-theme";
+
 export interface UnifiedTicketTier {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export interface UnifiedEvent {
   title: string;
   organizer: string;
   category: string;
+  themePreset?: EventThemePreset;
   date: string;
   time: string;
   location: string;
@@ -41,6 +44,7 @@ export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
     title: "Cetas SoundFest 2026: Live Music & Creative Carnival",
     organizer: "Nada Kita Entertainment x Cetas Production",
     category: "CONCERT",
+    themePreset: "CYBER",
     date: "2026-11-20",
     time: "15:00 - 23:00 WIB",
     location: "Stadion Madya GBK, Senayan, Jakarta",
@@ -69,6 +73,7 @@ export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
     title: "Workshop Nasional: Desain UI/UX & Generative AI 2026",
     organizer: "Cetas Tech x Google Developer Community",
     category: "WORKSHOP",
+    themePreset: "SAPPHIRE",
     date: "2026-11-15",
     time: "09:00 - 16:30 WIB",
     location: "Jakarta Creative Hub (Lt. 4) & Live Stream",
@@ -106,6 +111,7 @@ export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
     title: "Cetas National Tech Hackathon 2026",
     organizer: "Cetas Ecosystem & BEM Fasilkom",
     category: "HACKATHON",
+    themePreset: "EMERALD",
     date: "2026-11-28",
     time: "48 Jam Non-stop (Mulai 08:00 WIB)",
     location: "Indonesia Convention Exhibition (ICE) BSD City",

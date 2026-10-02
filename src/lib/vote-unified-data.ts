@@ -18,11 +18,14 @@ export interface VoteCategory {
   candidates: VoteCandidate[];
 }
 
+import { EventThemePreset } from "./event-theme";
+
 export interface EventVotingConfig {
   eventId: string;
   eventTitle: string;
   eventDate: string;
   bannerUrl: string;
+  themePreset?: EventThemePreset;
   categories: VoteCategory[];
 }
 
@@ -32,6 +35,7 @@ export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
     eventTitle: "Grand Final Pemilihan Duta Pelajar & Pemuda Cetas 2026",
     eventDate: "15 - 20 November 2026",
     bannerUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+    themePreset: "GOLDEN",
     categories: [
       {
         id: "cat-smp",
@@ -157,6 +161,7 @@ export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
     eventTitle: "Cetas SoundFest & Band Talent Competition 2026",
     eventDate: "20 - 25 Desember 2026",
     bannerUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80",
+    themePreset: "CYBER",
     categories: [
       {
         id: "cat-band-smp",

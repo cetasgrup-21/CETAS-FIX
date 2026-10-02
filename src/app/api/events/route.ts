@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       title: body.title,
       organizer: body.organizer || "Cetas Event Organizer",
       category: body.category || "WORKSHOP",
+      themePreset: body.themePreset || "FLAME",
       date: body.date,
       time: body.time || "09:00 - 17:00 WIB",
       location: body.location || "Jakarta",

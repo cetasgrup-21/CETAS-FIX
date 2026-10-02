@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send, CheckCircle2, AlertCircle, Sparkles, Megaphone } from "lucide-react";
+import { FileUpload } from "@/components/ui/file-upload";
 
 export default function AjukanEventPage() {
   const [formData, setFormData] = useState({
@@ -223,15 +224,13 @@ export default function AjukanEventPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Link Dokumen Proposal / TOR (Google Drive / Dropbox)
-              </label>
-              <input
-                type="url"
-                placeholder="https://drive.google.com/..."
+              <FileUpload
+                label="Dokumen Proposal / TOR Event (Upload File)"
+                description="Upload file proposal acara (Format PDF, DOC, DOCX, ZIP)"
+                accept=".pdf,.doc,.docx,.zip,application/pdf"
                 value={formData.proposalFileUrl}
-                onChange={(e) => setFormData({ ...formData, proposalFileUrl: e.target.value })}
-                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                onChange={(dataUrl) => setFormData({ ...formData, proposalFileUrl: dataUrl })}
+                aspectRatio="document"
               />
             </div>
           </div>

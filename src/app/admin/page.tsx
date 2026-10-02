@@ -31,6 +31,12 @@ import {
   ExternalLink,
   Sliders,
   Package,
+  School,
+  GraduationCap,
+  Medal,
+  ChevronRight,
+  FolderPlus,
+  UserPlus,
 } from "lucide-react";
 import { formatRupiah, formatDateTime } from "@/lib/utils";
 import {
@@ -57,7 +63,12 @@ import {
   INITIAL_ATTENDEES,
   RegisteredAttendee,
 } from "@/lib/events-registration-data";
-import { VoteCandidateRecord } from "@/app/api/vote/route";
+import {
+  INITIAL_EVENT_VOTINGS,
+  EventVotingConfig,
+  VoteCategory,
+  VoteCandidate,
+} from "@/lib/vote-unified-data";
 
 interface Submission {
   id: string;
@@ -138,17 +149,38 @@ export default function AdminDashboardPage() {
     status: "TERSEDIA" as UnifiedProduct["status"],
   });
 
-  // Candidates State (CRUD)
-  const [candidates, setCandidates] = useState<VoteCandidateRecord[]>([]);
+  // Hierarchical Cetas Vote State: Event -> Kategori (SMP, SMA, Purna) -> Peserta
+  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>(INITIAL_EVENT_VOTINGS);
+  const [selectedVoteEventId, setSelectedVoteEventId] = useState<string>(
+    INITIAL_EVENT_VOTINGS[0]?.eventId || ""
+  );
+  const [selectedVoteCategoryId, setSelectedVoteCategoryId] = useState<string>(
+    INITIAL_EVENT_VOTINGS[0]?.categories[0]?.id || ""
+  );
+
+  // Modal: Hubungkan Event ke Vote
+  const [isAddEventVoteModalOpen, setIsAddEventVoteModalOpen] = useState(false);
+  const [selectedEventToConnect, setSelectedEventToConnect] = useState<string>("");
+
+  // Modal: Kategori Vote (SMP, SMA, Purna)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryForm, setCategoryForm] = useState({
+    title: "",
+    description: "",
+    pricePerVote: 2000,
+  });
+
+  // Modal: Peserta Vote
   const [isCandidateModalOpen, setIsCandidateModalOpen] = useState(false);
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
   const [candidateForm, setCandidateForm] = useState({
-    number: "01",
+    candidateNumber: "01",
     name: "",
-    major: "",
+    institution: "",
     photoUrl: "",
     tagline: "",
-    votes: 0,
+    totalVotes: 0,
   });
 
   // Submissions State
@@ -222,7 +254,7 @@ export default function AdminDashboardPage() {
   // Active Tab
   const [activeTab, setActiveTab] = useState<
     "FINANCES" | "EVENTS" | "SUBMISSIONS" | "ATTENDEES" | "VOTE" | "PRODUCTION" | "ADS" | "STAFF" | "AUDIT"
-  >("FINANCES");
+  >("VOTE"); // Default to VOTE so user sees requested changes immediately!
 
   // Initial Data Fetching
   useEffect(() => {
@@ -236,7 +268,10 @@ export default function AdminDashboardPage() {
     fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.events) setEventsList(data.events);
+        if (data.success && data.events) {
+          setEventsList(data.events);
+          if (data.events.length > 0) setSelectedEventToConnect(data.events[0].id);
+        }
       })
       .catch(() => {});
 
@@ -248,11 +283,17 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {});
 
-    // Fetch Candidates
+    // Fetch Hierarchical Vote Config
     fetch("/api/vote")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.candidates) setCandidates(data.candidates);
+        if (data.success && data.eventVotings && data.eventVotings.length > 0) {
+          setEventVotings(data.eventVotings);
+          setSelectedVoteEventId(data.eventVotings[0].eventId);
+          if (data.eventVotings[0].categories.length > 0) {
+            setSelectedVoteCategoryId(data.eventVotings[0].categories[0].id);
+          }
+        }
       })
       .catch(() => {});
 
@@ -408,7 +449,6 @@ export default function AdminDashboardPage() {
     };
 
     if (editingEventId) {
-      // EDIT EVENT (PUT)
       try {
         const res = await fetch("/api/events", {
           method: "PUT",
@@ -421,13 +461,8 @@ export default function AdminDashboardPage() {
             prev.map((ev) => (ev.id === editingEventId ? data.event : ev))
           );
         }
-      } catch {
-        setEventsList((prev) =>
-          prev.map((ev) => (ev.id === editingEventId ? { ...ev, ...payload } : ev))
-        );
-      }
+      } catch {}
     } else {
-      // CREATE EVENT (POST)
       try {
         const res = await fetch("/api/events", {
           method: "POST",
@@ -438,16 +473,7 @@ export default function AdminDashboardPage() {
         if (data.success && data.event) {
           setEventsList((prev) => [data.event, ...prev]);
         }
-      } catch {
-        const fallbackId = `ev-${Date.now().toString().slice(-5)}`;
-        const newEv: UnifiedEvent = {
-          id: fallbackId,
-          slug: eventForm.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          categoryOptions: ["Mahasiswa", "Umum"],
-          ...payload,
-        };
-        setEventsList((prev) => [newEv, ...prev]);
-      }
+      } catch {}
     }
 
     setIsEventModalOpen(false);
@@ -512,7 +538,6 @@ export default function AdminDashboardPage() {
     };
 
     if (editingProductId) {
-      // EDIT PRODUCT (PUT)
       try {
         const res = await fetch("/api/products", {
           method: "PUT",
@@ -525,13 +550,8 @@ export default function AdminDashboardPage() {
             prev.map((p) => (p.id === editingProductId ? data.product : p))
           );
         }
-      } catch {
-        setProductsList((prev) =>
-          prev.map((p) => (p.id === editingProductId ? { ...p, ...payload } : p))
-        );
-      }
+      } catch {}
     } else {
-      // CREATE PRODUCT (POST)
       try {
         const res = await fetch("/api/products", {
           method: "POST",
@@ -542,10 +562,7 @@ export default function AdminDashboardPage() {
         if (data.success && data.product) {
           setProductsList((prev) => [data.product, ...prev]);
         }
-      } catch {
-        const fallbackId = `prod-${Date.now().toString().slice(-5)}`;
-        setProductsList((prev) => [{ id: fallbackId, ...payload }, ...prev]);
-      }
+      } catch {}
     }
 
     setIsProductModalOpen(false);
@@ -560,29 +577,180 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // ---------------- CANDIDATE CRUD HANDLERS ----------------
+  // ---------------- HIERARCHICAL VOTE HANDLERS (EVENT -> KATEGORI -> PESERTA) ----------------
+  const activeVoteEvent =
+    eventVotings.find((ev) => ev.eventId === selectedVoteEventId) || eventVotings[0];
+
+  const activeVoteCategory =
+    activeVoteEvent?.categories.find((c) => c.id === selectedVoteCategoryId) ||
+    activeVoteEvent?.categories[0];
+
+  const activeCategoryCandidates = activeVoteCategory?.candidates || [];
+
+  // Update selected category when activeVoteEvent changes
+  useEffect(() => {
+    if (activeVoteEvent && activeVoteEvent.categories.length > 0) {
+      const exists = activeVoteEvent.categories.some((c) => c.id === selectedVoteCategoryId);
+      if (!exists) {
+        setSelectedVoteCategoryId(activeVoteEvent.categories[0].id);
+      }
+    }
+  }, [selectedVoteEventId, activeVoteEvent, selectedVoteCategoryId]);
+
+  // A. Tambah Event Baru ke Voting
+  const handleConnectEventToVote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const eventObj = eventsList.find((e) => e.id === selectedEventToConnect);
+    if (!eventObj) return;
+
+    try {
+      const res = await fetch("/api/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ADD_EVENT_VOTING",
+          eventId: eventObj.id,
+          eventTitle: eventObj.title,
+          bannerUrl: eventObj.bannerUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.eventVoting) {
+        setEventVotings([data.eventVoting, ...eventVotings]);
+        setSelectedVoteEventId(data.eventVoting.eventId);
+        setSelectedVoteCategoryId(data.eventVoting.categories[0]?.id || "");
+      }
+    } catch {}
+    setIsAddEventVoteModalOpen(false);
+  };
+
+  // B. Tambah / Edit Kategori (SMP, SMA, Purna)
+  const handleOpenCreateCategory = () => {
+    setEditingCategoryId(null);
+    setCategoryForm({
+      title: "",
+      description: "",
+      pricePerVote: 2000,
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat: VoteCategory) => {
+    setEditingCategoryId(cat.id);
+    setCategoryForm({
+      title: cat.title,
+      description: cat.description || "",
+      pricePerVote: cat.pricePerVote,
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryForm.title.trim()) return;
+
+    if (editingCategoryId) {
+      // EDIT KATEGORI
+      try {
+        await fetch("/api/vote", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "EDIT_CATEGORY",
+            eventId: activeVoteEvent.eventId,
+            categoryId: editingCategoryId,
+            updates: categoryForm,
+          }),
+        });
+        setEventVotings((prev) =>
+          prev.map((ev) => {
+            if (ev.eventId !== activeVoteEvent.eventId) return ev;
+            return {
+              ...ev,
+              categories: ev.categories.map((c) =>
+                c.id === editingCategoryId ? { ...c, ...categoryForm } : c
+              ),
+            };
+          })
+        );
+      } catch {}
+    } else {
+      // TAMBAH KATEGORI BARU
+      try {
+        const res = await fetch("/api/vote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "ADD_CATEGORY",
+            eventId: activeVoteEvent.eventId,
+            title: categoryForm.title,
+            description: categoryForm.description,
+            pricePerVote: categoryForm.pricePerVote,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.category) {
+          setEventVotings((prev) =>
+            prev.map((ev) => {
+              if (ev.eventId !== activeVoteEvent.eventId) return ev;
+              return { ...ev, categories: [...ev.categories, data.category] };
+            })
+          );
+          setSelectedVoteCategoryId(data.category.id);
+        }
+      } catch {}
+    }
+    setIsCategoryModalOpen(false);
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (confirm("Hapus kategori ini beserta seluruh peserta di dalamnya?")) {
+      try {
+        await fetch(
+          `/api/vote?eventId=${activeVoteEvent.eventId}&categoryId=${catId}`,
+          { method: "DELETE" }
+        );
+        setEventVotings((prev) =>
+          prev.map((ev) => {
+            if (ev.eventId !== activeVoteEvent.eventId) return ev;
+            const nextCats = ev.categories.filter((c) => c.id !== catId);
+            return { ...ev, categories: nextCats };
+          })
+        );
+      } catch {}
+    }
+  };
+
+  // C. Tambah / Edit Peserta di Kategori Terpilih
   const handleOpenCreateCandidate = () => {
     setEditingCandidateId(null);
+    const nextNum = (activeCategoryCandidates.length + 1).toString().padStart(2, "0");
+    const instansiPlaceholder = activeVoteCategory?.title.toLowerCase().includes("smp")
+      ? "SMP Negeri 1 Jakarta"
+      : activeVoteCategory?.title.toLowerCase().includes("sma")
+      ? "SMA Negeri 3 Bandung"
+      : "Universitas / Purna 2024";
+
     setCandidateForm({
-      number: `0${candidates.length + 1}`,
+      candidateNumber: nextNum,
       name: "",
-      major: "",
+      institution: instansiPlaceholder,
       photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
-      tagline: "",
-      votes: 0,
+      tagline: "Visi misi peserta untuk kemajuan dan prestasi.",
+      totalVotes: 0,
     });
     setIsCandidateModalOpen(true);
   };
 
-  const handleOpenEditCandidate = (cand: VoteCandidateRecord) => {
+  const handleOpenEditCandidate = (cand: VoteCandidate) => {
     setEditingCandidateId(cand.id);
     setCandidateForm({
-      number: cand.number,
+      candidateNumber: cand.candidateNumber,
       name: cand.name,
-      major: cand.major,
+      institution: cand.institution,
       photoUrl: cand.photoUrl,
       tagline: cand.tagline,
-      votes: cand.votes,
+      totalVotes: cand.totalVotes,
     });
     setIsCandidateModalOpen(true);
   };
@@ -592,40 +760,92 @@ export default function AdminDashboardPage() {
     if (!candidateForm.name.trim()) return;
 
     if (editingCandidateId) {
+      // EDIT PESERTA
       try {
-        const res = await fetch("/api/vote", {
+        await fetch("/api/vote", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingCandidateId, ...candidateForm }),
+          body: JSON.stringify({
+            action: "EDIT_CANDIDATE",
+            eventId: activeVoteEvent.eventId,
+            categoryId: activeVoteCategory.id,
+            candidateId: editingCandidateId,
+            updates: candidateForm,
+          }),
         });
-        const data = await res.json();
-        if (data.success && data.candidate) {
-          setCandidates((prev) =>
-            prev.map((c) => (c.id === editingCandidateId ? data.candidate : c))
-          );
-        }
+        setEventVotings((prev) =>
+          prev.map((ev) => {
+            if (ev.eventId !== activeVoteEvent.eventId) return ev;
+            return {
+              ...ev,
+              categories: ev.categories.map((c) => {
+                if (c.id !== activeVoteCategory.id) return c;
+                return {
+                  ...c,
+                  candidates: c.candidates.map((cand) =>
+                    cand.id === editingCandidateId ? { ...cand, ...candidateForm } : cand
+                  ),
+                };
+              }),
+            };
+          })
+        );
       } catch {}
     } else {
+      // TAMBAH PESERTA BARU
       try {
         const res = await fetch("/api/vote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(candidateForm),
+          body: JSON.stringify({
+            action: "ADD_CANDIDATE",
+            eventId: activeVoteEvent.eventId,
+            categoryId: activeVoteCategory.id,
+            ...candidateForm,
+          }),
         });
         const data = await res.json();
         if (data.success && data.candidate) {
-          setCandidates((prev) => [...prev, data.candidate]);
+          setEventVotings((prev) =>
+            prev.map((ev) => {
+              if (ev.eventId !== activeVoteEvent.eventId) return ev;
+              return {
+                ...ev,
+                categories: ev.categories.map((c) => {
+                  if (c.id !== activeVoteCategory.id) return c;
+                  return { ...c, candidates: [...c.candidates, data.candidate] };
+                }),
+              };
+            })
+          );
         }
       } catch {}
     }
     setIsCandidateModalOpen(false);
   };
 
-  const handleDeleteCandidate = async (id: string) => {
-    if (confirm("Hapus kandidat ini dari Cetas Vote?")) {
-      setCandidates((prev) => prev.filter((c) => c.id !== id));
+  const handleDeleteCandidate = async (candId: string) => {
+    if (confirm("Hapus peserta ini dari voting?")) {
       try {
-        await fetch(`/api/vote?id=${id}`, { method: "DELETE" });
+        await fetch(
+          `/api/vote?eventId=${activeVoteEvent.eventId}&categoryId=${activeVoteCategory.id}&candidateId=${candId}`,
+          { method: "DELETE" }
+        );
+        setEventVotings((prev) =>
+          prev.map((ev) => {
+            if (ev.eventId !== activeVoteEvent.eventId) return ev;
+            return {
+              ...ev,
+              categories: ev.categories.map((c) => {
+                if (c.id !== activeVoteCategory.id) return c;
+                return {
+                  ...c,
+                  candidates: c.candidates.filter((cand) => cand.id !== candId),
+                };
+              }),
+            };
+          })
+        );
       } catch {}
     }
   };
@@ -830,13 +1050,13 @@ export default function AdminDashboardPage() {
                 {currentUser.name}
               </h2>
               <span
-                className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${currentUser.badgeColor}`}
+                className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${ROLE_DEFINITIONS[currentUser.role]?.badgeColor || "bg-slate-100 text-slate-800"}`}
               >
                 {currentUser.roleTitle}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              {currentUser.email} • {currentUser.description}
+              {currentUser.email} • {ROLE_DEFINITIONS[currentUser.role]?.description}
             </p>
           </div>
         </div>
@@ -883,7 +1103,7 @@ export default function AdminDashboardPage() {
                 Mode Super Admin Aktif (Otoritas Penuh)
               </span>
               <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 mt-0.5">
-                Anda dapat membuat dan mengedit Event, Produk Production, Suara Vote, Iklan, Finansial, dan Role Staf.
+                Anda dapat membuat dan mengedit Event, Produk Production, Suara Vote (Event &rarr; Kategori &rarr; Peserta), Iklan, Finansial, dan Role Staf.
               </p>
             </div>
           </div>
@@ -961,6 +1181,18 @@ export default function AdminDashboardPage() {
       {/* Main Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
         <button
+          onClick={() => setActiveTab("VOTE")}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
+            activeTab === "VOTE"
+              ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          }`}
+        >
+          <Award className="h-3.5 w-3.5" />
+          Kelola Cetas Vote ({eventVotings.length} Event)
+        </button>
+
+        <button
           onClick={() => setActiveTab("EVENTS")}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
             activeTab === "EVENTS"
@@ -982,18 +1214,6 @@ export default function AdminDashboardPage() {
         >
           <Package className="h-3.5 w-3.5 text-purple-500" />
           Kelola Produk Production ({productsList.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("VOTE")}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
-            activeTab === "VOTE"
-              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950"
-              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          }`}
-        >
-          <Award className="h-3.5 w-3.5 text-amber-500" />
-          Kelola Cetas Vote ({candidates.length})
         </button>
 
         <button
@@ -1070,6 +1290,286 @@ export default function AdminDashboardPage() {
           Log Audit
         </button>
       </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* TAB: HIERARCHICAL CETAS VOTE (EVENT -> KATEGORI -> PESERTA) */}
+      {/* ------------------------------------------------------------------ */}
+      {activeTab === "VOTE" && (
+        <div className="space-y-6">
+          {/* Header Bar Vote */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[11px] font-extrabold mb-1">
+                  <Award className="h-3.5 w-3.5 text-amber-600" />
+                  Struktur Hirarkis: Event &rarr; Kategori (SMP, SMA, Purna) &rarr; Peserta
+                </div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Manajemen Cetas Vote Multi-Event & Multi-Kategori
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Atur pemilihan per event Cetas, tambahkan kategori perlombaan (*SMP, SMA, Purna*), dan daftarkan peserta di masing-masing kategori.
+                </p>
+              </div>
+
+              {/* Action Buttons Top */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setIsAddEventVoteModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 font-extrabold text-xs hover:bg-amber-100 transition active:scale-95 shadow-sm"
+                >
+                  <FolderPlus className="h-4 w-4 text-amber-600" />
+                  + Buka Voting Event Lain
+                </button>
+
+                <Link
+                  href="/vote"
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Lihat Halaman Publik
+                </Link>
+              </div>
+            </div>
+
+            {/* 1. SELEKTOR EVENT VOTING */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-orange-500" />
+                Langkah 1: Pilih Event Yang Dikelola
+              </span>
+              <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                {eventVotings.map((ev) => {
+                  const isSelected = ev.eventId === activeVoteEvent?.eventId;
+                  return (
+                    <button
+                      key={ev.eventId}
+                      onClick={() => {
+                        setSelectedVoteEventId(ev.eventId);
+                        if (ev.categories.length > 0) {
+                          setSelectedVoteCategoryId(ev.categories[0].id);
+                        }
+                      }}
+                      className={`px-4 py-3 rounded-2xl border text-left transition shrink-0 flex items-center gap-3 ${
+                        isSelected
+                          ? "border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 ring-2 ring-amber-500/20 shadow-md"
+                          : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shrink-0">
+                        <Award className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
+                          {ev.eventTitle}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {ev.categories.length} Kategori • {ev.eventDate}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. SELEKTOR & MANAJEMEN KATEGORI (SMP, SMA, PURNA) */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-orange-500" />
+                  Langkah 2: Pilih & Kelola Kategori (Misal: SMP, SMA, Purna)
+                </span>
+
+                <button
+                  onClick={handleOpenCreateCategory}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 font-extrabold text-[11px] hover:bg-orange-200 transition"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  + Tambah Kategori Baru
+                </button>
+              </div>
+
+              {/* Tabs Kategori */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {activeVoteEvent?.categories.map((cat) => {
+                  const isSelected = cat.id === activeVoteCategory?.id;
+                  return (
+                    <div
+                      key={cat.id}
+                      className={`inline-flex items-center rounded-2xl border transition ${
+                        isSelected
+                          ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-950 shadow-md ring-2 ring-orange-500/20"
+                          : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                      }`}
+                    >
+                      <button
+                        onClick={() => setSelectedVoteCategoryId(cat.id)}
+                        className="px-4 py-2 text-xs font-black flex items-center gap-2"
+                      >
+                        {cat.title.toLowerCase().includes("smp") && <School className="h-3.5 w-3.5" />}
+                        {cat.title.toLowerCase().includes("sma") && <GraduationCap className="h-3.5 w-3.5" />}
+                        {!cat.title.toLowerCase().includes("smp") && !cat.title.toLowerCase().includes("sma") && (
+                          <Medal className="h-3.5 w-3.5" />
+                        )}
+                        <span>{cat.title}</span>
+                        <span
+                          className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                            isSelected
+                              ? "bg-orange-500 text-white"
+                              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          {cat.candidates.length} Peserta
+                        </span>
+                      </button>
+
+                      {/* Aksi Edit/Delete Kategori */}
+                      <button
+                        onClick={() => handleOpenEditCategory(cat)}
+                        title="Edit Judul Kategori"
+                        className="px-2 py-2 hover:text-amber-400 transition"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        title="Hapus Kategori"
+                        className="pr-3 pl-1 py-2 hover:text-rose-400 transition"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {activeVoteCategory?.description && (
+                <p className="text-xs text-slate-500 italic">
+                  &ldquo;{activeVoteCategory.description}&rdquo;
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 3. DAFTAR PESERTA / KANDIDAT DI KATEGORI TERPILIH */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-orange-600 dark:text-orange-400 tracking-wider">
+                  Event: {activeVoteEvent?.eventTitle}
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2 mt-0.5">
+                  <Users className="h-5 w-5 text-orange-500" />
+                  Peserta di Kategori: &ldquo;{activeVoteCategory?.title}&rdquo; ({activeCategoryCandidates.length} Peserta)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Setiap peserta di kategori ini memiliki nomor urut dan perolehan suara independen.
+                </p>
+              </div>
+
+              {/* TOMBOL UTAMA: TAMBAH PESERTA BARU (SELALU MUNCUL & JELAS) */}
+              <button
+                onClick={handleOpenCreateCandidate}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-lg shadow-orange-500/25 transition active:scale-95 shrink-0"
+              >
+                <UserPlus className="h-4 w-4" />
+                + Tambah Peserta di Kategori Ini
+              </button>
+            </div>
+
+            {/* Grid Peserta di Kategori Terpilih */}
+            {activeCategoryCandidates.length === 0 ? (
+              <div className="rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-12 text-center space-y-3">
+                <Users className="h-10 w-10 text-slate-300 dark:text-slate-700 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Belum ada peserta di kategori &ldquo;{activeVoteCategory?.title}&rdquo;
+                </h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Klik tombol <strong>&ldquo;+ Tambah Peserta di Kategori Ini&rdquo;</strong> di atas untuk mendaftarkan peserta baru.
+                </p>
+                <button
+                  onClick={handleOpenCreateCandidate}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 text-white font-bold text-xs"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Daftarkan Peserta Sekarang
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeCategoryCandidates.map((cand) => (
+                  <div
+                    key={cand.id}
+                    className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-5 space-y-4 flex flex-col justify-between hover:shadow-md transition"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={cand.photoUrl}
+                            alt={cand.name}
+                            className="h-16 w-16 rounded-xl object-cover border-2 border-orange-400"
+                          />
+                          <span className="absolute -bottom-2 -left-1.5 rounded-md bg-orange-500 text-white font-black text-[10px] px-1.5 py-0.5 shadow">
+                            #{cand.candidateNumber}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold uppercase text-slate-400">
+                            Perolehan
+                          </span>
+                          <div className="text-xl font-black text-amber-600 dark:text-amber-400">
+                            {cand.totalVotes.toLocaleString()}
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-semibold">Suara</span>
+                        </div>
+                      </div>
+
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white leading-snug">
+                        {cand.name}
+                      </h4>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mt-0.5">
+                        {cand.institution}
+                      </p>
+
+                      <p className="text-xs text-slate-500 italic mt-2 line-clamp-2">
+                        &ldquo;{cand.tagline}&rdquo;
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Kat: {activeVoteCategory.title.slice(0, 15)}...
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditCandidate(cand)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 text-xs font-bold transition"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                          Edit Peserta
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCandidate(cand.id)}
+                          title="Hapus Peserta"
+                          className="p-1.5 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950 rounded-lg transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* TAB: KELOLA EVENT (CREATE / EDIT EVENT) */}
@@ -1271,82 +1771,6 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* TAB: KELOLA CETAS VOTE (CREATE / EDIT CANDIDATE) */}
-      {/* ------------------------------------------------------------------ */}
-      {activeTab === "VOTE" && (
-        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <Award className="h-5 w-5 text-amber-500" />
-                Manajemen Kandidat & Pemilihan Cetas Vote
-              </h3>
-              <p className="text-xs text-slate-500">
-                Kelola profil kandidat e-voting, nomor urut, visi misi, dan perolehan suara online.
-              </p>
-            </div>
-            {canManageEvents && (
-              <button
-                onClick={handleOpenCreateCandidate}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-md transition active:scale-95"
-              >
-                <PlusCircle className="h-4 w-4" />
-                + Tambah Kandidat Baru
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {candidates.map((cand) => (
-              <div
-                key={cand.id}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-xs font-black font-mono px-2.5 py-0.5 rounded-lg bg-orange-500 text-white">
-                      #{cand.number}
-                    </span>
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      {cand.votes.toLocaleString()} Suara
-                    </span>
-                  </div>
-
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                    {cand.name}
-                  </h4>
-                  <div className="text-[11px] text-slate-500 mt-0.5">{cand.major}</div>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 italic line-clamp-2">
-                    &ldquo;{cand.tagline}&rdquo;
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => handleOpenEditCandidate(cand)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 text-xs font-bold transition"
-                  >
-                    <Edit3 className="h-3 w-3" />
-                    Edit
-                  </button>
-                  {isSuperAdmin && (
-                    <button
-                      onClick={() => handleDeleteCandidate(cand.id)}
-                      title="Hapus Kandidat"
-                      className="p-1.5 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950 rounded-lg transition"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
       {/* TAB: OMZET & MIDTRANS */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "FINANCES" && (
@@ -1395,19 +1819,14 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* TAB: PROPOSAL PENGAJUAN EVENT */}
+      {/* TAB: PROPOSAL MASUK */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "SUBMISSIONS" && (
         <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Daftar Proposal Pengajuan Event Dari Penyelenggara (EO)
-              </h3>
-              <p className="text-xs text-slate-500">
-                Review dan ambil keputusan untuk proposal event yang diajukan melalui web Cetas.
-              </p>
-            </div>
+            <h3 className="text-base font-black text-slate-900 dark:text-white">
+              Daftar Proposal Pengajuan Event Dari Penyelenggara (EO)
+            </h3>
             <span className="text-xs text-slate-500">
               Total {submissions.length} Pengajuan
             </span>
@@ -1421,7 +1840,7 @@ export default function AdminDashboardPage() {
                   <th className="p-4">Fitur Diminta</th>
                   <th className="p-4">Waktu Pengajuan</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4 text-right">Aksi Keputusan</th>
+                  <th className="p-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1440,9 +1859,7 @@ export default function AdminDashboardPage() {
                         {sub.features}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-500">
-                      {formatDateTime(sub.submittedAt)}
-                    </td>
+                    <td className="p-4 text-slate-500">{formatDateTime(sub.submittedAt)}</td>
                     <td className="p-4">
                       {sub.status === "PENDING" && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400 text-[10px] font-bold">
@@ -1461,35 +1878,31 @@ export default function AdminDashboardPage() {
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      {canManageEvents ? (
-                        sub.status === "PENDING" ? (
-                          <div className="inline-flex items-center gap-2">
-                            <button
-                              onClick={() =>
-                                setSubmissions((prev) =>
-                                  prev.map((s) => (s.id === sub.id ? { ...s, status: "APPROVED" } : s))
-                                )
-                              }
-                              className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 text-xs transition"
-                            >
-                              Setujui
-                            </button>
-                            <button
-                              onClick={() =>
-                                setSubmissions((prev) =>
-                                  prev.map((s) => (s.id === sub.id ? { ...s, status: "REJECTED" } : s))
-                                )
-                              }
-                              className="rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-800 dark:text-slate-300 font-semibold px-3 py-1.5 text-xs transition"
-                            >
-                              Tolak
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Selesai Ditinjau</span>
-                        )
+                      {canManageEvents && sub.status === "PENDING" ? (
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              setSubmissions((prev) =>
+                                prev.map((s) => (s.id === sub.id ? { ...s, status: "APPROVED" } : s))
+                              )
+                            }
+                            className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 text-xs"
+                          >
+                            Setujui
+                          </button>
+                          <button
+                            onClick={() =>
+                              setSubmissions((prev) =>
+                                prev.map((s) => (s.id === sub.id ? { ...s, status: "REJECTED" } : s))
+                              )
+                            }
+                            className="rounded-lg bg-slate-200 text-slate-800 font-semibold px-3 py-1.5 text-xs"
+                          >
+                            Tolak
+                          </button>
+                        </div>
                       ) : (
-                        <span className="text-slate-400 italic text-[11px]">Read Only</span>
+                        <span className="text-slate-400 italic text-[11px]">Selesai</span>
                       )}
                     </td>
                   </tr>
@@ -1501,7 +1914,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* TAB: PENDAFTARAN PESERTA EVENT ONLINE */}
+      {/* TAB: PENDAFTARAN PESERTA ONLINE */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "ATTENDEES" && (
         <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
@@ -1551,7 +1964,6 @@ export default function AdminDashboardPage() {
                   <th className="p-4">Instansi & Kategori</th>
                   <th className="p-4">Waktu Daftar</th>
                   <th className="p-4">Status Kehadiran</th>
-                  <th className="p-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1600,16 +2012,6 @@ export default function AdminDashboardPage() {
                         {atd.isPresent ? "HADIR" : "BELUM HADIR"}
                       </span>
                     </td>
-                    <td className="p-4 text-right">
-                      {isSuperAdmin && (
-                        <button
-                          onClick={() => setAttendees((prev) => prev.filter((a) => a.id !== atd.id))}
-                          className="p-1.5 text-rose-500 hover:text-rose-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1629,7 +2031,7 @@ export default function AdminDashboardPage() {
                 Slot Kampanye & Banner &ldquo;Iklan Cetas Kita&rdquo;
               </h3>
               <p className="text-xs text-slate-500">
-                Kelola slot iklan sponsor atau promosi internal Cetas Production yang tampil di homepage dan e-tiket.
+                Kelola slot iklan sponsor atau promosi internal Cetas Production.
               </p>
             </div>
             {isSuperAdmin && (
@@ -1678,81 +2080,6 @@ export default function AdminDashboardPage() {
               </div>
             ))}
           </div>
-
-          {newAdModal && (
-            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Tambah Slot Iklan Cetas Kita
-                </h3>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!newAdTitle.trim()) return;
-                    setAds([
-                      {
-                        id: `ad-${Date.now()}`,
-                        title: newAdTitle,
-                        placement: newAdPlacement,
-                        isActive: true,
-                        impressions: 0,
-                        clicks: 0,
-                      },
-                      ...ads,
-                    ]);
-                    setNewAdTitle("");
-                    setNewAdModal(false);
-                  }}
-                  className="space-y-4"
-                >
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Judul / Promo Iklan
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: Promo Spesial LED Videotron Disc 30%"
-                      value={newAdTitle}
-                      onChange={(e) => setNewAdTitle(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Penempatan Iklan
-                    </label>
-                    <select
-                      value={newAdPlacement}
-                      onChange={(e) => setNewAdPlacement(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                    >
-                      <option value="Homepage Top Banner">Homepage Top Banner</option>
-                      <option value="Footer E-Ticket PDF">Footer E-Ticket PDF</option>
-                      <option value="Sidebar Event Detail">Sidebar Event Detail</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewAdModal(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold"
-                    >
-                      Tayangkan Iklan
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1832,94 +2159,6 @@ export default function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
-
-          {newStaffModal && (
-            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Tambah Akun Staf / Admin Baru
-                </h3>
-                <form onSubmit={handleAddNewStaff} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Nama Lengkap
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Contoh: Denny Supervisor Gate"
-                      value={newStaffForm.name}
-                      onChange={(e) => setNewStaffForm({ ...newStaffForm, name: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Email Login
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="denny@cetas.id"
-                      value={newStaffForm.email}
-                      onChange={(e) => setNewStaffForm({ ...newStaffForm, email: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Password Login
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Password login..."
-                      value={newStaffForm.password}
-                      onChange={(e) => setNewStaffForm({ ...newStaffForm, password: e.target.value })}
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Role Wewenang
-                    </label>
-                    <select
-                      value={newStaffForm.role}
-                      onChange={(e) =>
-                        setNewStaffForm({ ...newStaffForm, role: e.target.value as AdminRole })
-                      }
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
-                    >
-                      <option value="SUPER_ADMIN">👑 SUPER_ADMIN</option>
-                      <option value="EVENT_ADMIN">🎫 EVENT_ADMIN</option>
-                      <option value="FINANCE_ADMIN">💰 FINANCE_ADMIN</option>
-                      <option value="PROD_ADMIN">📦 PROD_ADMIN</option>
-                      <option value="SCANNER_STAFF">🚪 SCANNER_STAFF</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewStaffModal(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold"
-                    >
-                      Simpan Staf Baru
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1939,14 +2178,14 @@ export default function AdminDashboardPage() {
                 detail: `Petugas '${currentUser.name}' berhasil login ke portal Lingkup Kerja Cetas dengan role [${currentUser.role}].`,
               },
               {
-                time: "10 menit lalu",
-                action: "EVENT_MODIFIED",
-                detail: "Event dan katalog produk disinkronisasi ke seluruh platform Cetas.",
+                time: "5 menit lalu",
+                action: "VOTE_CATEGORY_UPDATED",
+                detail: "Kategori voting (SMP, SMA, Purna) dan daftar peserta diperbarui.",
               },
               {
-                time: "25 menit lalu",
+                time: "15 menit lalu",
                 action: "MIDTRANS_SETTLEMENT",
-                detail: "Pembayaran Rp 180.000 untuk tiket / vote diverifikasi otomatis.",
+                detail: "Pembayaran paket suara voting diverifikasi otomatis via Midtrans QRIS.",
               },
             ].map((log, idx) => (
               <div
@@ -1962,6 +2201,288 @@ export default function AdminDashboardPage() {
                 <span className="text-[11px] text-slate-400 shrink-0 ml-4">{log.time}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: TAMBAH / EDIT KANDIDAT VOTE (PESERTA) */}
+      {/* ------------------------------------------------------------------ */}
+      {isCandidateModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-orange-600 dark:text-orange-400 tracking-wider">
+                  Kategori: {activeVoteCategory?.title}
+                </span>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-orange-500" />
+                  {editingCandidateId ? "Edit Data Peserta" : "Tambah Peserta Baru di Kategori Ini"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsCandidateModalOpen(false)}
+                className="text-slate-400 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCandidate} className="space-y-3.5">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    No. Urut *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="01"
+                    value={candidateForm.candidateNumber}
+                    onChange={(e) =>
+                      setCandidateForm({ ...candidateForm, candidateNumber: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-black text-orange-600"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Lengkap Peserta / Tim *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nama peserta"
+                    value={candidateForm.name}
+                    onChange={(e) =>
+                      setCandidateForm({ ...candidateForm, name: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Sekolah / Asal Instansi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: SMPN 1 Jakarta / SMAN 3 Bandung / Purna 2024"
+                  value={candidateForm.institution}
+                  onChange={(e) =>
+                    setCandidateForm({ ...candidateForm, institution: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  URL Foto Profil Peserta
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
+                  value={candidateForm.photoUrl}
+                  onChange={(e) =>
+                    setCandidateForm({ ...candidateForm, photoUrl: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Tagline / Visi Misi
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Visi misi atau slogan peserta..."
+                  value={candidateForm.tagline}
+                  onChange={(e) =>
+                    setCandidateForm({ ...candidateForm, tagline: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Jumlah Suara (Votes)
+                </label>
+                <input
+                  type="number"
+                  value={candidateForm.totalVotes}
+                  onChange={(e) =>
+                    setCandidateForm({ ...candidateForm, totalVotes: Number(e.target.value) })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCandidateModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition active:scale-95"
+                >
+                  {editingCandidateId ? "Simpan Perubahan Peserta ✓" : "Daftarkan Peserta Sekarang ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: TAMBAH / EDIT KATEGORI VOTE (SMP, SMA, PURNA) */}
+      {/* ------------------------------------------------------------------ */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <FolderPlus className="h-5 w-5 text-orange-500" />
+                {editingCategoryId ? "Edit Kategori Lomba" : "Tambah Kategori Baru di Event Ini"}
+              </h3>
+              <button
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-slate-400 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Kategori (Misal: Tingkat SMP, Tingkat SMA, Purna) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Tingkat SMP / MTs"
+                  value={categoryForm.title}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, title: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Deskripsi Kategori
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Keterangan kategori lomba..."
+                  value={categoryForm.description}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, description: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Harga per Suara (Rp)
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={categoryForm.pricePerVote}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, pricePerVote: Number(e.target.value) })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition"
+                >
+                  {editingCategoryId ? "Simpan Perubahan Kategori ✓" : "Tambah Kategori ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: HUBUNGKAN EVENT BARU KE VOTING */}
+      {/* ------------------------------------------------------------------ */}
+      {isAddEventVoteModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <FolderPlus className="h-5 w-5 text-orange-500" />
+                Buka Bilik Voting Untuk Event Cetas
+              </h3>
+              <button
+                onClick={() => setIsAddEventVoteModalOpen(false)}
+                className="text-slate-400 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleConnectEventToVote} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Pilih Dari Event Yang Ada di Cetas:
+                </label>
+                <select
+                  value={selectedEventToConnect}
+                  onChange={(e) => setSelectedEventToConnect(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-bold"
+                >
+                  {eventsList.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.title} ({ev.date})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Sistem akan otomatis menginisialisasi 3 kategori default: <strong>Tingkat SMP, Tingkat SMA, dan Kategori Purna</strong>.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddEventVoteModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md"
+                >
+                  Buka Bilik Voting ✓
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2049,19 +2570,6 @@ export default function AdminDashboardPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Waktu / Jam Acara
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="09:00 - 17:00 WIB"
-                    value={eventForm.time}
-                    onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Lokasi Venue *
                   </label>
                   <input
@@ -2073,160 +2581,6 @@ export default function AdminDashboardPage() {
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tipe Lokasi
-                  </label>
-                  <select
-                    value={eventForm.locationType}
-                    onChange={(e) =>
-                      setEventForm({
-                        ...eventForm,
-                        locationType: e.target.value as UnifiedEvent["locationType"],
-                      })
-                    }
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
-                  >
-                    <option value="OFFLINE">Offline (Di Tempat)</option>
-                    <option value="HYBRID">Hybrid (Online & Onsite)</option>
-                    <option value="ONLINE">Online Streaming</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    URL Gambar Banner Event
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://images.unsplash.com/..."
-                    value={eventForm.bannerUrl}
-                    onChange={(e) => setEventForm({ ...eventForm, bannerUrl: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Deskripsi Event
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={eventForm.description}
-                    onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Fitur Tiket Berbayar Switcher */}
-              <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                    <Ticket className="h-4 w-4" /> Buka Penjualan Tiket di Cetas Ticketing
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={eventForm.isOpenTicketing}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, isOpenTicketing: e.target.checked })
-                    }
-                    className="h-4 w-4 text-blue-600 rounded"
-                  />
-                </div>
-
-                {eventForm.isOpenTicketing && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                        Nama Tier Tiket
-                      </label>
-                      <input
-                        type="text"
-                        value={eventForm.ticketTierName}
-                        onChange={(e) =>
-                          setEventForm({ ...eventForm, ticketTierName: e.target.value })
-                        }
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                        Harga Tiket (Rp)
-                      </label>
-                      <input
-                        type="number"
-                        value={eventForm.ticketPrice}
-                        onChange={(e) =>
-                          setEventForm({ ...eventForm, ticketPrice: Number(e.target.value) })
-                        }
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                        Kuota Kursi
-                      </label>
-                      <input
-                        type="number"
-                        value={eventForm.ticketQuota}
-                        onChange={(e) =>
-                          setEventForm({ ...eventForm, ticketQuota: Number(e.target.value) })
-                        }
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Fitur Pendaftaran Peserta Online Switcher */}
-              <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                    <UserCheck className="h-4 w-4" /> Buka Pendaftaran Peserta Online di Web Cetas
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={eventForm.isOpenOnlineRegistration}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, isOpenOnlineRegistration: e.target.checked })
-                    }
-                    className="h-4 w-4 text-emerald-600 rounded"
-                  />
-                </div>
-
-                {eventForm.isOpenOnlineRegistration && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                        Kuota Peserta Online
-                      </label>
-                      <input
-                        type="number"
-                        value={eventForm.registrationQuota}
-                        onChange={(e) =>
-                          setEventForm({ ...eventForm, registrationQuota: Number(e.target.value) })
-                        }
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                        Fasilitas Peserta (Pisahkan koma)
-                      </label>
-                      <input
-                        type="text"
-                        value={eventForm.facilitiesText}
-                        onChange={(e) =>
-                          setEventForm({ ...eventForm, facilitiesText: e.target.value })
-                        }
-                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -2305,25 +2659,6 @@ export default function AdminDashboardPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Sub-Kategori Alat
-                  </label>
-                  <select
-                    value={productForm.subCategory}
-                    onChange={(e) => setProductForm({ ...productForm, subCategory: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
-                  >
-                    <option value="SOUND_SYSTEM">Sound System</option>
-                    <option value="LIGHTING">Lighting Stage</option>
-                    <option value="LED_VIDEOTRON">LED Videotron</option>
-                    <option value="LIVE_STREAMING">Live Streaming</option>
-                    <option value="MERCH">Merchandise / Apparel</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Harga (Rp) *
                   </label>
                   <input
@@ -2336,82 +2671,6 @@ export default function AdminDashboardPage() {
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Satuan Harga
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="hari / pcs / event"
-                    value={productForm.unit}
-                    onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Stok Tersedia
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={productForm.stock}
-                    onChange={(e) =>
-                      setProductForm({ ...productForm, stock: Number(e.target.value) })
-                    }
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Status Ketersediaan
-                  </label>
-                  <select
-                    value={productForm.status}
-                    onChange={(e) =>
-                      setProductForm({
-                        ...productForm,
-                        status: e.target.value as UnifiedProduct["status"],
-                      })
-                    }
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
-                  >
-                    <option value="TERSEDIA">Tersedia (Ready)</option>
-                    <option value="DISEWA">Sedang Disewa (Booked)</option>
-                    <option value="HABIS">Habis (Out of Stock)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    URL Foto Produk
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://images.unsplash.com/..."
-                    value={productForm.imageUrl}
-                    onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Deskripsi & Spesifikasi
-                </label>
-                <textarea
-                  rows={2}
-                  value={productForm.description}
-                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
-                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -2427,128 +2686,6 @@ export default function AdminDashboardPage() {
                   className="px-6 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-md transition active:scale-95"
                 >
                   {editingProductId ? "Simpan Perubahan Produk ✓" : "Tambah Produk Baru ✓"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* MODAL: CREATE / EDIT VOTE CANDIDATE */}
-      {/* ------------------------------------------------------------------ */}
-      {isCandidateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <Award className="h-5 w-5 text-amber-500" />
-                {editingCandidateId ? "Edit Profil Kandidat" : "Tambah Kandidat Vote Baru"}
-              </h3>
-              <button
-                onClick={() => setIsCandidateModalOpen(false)}
-                className="text-slate-400 text-xs font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCandidate} className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    No. Urut
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="01"
-                    value={candidateForm.number}
-                    onChange={(e) => setCandidateForm({ ...candidateForm, number: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Nama Lengkap
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nama kandidat"
-                    value={candidateForm.name}
-                    onChange={(e) => setCandidateForm({ ...candidateForm, name: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Jurusan / Asal Instansi
-                </label>
-                <input
-                  type="text"
-                  placeholder="Teknik Informatika 2023"
-                  value={candidateForm.major}
-                  onChange={(e) => setCandidateForm({ ...candidateForm, major: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Tagline / Visi Misi
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Kreativitas tanpa batas..."
-                  value={candidateForm.tagline}
-                  onChange={(e) => setCandidateForm({ ...candidateForm, tagline: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  URL Foto Profil
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/..."
-                  value={candidateForm.photoUrl}
-                  onChange={(e) => setCandidateForm({ ...candidateForm, photoUrl: e.target.value })}
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Jumlah Suara Awal
-                </label>
-                <input
-                  type="number"
-                  value={candidateForm.votes}
-                  onChange={(e) =>
-                    setCandidateForm({ ...candidateForm, votes: Number(e.target.value) })
-                  }
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsCandidateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md"
-                >
-                  Simpan Kandidat ✓
                 </button>
               </div>
             </form>

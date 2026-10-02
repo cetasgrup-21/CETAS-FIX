@@ -1,136 +1,224 @@
 import { NextRequest, NextResponse } from "next/server";
-
-export interface VoteCandidateRecord {
-  id: string;
-  number: string;
-  name: string;
-  major: string;
-  photoUrl: string;
-  tagline: string;
-  votes: number;
-}
+import {
+  INITIAL_EVENT_VOTINGS,
+  EventVotingConfig,
+  VoteCategory,
+  VoteCandidate,
+} from "@/lib/vote-unified-data";
 
 declare global {
-  var __cetasVoteCandidates: VoteCandidateRecord[] | undefined;
+  var __cetasEventVotings: EventVotingConfig[] | undefined;
 }
 
-if (!global.__cetasVoteCandidates) {
-  global.__cetasVoteCandidates = [
-    {
-      id: "cand-01",
-      number: "01",
-      name: "Nadia Safira",
-      major: "Teknik Informatika 2023",
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
-      tagline: "Inovasi digital untuk pemberdayaan generasi muda kampus.",
-      votes: 1482,
-    },
-    {
-      id: "cand-02",
-      number: "02",
-      name: "Reza Pratama",
-      major: "Ilmu Komunikasi 2022",
-      photoUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80",
-      tagline: "Kolaborasi aktif dan kepemimpinan inklusif berkarakter.",
-      votes: 1120,
-    },
-    {
-      id: "cand-03",
-      number: "03",
-      name: "Citra Lestari",
-      major: "Desain Komunikasi Visual 2024",
-      photoUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80",
-      tagline: "Kreativitas tanpa batas mengangkat budaya Nusantara.",
-      votes: 702,
-    },
-  ];
+if (!global.__cetasEventVotings) {
+  global.__cetasEventVotings = JSON.parse(JSON.stringify(INITIAL_EVENT_VOTINGS));
 }
 
-// GET: Ambil daftar kandidat
-export async function GET() {
+// GET: Ambil struktur voting (Event -> Kategori -> Peserta)
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const eventId = searchParams.get("eventId");
+
+  let result = global.__cetasEventVotings || [];
+  if (eventId) {
+    const single = result.find((ev) => ev.eventId === eventId);
+    return NextResponse.json({ success: true, eventVoting: single });
+  }
+
   return NextResponse.json({
     success: true,
-    candidates: global.__cetasVoteCandidates,
+    totalEvents: result.length,
+    eventVotings: result,
   });
 }
 
-// POST: Tambah kandidat baru
+// POST: Tambah Kategori Baru atau Tambah Peserta Baru
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    if (!body.name || !body.number) {
-      return NextResponse.json({ success: false, message: "Nomor dan nama kandidat wajib diisi" }, { status: 400 });
+    const { action } = body;
+
+    // 1. TAMBAH KATEGORI BARU (Misal: Tingkat SMP, Tingkat SMA, Kategori Purna)
+    if (action === "ADD_CATEGORY") {
+      const { eventId, title, description, pricePerVote } = body;
+      const targetEvent = global.__cetasEventVotings?.find((ev) => ev.eventId === eventId);
+      if (!targetEvent) {
+        return NextResponse.json({ success: false, message: "Event tidak ditemukan" }, { status: 404 });
+      }
+
+      const newCategory: VoteCategory = {
+        id: `cat-${Date.now().toString().slice(-6)}`,
+        eventId,
+        title: title || "Kategori Baru",
+        description: description || "",
+        pricePerVote: Number(pricePerVote) || 2000,
+        candidates: [],
+      };
+
+      targetEvent.categories.push(newCategory);
+
+      return NextResponse.json({
+        success: true,
+        message: `Kategori '${newCategory.title}' berhasil ditambahkan ke event!`,
+        category: newCategory,
+      });
     }
 
-    const newCandidate: VoteCandidateRecord = {
-      id: `cand-${Date.now().toString().slice(-5)}`,
-      number: body.number,
-      name: body.name,
-      major: body.major || "Mahasiswa Berprestasi",
-      photoUrl: body.photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
-      tagline: body.tagline || "Visi misi kandidat Cetas Vote.",
-      votes: Number(body.votes) || 0,
-    };
+    // 2. TAMBAH PESERTA / KANDIDAT BARU KE KATEGORI
+    if (action === "ADD_CANDIDATE") {
+      const { eventId, categoryId, candidateNumber, name, institution, photoUrl, tagline, totalVotes } = body;
 
-    global.__cetasVoteCandidates?.push(newCandidate);
+      const targetEvent = global.__cetasEventVotings?.find((ev) => ev.eventId === eventId);
+      if (!targetEvent) {
+        return NextResponse.json({ success: false, message: "Event tidak ditemukan" }, { status: 404 });
+      }
 
-    return NextResponse.json({
-      success: true,
-      message: "Kandidat vote baru berhasil ditambahkan!",
-      candidate: newCandidate,
-    });
+      const targetCategory = targetEvent.categories.find((c) => c.id === categoryId);
+      if (!targetCategory) {
+        return NextResponse.json({ success: false, message: "Kategori tidak ditemukan" }, { status: 404 });
+      }
+
+      const newCandidate: VoteCandidate = {
+        id: `cand-${Date.now().toString().slice(-6)}`,
+        categoryId,
+        candidateNumber: candidateNumber || `0${targetCategory.candidates.length + 1}`,
+        name,
+        institution: institution || "Instansi / Sekolah Peserta",
+        photoUrl: photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+        tagline: tagline || "Visi misi peserta voting.",
+        totalVotes: Number(totalVotes) || 0,
+      };
+
+      targetCategory.candidates.push(newCandidate);
+
+      return NextResponse.json({
+        success: true,
+        message: `Peserta '${newCandidate.name}' berhasil ditambahkan ke kategori ${targetCategory.title}!`,
+        candidate: newCandidate,
+      });
+    }
+
+    // 3. TAMBAH EVENT VOTING BARU (DARI EVENT YANG ADA)
+    if (action === "ADD_EVENT_VOTING") {
+      const { eventId, eventTitle, bannerUrl } = body;
+      const newEventVoting: EventVotingConfig = {
+        eventId: eventId || `ev-${Date.now()}`,
+        eventTitle: eventTitle || "Event Baru Cetas Vote",
+        eventDate: "Desember 2026",
+        bannerUrl: bannerUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+        categories: [
+          {
+            id: `cat-${Date.now()}-1`,
+            eventId: eventId,
+            title: "Tingkat SMP",
+            pricePerVote: 2000,
+            candidates: [],
+          },
+          {
+            id: `cat-${Date.now()}-2`,
+            eventId: eventId,
+            title: "Tingkat SMA",
+            pricePerVote: 2000,
+            candidates: [],
+          },
+          {
+            id: `cat-${Date.now()}-3`,
+            eventId: eventId,
+            title: "Kategori Purna / Umum",
+            pricePerVote: 2000,
+            candidates: [],
+          },
+        ],
+      };
+
+      global.__cetasEventVotings?.unshift(newEventVoting);
+
+      return NextResponse.json({
+        success: true,
+        message: `Event voting '${newEventVoting.eventTitle}' berhasil dibuat dengan kategori default (SMP, SMA, Purna)!`,
+        eventVoting: newEventVoting,
+      });
+    }
+
+    return NextResponse.json({ success: false, message: "Aksi tidak dikenali" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ success: false, message: "Gagal menambah kandidat" }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Gagal memproses penambahan vote" }, { status: 500 });
   }
 }
 
-// PUT: Edit kandidat
+// PUT: Edit Kategori atau Edit Peserta
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, ...updates } = body;
+    const { action, eventId, categoryId, candidateId, updates } = body;
 
-    const index = global.__cetasVoteCandidates?.findIndex((c) => c.id === id);
-    if (index === undefined || index === -1) {
-      return NextResponse.json({ success: false, message: "Kandidat tidak ditemukan" }, { status: 404 });
+    const targetEvent = global.__cetasEventVotings?.find((ev) => ev.eventId === eventId);
+    if (!targetEvent) {
+      return NextResponse.json({ success: false, message: "Event tidak ditemukan" }, { status: 404 });
     }
 
-    const existing = global.__cetasVoteCandidates![index];
-    const updated: VoteCandidateRecord = {
-      ...existing,
-      ...updates,
-      id: existing.id,
-      votes: updates.votes !== undefined ? Number(updates.votes) : existing.votes,
-    };
+    const targetCategory = targetEvent.categories.find((c) => c.id === categoryId);
+    if (!targetCategory) {
+      return NextResponse.json({ success: false, message: "Kategori tidak ditemukan" }, { status: 404 });
+    }
 
-    global.__cetasVoteCandidates![index] = updated;
+    if (action === "EDIT_CATEGORY") {
+      Object.assign(targetCategory, updates);
+      return NextResponse.json({
+        success: true,
+        message: "Kategori berhasil diperbarui!",
+        category: targetCategory,
+      });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Data kandidat berhasil diperbarui!",
-      candidate: updated,
-    });
+    if (action === "EDIT_CANDIDATE") {
+      const cand = targetCategory.candidates.find((c) => c.id === candidateId);
+      if (!cand) {
+        return NextResponse.json({ success: false, message: "Peserta tidak ditemukan" }, { status: 404 });
+      }
+      Object.assign(cand, updates);
+      if (updates.totalVotes !== undefined) cand.totalVotes = Number(updates.totalVotes);
+      return NextResponse.json({
+        success: true,
+        message: "Data peserta berhasil diperbarui!",
+        candidate: cand,
+      });
+    }
+
+    return NextResponse.json({ success: false, message: "Aksi tidak valid" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ success: false, message: "Gagal mengedit kandidat" }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Gagal mengedit data vote" }, { status: 500 });
   }
 }
 
-// DELETE: Hapus kandidat
+// DELETE: Hapus Kategori atau Hapus Peserta
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
-    if (!id) {
-      return NextResponse.json({ success: false, message: "ID kandidat wajib diisi" }, { status: 400 });
+    const eventId = searchParams.get("eventId");
+    const categoryId = searchParams.get("categoryId");
+    const candidateId = searchParams.get("candidateId");
+
+    const targetEvent = global.__cetasEventVotings?.find((ev) => ev.eventId === eventId);
+    if (!targetEvent) {
+      return NextResponse.json({ success: false, message: "Event tidak ditemukan" }, { status: 404 });
     }
 
-    global.__cetasVoteCandidates = global.__cetasVoteCandidates?.filter((c) => c.id !== id);
+    if (candidateId && categoryId) {
+      // Hapus Peserta dari Kategori
+      const cat = targetEvent.categories.find((c) => c.id === categoryId);
+      if (cat) {
+        cat.candidates = cat.candidates.filter((c) => c.id !== candidateId);
+        return NextResponse.json({ success: true, message: "Peserta berhasil dihapus dari kategori!" });
+      }
+    } else if (categoryId) {
+      // Hapus Kategori dari Event
+      targetEvent.categories = targetEvent.categories.filter((c) => c.id !== categoryId);
+      return NextResponse.json({ success: true, message: "Kategori berhasil dihapus dari event!" });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Kandidat berhasil dihapus dari sistem",
-    });
+    return NextResponse.json({ success: false, message: "Parameter tidak lengkap" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ success: false, message: "Gagal menghapus kandidat" }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Gagal menghapus data vote" }, { status: 500 });
   }
 }

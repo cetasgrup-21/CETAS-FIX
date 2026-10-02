@@ -467,17 +467,17 @@ export default function EventsPage() {
             </div>
 
             {/* Ant-Man Thumbs Up Celebration Banner */}
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-purple-950/80 border border-purple-500/40">
-              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-slate-900 border border-purple-400/40 flex items-center justify-center">
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-950/80 border border-blue-500/40">
+              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-slate-900 border border-cyan-400/40 flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/mascot/anty_purple_thumbsup.png"
-                  alt="Anty Thumbs Up"
+                  src="/mascot/cetas_ant_thumbsup.png"
+                  alt="Anty Thumbs Up CETAS"
                   className="h-11 w-11 object-contain"
                 />
               </div>
               <div>
-                <div className="text-xs font-bold text-purple-200 flex items-center gap-1">
+                <div className="text-xs font-bold text-cyan-200 flex items-center gap-1">
                   <span>Anty: Mantap! Tiket Berhasil Diterbitkan!</span>
                   <span>👍</span>
                 </div>

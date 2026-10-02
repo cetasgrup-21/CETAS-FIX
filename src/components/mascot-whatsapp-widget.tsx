@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   MessageCircle,
   X,
@@ -13,7 +14,6 @@ import {
   Bot,
   Zap,
 } from "lucide-react";
-import { AntmanMascot } from "@/components/antman-mascot";
 
 const WHATSAPP_NUMBER = "6281584682345"; // Official Cetas Support (081584682345)
 
@@ -67,6 +67,13 @@ export function MascotWhatsAppWidget() {
         defaultPrompt: "Halo Anty, saya butuh bantuan terkait pendaftaran peserta lomba / event di web Cetas.",
       };
     }
+    if (pathname.startsWith("/score")) {
+      return {
+        tag: "Penjurian CETAS.SCORE",
+        speech: "Halo Dewan Juri & Panitia LKBB! Butuh panduan format bobot, timer arena, atau berita acara F4?",
+        defaultPrompt: "Halo Tim CETAS.SCORE, saya ingin berkonsultasi seputar teknis penjurian dan rekapitulasi nilai LKBB.",
+      };
+    }
     if (pathname.startsWith("/admin")) {
       return {
         tag: "Helpdesk Admin",
@@ -75,8 +82,8 @@ export function MascotWhatsAppWidget() {
       };
     }
     return {
-      tag: "Asisten Manusia Semut Cetas",
-      speech: "Halo! Aku Anty, si Manusia Semut asisten resmi Cetas! Butuh info Tiket, Vote, atau Sewa Alat?",
+      tag: "Asisten Manusia Semut CETAS",
+      speech: "Halo! Aku Anty, si Manusia Semut asisten resmi CETAS! Butuh info Tiket, Vote, atau Sewa Alat?",
       defaultPrompt: "Halo Anty & Tim Cetas, saya ingin berkonsultasi seputar layanan Centralized Electronic Tournament & Award System.",
     };
   };
@@ -124,7 +131,7 @@ export function MascotWhatsAppWidget() {
         {/* SPEECH BUBBLE TEASER (Contextual Preview) */}
         {!isOpen && showBubble && (
           <div className="relative mb-2 max-w-[270px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">
-            <div className="relative rounded-2xl bg-white p-3.5 shadow-xl border border-purple-200">
+            <div className="relative rounded-2xl bg-white p-3.5 shadow-xl border border-blue-200">
               {/* Close mini bubble */}
               <button
                 type="button"
@@ -140,7 +147,7 @@ export function MascotWhatsAppWidget() {
 
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600">
                   {contextInfo.tag}
                 </span>
                 <span className="text-[10px] font-semibold text-slate-400">• Online</span>
@@ -148,14 +155,14 @@ export function MascotWhatsAppWidget() {
 
               <p
                 onClick={() => setIsOpen(true)}
-                className="cursor-pointer text-xs font-semibold text-slate-700 leading-snug hover:text-purple-700 transition"
+                className="cursor-pointer text-xs font-semibold text-slate-700 leading-snug hover:text-blue-600 transition"
               >
                 &ldquo;{contextInfo.speech}&rdquo;
               </p>
 
               <div
                 onClick={() => setIsOpen(true)}
-                className="mt-2.5 flex items-center justify-between cursor-pointer pt-2 border-t border-purple-50 text-[11px] font-bold text-purple-700 hover:underline"
+                className="mt-2.5 flex items-center justify-between cursor-pointer pt-2 border-t border-blue-50 text-[11px] font-bold text-blue-600 hover:underline"
               >
                 <span>Chat via WhatsApp</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -163,14 +170,14 @@ export function MascotWhatsAppWidget() {
             </div>
 
             {/* Bubble pointer triangle */}
-            <div className="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45 bg-white border-r border-b border-purple-200" />
+            <div className="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45 bg-white border-r border-b border-blue-200" />
           </div>
         )}
 
-        {/* MASCOT AVATAR TRIGGER (Clean Purple Ant-Man with 3D Waving Arm) */}
+        {/* MASCOT AVATAR TRIGGER (Clean Electric Blue Ant-Man) */}
         <div className="relative group">
-          {/* Soft Purple Glow Ring */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-600 opacity-60 blur-md group-hover:opacity-100 transition duration-300" />
+          {/* Electric Blue Glow Ring */}
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 opacity-70 blur-md group-hover:opacity-100 transition duration-300" />
 
           {/* Trigger Button containing AntmanMascot */}
           <button
@@ -179,16 +186,18 @@ export function MascotWhatsAppWidget() {
               setIsOpen(!isOpen);
               setShowBubble(false);
             }}
-            className="relative flex h-18 w-18 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-white p-1 shadow-2xl border-2 border-purple-400/80 hover:border-purple-600 transition-transform active:scale-95 duration-200"
+            className="relative flex h-18 w-18 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-white p-1 shadow-2xl border-2 border-blue-500 hover:border-cyan-400 transition-transform active:scale-95 duration-200"
             title="Chat dengan Anty si Manusia Semut"
             aria-label="Buka Chat WhatsApp Anty"
           >
-            {/* Mascot Avatar with 3D Waving Arm */}
-            <div className="relative h-full w-full rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-b from-purple-50 via-slate-50 to-white">
-              <AntmanMascot
-                pose="waving"
-                enable3DArm={true}
-                size={74}
+            {/* Mascot Avatar */}
+            <div className="relative h-full w-full rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-b from-blue-100/60 via-slate-50 to-white">
+              <Image
+                src="/mascot/cetas_ant_waving.png"
+                alt="Anty si Manusia Semut CETAS"
+                width={70}
+                height={120}
+                className="w-auto h-[110%] object-contain mt-1 drop-shadow-md"
               />
             </div>
 
@@ -206,22 +215,24 @@ export function MascotWhatsAppWidget() {
         </div>
       </div>
 
-      {/* WHATSAPP CONCIERGE MODAL DIALOG (BERRY PURPLE THEME) */}
+      {/* WHATSAPP CONCIERGE MODAL DIALOG (CETAS ELECTRIC BLUE THEME) */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div
-            className="relative w-full max-w-lg rounded-3xl bg-white text-slate-900 shadow-2xl border border-purple-100 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-in zoom-in-95 duration-200"
+            className="relative w-full max-w-lg rounded-3xl bg-white text-slate-900 shadow-2xl border border-blue-100 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header: Berry Purple Gradient (Referencing Aroma Ice Berry Tea) */}
-            <div className="relative bg-gradient-to-r from-purple-800 via-indigo-900 to-purple-900 p-5 text-white overflow-hidden">
+            {/* Header: Electric Blue & Navy Gradient */}
+            <div className="relative bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-5 text-white overflow-hidden">
               <div className="relative z-10 flex items-center justify-between">
                 <div className="flex items-center gap-3.5">
-                  <div className="relative h-14 w-14 rounded-2xl bg-white/10 border border-white/20 p-0.5 shadow-md flex items-center justify-center overflow-hidden">
-                    <AntmanMascot
-                      pose="waving"
-                      enable3DArm={false}
-                      size={52}
+                  <div className="relative h-14 w-14 rounded-2xl bg-white/10 border border-cyan-400/40 p-0.5 shadow-md flex items-center justify-center overflow-hidden">
+                    <Image
+                      src="/mascot/cetas_ant_waving.png"
+                      alt="Anty CETAS"
+                      width={50}
+                      height={90}
+                      className="w-auto h-[120%] object-contain mt-1"
                     />
                     <span className="absolute bottom-0 right-0 flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -232,13 +243,13 @@ export function MascotWhatsAppWidget() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-black text-base tracking-tight text-white flex items-center gap-1.5">
-                        ANTY • Manusia Semut Cetas
+                        ANTY • Manusia Semut CETAS
                       </h3>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-white/20 text-white">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500/30 text-cyan-300 border border-cyan-400/30">
                         WhatsApp Hub
                       </span>
                     </div>
-                    <p className="text-xs text-purple-200 flex items-center gap-1.5 mt-0.5">
+                    <p className="text-xs text-blue-200 flex items-center gap-1.5 mt-0.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                       Online 24 Jam • Respons Cepat WhatsApp
                     </p>
@@ -260,12 +271,12 @@ export function MascotWhatsAppWidget() {
             {/* Modal Body */}
             <div className="p-5 space-y-5 overflow-y-auto flex-1 text-slate-700 text-sm">
               {/* Dialogue Greeting Box */}
-              <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-purple-50/80 border border-purple-200">
-                <div className="flex-shrink-0 mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-white shadow-xs">
+              <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200">
+                <div className="flex-shrink-0 mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="space-y-0.5">
-                  <div className="text-[11px] font-bold text-purple-700 uppercase tracking-wider">
+                  <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
                     Sapaan Anty
                   </div>
                   <p className="text-xs leading-relaxed text-slate-700 font-medium">
@@ -276,7 +287,7 @@ export function MascotWhatsAppWidget() {
 
               {/* Quick Action Buttons */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-purple-900 mb-2.5 flex items-center gap-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-blue-950 mb-2.5 flex items-center gap-1.5">
                   <Zap className="h-3.5 w-3.5 text-amber-500" />
                   Pilih Kebutuhan Anda (1-Klik ke WhatsApp)
                 </label>
@@ -288,17 +299,17 @@ export function MascotWhatsAppWidget() {
                         key={qa.id}
                         type="button"
                         onClick={() => handleSendToWhatsApp(qa.message)}
-                        className="group flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-300 text-left transition-all hover:scale-[1.01]"
+                        className="group flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-left transition-all hover:scale-[1.01]"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700 group-hover:bg-purple-700 group-hover:text-white transition">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 group-hover:bg-blue-700 group-hover:text-white transition">
                             <Icon className="h-4 w-4" />
                           </div>
                           <span className="text-xs font-bold text-slate-800 truncate">
                             {qa.label}
                           </span>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-700 shrink-0 transition" />
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-700 shrink-0 transition" />
                       </button>
                     );
                   })}
@@ -320,21 +331,21 @@ export function MascotWhatsAppWidget() {
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   placeholder={`Tulis pertanyaan Anda di sini... (cth: "Halo Anty, mau tanya sewa sound 5000 watt...")`}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 p-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition resize-none"
+                  className="w-full rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 p-3 text-xs text-slate-900 placeholder-slate-400 outline-none transition resize-none"
                 />
               </div>
 
               {/* Trust Badges */}
               <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-                <div className="p-2 rounded-lg bg-purple-50/60 border border-purple-100">
+                <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
                   <div className="text-[10px] text-slate-500">Tiket Ber-QR</div>
-                  <div className="text-xs font-bold text-purple-700">Anti-Duplikasi</div>
+                  <div className="text-xs font-bold text-blue-700">Anti-Duplikasi</div>
                 </div>
-                <div className="p-2 rounded-lg bg-purple-50/60 border border-purple-100">
+                <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
                   <div className="text-[10px] text-slate-500">Payment Gateway</div>
-                  <div className="text-xs font-bold text-purple-700">Midtrans QRIS</div>
+                  <div className="text-xs font-bold text-blue-700">Midtrans QRIS</div>
                 </div>
-                <div className="p-2 rounded-lg bg-purple-50/60 border border-purple-100">
+                <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
                   <div className="text-[10px] text-slate-500">Vendor Terpercaya</div>
                   <div className="text-xs font-bold text-emerald-600">Cetas Production</div>
                 </div>

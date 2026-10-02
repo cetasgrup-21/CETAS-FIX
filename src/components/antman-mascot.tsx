@@ -15,86 +15,51 @@ interface AntmanMascotProps {
 
 export function AntmanMascot({
   pose = "waving",
-  size = 200,
+  size = 480,
   className = "",
   speechText,
-  enable3DArm = true,
 }: AntmanMascotProps) {
+  const imgSrc =
+    pose === "thumbsup"
+      ? "/mascot/cetas_ant_thumbsup.png"
+      : "/mascot/cetas_ant_waving.png";
+
+  const imgAlt =
+    pose === "thumbsup"
+      ? "Anty Maskot Resmi CETAS - Kasih Jempol"
+      : "Anty Maskot Resmi CETAS - Manusia Semut Cyber";
+
   return (
     <div
       className={`relative inline-flex flex-col items-center select-none ${className}`}
       style={{
-        width: size,
-        height: size,
+        maxWidth: size,
+        width: "100%",
       }}
     >
-      {/* Mascot Viewport Container (Rock-Solid Grounded, Only Arm Waves) */}
-      <div className="relative w-full h-full">
-        {pose === "thumbsup" ? (
-          /* THUMBS UP POSE (DOUBLE THUMBS UP CELEBRATION) */
-          <div className="relative w-full h-full flex items-center justify-center">
-            <Image
-              src="/mascot/anty_purple_thumbsup.png"
-              alt="Anty si Manusia Semut - Kasih Jempol"
-              width={size}
-              height={size}
-              priority
-              className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.22)]"
-            />
-          </div>
-        ) : (
-          /* WAVING POSE: ONLY THE HAND/ARM MOVES IN 3D ("Tangan aja yang gerak jadi 3D") */
-          <div className="relative w-full h-full">
-            {/* 1. Anchored Body Layer (Steady, Grounded, Full Shoulder Pad) */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Image
-                src="/mascot/anty_purple_body.png"
-                alt="Anty si Manusia Semut Cetas"
-                width={size}
-                height={size}
-                priority
-                className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(124,58,237,0.18)]"
-              />
-            </div>
+      {/* 3D Mascot Stage Viewport */}
+      <div className="relative w-full flex items-center justify-center">
+        <div className="relative group w-full flex justify-center">
+          {/* Cyber Neon Floor Light Rings (Podium Arena) */}
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-4/5 h-10 bg-gradient-to-r from-blue-600/30 via-cyan-400/50 to-blue-600/30 rounded-full blur-md pointer-events-none" />
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3/5 h-4 bg-cyan-400/60 rounded-full blur-xs pointer-events-none" />
 
-            {/* 2. Isolated Arm Layer Moving in True 3D (Shoulder Pivot) */}
-            {enable3DArm ? (
-              <div
-                className="absolute inset-0 flex items-center justify-center pointer-events-none animate-arm-wave-3d"
-                style={{
-                  transformOrigin: "33.2% 48.3%", // exact anatomical shoulder joint
-                  willChange: "transform",
-                }}
-              >
-                <Image
-                  src="/mascot/anty_purple_arm.png"
-                  alt="Anty Waving Arm 3D"
-                  width={size}
-                  height={size}
-                  priority
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <Image
-                  src="/mascot/anty_purple_arm.png"
-                  alt="Anty Waving Arm"
-                  width={size}
-                  height={size}
-                  priority
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            )}
-          </div>
-        )}
+          {/* High-Tech Mascot Image (Unboxed, Full-Body, Razor Sharp) */}
+          <Image
+            src={imgSrc}
+            alt={imgAlt}
+            width={580}
+            height={1023}
+            priority
+            className="w-auto h-[440px] sm:h-[500px] md:h-[550px] object-contain drop-shadow-[0_22px_45px_rgba(0,102,255,0.35)] transition-all duration-500 group-hover:scale-[1.03] group-hover:drop-shadow-[0_28px_55px_rgba(0,210,255,0.45)]"
+          />
+        </div>
       </div>
 
       {/* Optional Speech Bubble */}
       {speechText && (
-        <div className="mt-2 text-center">
-          <div className="inline-block rounded-2xl bg-white px-3.5 py-1.5 text-xs font-bold text-slate-800 shadow-md border border-purple-200">
+        <div className="mt-3 text-center">
+          <div className="inline-block rounded-2xl bg-white/95 backdrop-blur-md px-4 py-2 text-xs font-bold text-slate-800 shadow-xl border border-blue-200">
             {speechText}
           </div>
         </div>

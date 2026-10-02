@@ -181,27 +181,27 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="space-y-16 pb-24 text-slate-800 selection:bg-purple-600 selection:text-white">
-      {/* 1. HERO SECTION (SPLIT LAYOUT WITH 3D WAVING ANTY & FLOATING HUD BADGES) */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-purple-100/70 via-purple-50/40 to-[#FCFBFE] pt-12 pb-18 border-b border-purple-100">
+    <div className="space-y-16 pb-24 text-slate-800 selection:bg-blue-600 selection:text-white">
+      {/* 1. HERO SECTION (GRAND UNBOXED CYBER MASCOT & FLOATING HUD BADGES) */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/80 via-sky-50/40 to-[#F8FAFC] pt-12 pb-18 border-b border-blue-100/80">
         {/* Soft Glow Orbs */}
-        <div className="absolute top-0 left-1/3 -translate-x-1/2 w-[550px] h-[360px] bg-purple-200/40 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-12 right-12 w-[380px] h-[320px] bg-indigo-100/50 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/3 -translate-x-1/2 w-[550px] h-[360px] bg-blue-200/30 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-12 right-12 w-[420px] h-[340px] bg-cyan-100/50 rounded-full blur-3xl pointer-events-none" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             {/* Left Column: Hero Text & Badges */}
             <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
               {/* Official Expansion Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-1.5 text-xs font-bold text-purple-800 border border-purple-200 shadow-xs">
-                <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold text-blue-900 border border-blue-200 shadow-xs">
+                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
                 <span>Centralized Electronic Tournament & Award System</span>
               </div>
 
               {/* Punchy Main Headline */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 leading-[1.12]">
                 Platform Rekapitulasi Digital,{" "}
-                <span className="bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-800 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-blue-700 via-cyan-600 to-indigo-700 bg-clip-text text-transparent">
                   E-Voting & Produksi
                 </span>{" "}
                 Turnamen Terlengkap
@@ -215,23 +215,23 @@ export default function HomePage() {
               <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3">
                 <Link
                   href="/events"
-                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 py-3.5 text-sm shadow-md shadow-purple-500/25 transition transform active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3.5 text-sm shadow-md shadow-blue-500/25 transition transform active:scale-95"
                 >
                   <Ticket className="h-4 w-4" />
                   Jelajahi Event & Tiket
                 </Link>
                 <Link
-                  href="/pelatih"
-                  className="inline-flex items-center gap-2 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-bold px-5 py-3.5 text-sm shadow-xs transition"
+                  href="/score"
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-3.5 text-sm shadow-md transition"
                 >
-                  <UserCheck className="h-4 w-4 text-cyan-300" />
-                  Portal Akses Pelatih
+                  <Award className="h-4 w-4 text-cyan-400" />
+                  CETAS.SCORE (Juri Live)
                 </Link>
                 <Link
                   href="/vote"
-                  className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-purple-50/60 text-purple-900 font-bold px-5 py-3.5 text-sm border border-purple-200 shadow-xs transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-blue-50/60 text-blue-900 font-bold px-5 py-3.5 text-sm border border-blue-200 shadow-xs transition"
                 >
-                  <Award className="h-4 w-4 text-purple-600" />
+                  <Award className="h-4 w-4 text-blue-600" />
                   Bilik Cetas Vote Live
                 </Link>
                 <a
@@ -247,111 +247,109 @@ export default function HomePage() {
 
               {/* Trust Metric Chips */}
               <div className="pt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto lg:mx-0">
-                <div className="p-3 rounded-2xl bg-white border border-purple-100 shadow-xs text-center">
-                  <div className="text-xl font-black text-purple-700">0 Detik</div>
+                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
+                  <div className="text-xl font-black text-blue-700">0 Detik</div>
                   <div className="text-[11px] text-slate-500 font-medium">Rekapitulasi Juri Live</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-purple-100 shadow-xs text-center">
+                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
                   <div className="text-xl font-black text-slate-900">100% Sah</div>
                   <div className="text-[11px] text-slate-500 font-medium">Bebas Manipulasi</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-purple-100 shadow-xs text-center">
+                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
                   <div className="text-xl font-black text-slate-900">QRIS & VA</div>
                   <div className="text-[11px] text-slate-500 font-medium">Midtrans Instant</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-purple-100 shadow-xs text-center">
-                  <div className="text-xl font-black text-purple-700">Satu Atap</div>
+                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
+                  <div className="text-xl font-black text-blue-700">Satu Atap</div>
                   <div className="text-[11px] text-slate-500 font-medium">Cetas Production</div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Ant-Man Mascot Showcase with Floating Live Badges */}
-            <div className="lg:col-span-5 flex justify-center">
-              <div className="relative w-full max-w-sm sm:max-w-md">
-                {/* Soft Berry halo */}
-                <div className="absolute -inset-3 rounded-3xl bg-purple-200/50 opacity-60 blur-xl" />
+            {/* Right Column: Ant-Man Mascot Showcase - GRAND, UNBOXED, WITH CETAS IDENTITY */}
+            <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
+              {/* Grand Cyber Platform Glow Backdrop (No Box!) */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[480px] h-[380px] sm:h-[480px] bg-gradient-to-tr from-blue-600/15 via-cyan-400/20 to-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                {/* Floating HUD Badge 1: Top-Left */}
-                <div className="absolute -top-3 -left-3 z-30 hidden sm:flex items-center gap-2 rounded-2xl bg-white/95 backdrop-blur-md p-2.5 shadow-lg border border-purple-200">
-                  <div className="h-8 w-8 rounded-xl bg-purple-600 text-white flex items-center justify-center">
+              {/* Floating Interactive Speech Bubble (Above Mascot) */}
+              <div className="w-full max-w-sm mb-2 z-20">
+                <div className="relative rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 shadow-xl border border-blue-200/80 dark:border-blue-800 transition-all hover:scale-[1.02]">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                        ANTY • Maskot Resmi CETAS
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
+                      Manusia Semut Cyber
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug">
+                    &ldquo;Halo sobat turnamen! 👋 Butuh tiket, rekap nilai juri 0 detik, atau sewa panggung & sound? Tanya Anty di WhatsApp!&rdquo;
+                  </p>
+                  {/* Subtle speech tail pointing down to mascot */}
+                  <div className="absolute -bottom-1.5 left-12 w-3.5 h-3.5 bg-white dark:bg-slate-900 border-b border-r border-blue-200/80 dark:border-blue-800 transform rotate-45 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Main Mascot Display - LARGE, UNBOXED, BOLD */}
+              <div className="relative w-full max-w-sm sm:max-w-md flex flex-col items-center justify-center">
+                {/* Floating HUD Badge 1: Top Left */}
+                <div className="absolute top-8 -left-4 sm:-left-8 z-30 hidden sm:flex items-center gap-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2.5 shadow-xl border border-blue-200 dark:border-blue-800">
+                  <div className="h-8 w-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
                     <Zap className="h-4 w-4" />
                   </div>
                   <div className="text-left">
                     <div className="text-[9px] font-bold text-slate-500">Rekap Nilai Juri</div>
-                    <div className="text-xs font-black text-purple-900">Real-time 0 Detik</div>
+                    <div className="text-xs font-black text-blue-950 dark:text-blue-200">Real-time 0 Detik</div>
                   </div>
                 </div>
 
-                {/* Floating HUD Badge 2: Bottom-Right */}
-                <div className="absolute -bottom-3 -right-3 z-30 hidden sm:flex items-center gap-2 rounded-2xl bg-white/95 backdrop-blur-md p-2.5 shadow-lg border border-purple-200">
-                  <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                {/* Floating HUD Badge 2: Mid-Right */}
+                <div className="absolute top-36 -right-4 sm:-right-8 z-30 hidden sm:flex items-center gap-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2.5 shadow-xl border border-emerald-200 dark:border-emerald-800">
+                  <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
                     <ShieldCheck className="h-4 w-4" />
                   </div>
                   <div className="text-left">
                     <div className="text-[9px] font-bold text-slate-500">Tiket Ber-QR</div>
-                    <div className="text-xs font-black text-emerald-800">Anti-Duplikasi HMAC</div>
+                    <div className="text-xs font-black text-emerald-900 dark:text-emerald-200">Anti-Duplikasi HMAC</div>
                   </div>
                 </div>
 
-                <div className="relative rounded-3xl bg-white border border-purple-100 p-6 shadow-xl space-y-4">
-                  {/* Card Header with Official Logo */}
-                  <div className="flex items-center justify-between pb-3 border-b border-purple-50">
-                    <div className="flex items-center gap-2">
-                      <Image
-                        src="/logo/cetas_logo_transparent.png"
-                        alt="CETAS Official"
-                        width={26}
-                        height={26}
-                        className="object-contain"
-                      />
-                      <span className="text-xs font-black uppercase tracking-wider text-purple-800">
-                        Maskot Resmi &ldquo;Anty&rdquo;
-                      </span>
+                {/* THE UNBOXED MASCOT */}
+                <div className="relative z-10 py-1">
+                  <AntmanMascot pose="waving" size={480} />
+                </div>
+
+                {/* Quick Action Buttons Underneath Mascot */}
+                <div className="w-full max-w-sm space-y-2 mt-1 z-20">
+                  <a
+                    href="https://wa.me/6281584682345?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20Cetas."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-lg shadow-emerald-500/25 transition transform active:scale-95 group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <MessageCircle className="h-5 w-5 fill-white" />
+                      <span>Chat WhatsApp Anty (0815-8468-2345)</span>
                     </div>
-                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                      Manusia Semut CETAS
-                    </span>
-                  </div>
+                    <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </a>
 
-                  {/* Mascot Centerpiece: 3D WAVING ARM ONLY (Rock-Solid Grounded Body) */}
-                  <div className="relative h-64 sm:h-72 w-full rounded-2xl bg-gradient-to-b from-purple-50/60 via-purple-50/20 to-white flex items-center justify-center border border-purple-100/80 overflow-hidden">
-                    <AntmanMascot pose="waving" enable3DArm={true} size={240} />
-
-                    {/* Speech Tag Overlay */}
-                    <div className="absolute bottom-2 inset-x-3 rounded-xl bg-white/95 border border-purple-200 p-2.5 text-center shadow-md backdrop-blur-xs">
-                      <p className="text-xs font-semibold text-slate-800">
-                        &ldquo;Halo sobat turnamen! 👋 Butuh tiket, rekap nilai juri, atau sewa panggung & sound? Tanya Anty di WhatsApp!&rdquo;
-                      </p>
+                  <Link
+                    href="/pelatih"
+                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/95 hover:bg-blue-50 text-blue-900 font-bold text-xs border border-blue-200 shadow-sm transition"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <UserCheck className="h-4 w-4 text-blue-600" />
+                      <span>Masuk Portal Akses Pelatih & Kontingen</span>
                     </div>
-                  </div>
-
-                  {/* Quick Action Buttons */}
-                  <div className="space-y-2 pt-1">
-                    <a
-                      href="https://wa.me/6281584682345?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20Cetas."
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition transform active:scale-95"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4 fill-white" />
-                        <span>Chat WhatsApp Anty (0815-8468-2345)</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4" />
-                    </a>
-
-                    <Link
-                      href="/pelatih"
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-purple-50 hover:bg-purple-100/70 text-purple-800 font-bold text-xs border border-purple-200 transition"
-                    >
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-purple-700" />
-                        <span>Masuk Portal Akses Pelatih & Kontingen</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-purple-500" />
-                    </Link>
-                  </div>
+                    <ChevronRight className="h-4 w-4 text-blue-500" />
+                  </Link>
                 </div>
               </div>
             </div>

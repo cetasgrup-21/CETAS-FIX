@@ -40,6 +40,14 @@ import {
   VolumeX,
   Maximize2,
   Minimize2,
+  Sliders,
+  Settings,
+  Trash2,
+  Shield,
+  PlusCircle,
+  Save,
+  Scale,
+  HelpCircle,
 } from "lucide-react";
 
 export function playArenaTone(freq: number, durationMs: number, type: OscillatorType = "sine", count = 1) {
@@ -168,6 +176,65 @@ const CRITERIA_BY_CATEGORY: Record<
     { id: "kos-5", title: "5. Kebersihan & Kesiapan Fisik Anggota", interval: 3, peak: 100 },
   ],
 };
+
+export interface ScoreConfig {
+  calculationMethod: "DIRECT_SUM" | "WEIGHTED_PERCENTAGE";
+  weights: {
+    pbb: number;      // e.g. 35
+    variasi: number;  // e.g. 30
+    danton: number;   // e.g. 20
+    kostum: number;   // e.g. 15
+  };
+  penalties: {
+    timePenaltyPerOver: number;    // default 10 (poin per over waktu)
+    boundaryPenaltyPerHit: number; // default 10 (poin per injak garis)
+    standardDurationMinutes: number; // default 10
+    warning1Minutes: number;       // default 3
+    warning2Minutes: number;       // default 1
+  };
+  masterPin: string; // default "2026"
+}
+
+export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
+  calculationMethod: "DIRECT_SUM",
+  weights: {
+    pbb: 35,
+    variasi: 30,
+    danton: 20,
+    kostum: 15,
+  },
+  penalties: {
+    timePenaltyPerOver: 10,
+    boundaryPenaltyPerHit: 10,
+    standardDurationMinutes: 10,
+    warning1Minutes: 3,
+    warning2Minutes: 1,
+  },
+  masterPin: "2026",
+};
+
+export function computeTotalScore(
+  pbb: number,
+  variasi: number,
+  danton: number,
+  kostum: number,
+  penaltyTotal: number,
+  config: ScoreConfig
+): number {
+  if (config.calculationMethod === "DIRECT_SUM") {
+    return Math.max(0, pbb + variasi + danton + kostum - penaltyTotal);
+  } else {
+    // Weighted Percentage (weights out of 100%)
+    const weightedSum =
+      (pbb * (config.weights.pbb || 35)) / 100 +
+      (variasi * (config.weights.variasi || 30)) / 100 +
+      (danton * (config.weights.danton || 20)) / 100 +
+      (kostum * (config.weights.kostum || 15)) / 100;
+    // Scale multiplied by 4 so max possible is ~4000 (standard LKBB total scale)
+    const scaledTotal = Math.round(weightedSum * 4);
+    return Math.max(0, scaledTotal - penaltyTotal);
+  }
+}
 
 function assignAwardsAndRanks(list: ParticipantScore[]): ParticipantScore[] {
   const sorted = [...list].sort((a, b) => {
@@ -410,11 +477,38 @@ const INITIAL_PARTICIPANTS: ParticipantScore[] = [
 
 export default function CetasScorePage() {
   const [activeMode, setActiveMode] = useState<
-    "overview" | "judge" | "timer" | "rekap" | "display" | "print"
+    "overview" | "judge" | "timer" | "rekap" | "display" | "print" | "admin"
   >("overview");
 
   const [selectedLevel, setSelectedLevel] = useState<"ALL" | "SMA" | "SMP">("ALL");
   const [participants, setParticipants] = useState<ParticipantScore[]>(INITIAL_PARTICIPANTS);
+
+  // Scoring Configuration, Formula & Weights
+  const [scoreConfig, setScoreConfig] = useState<ScoreConfig>(DEFAULT_SCORE_CONFIG);
+  const [adminSubTab, setAdminSubTab] = useState<"bobot" | "kriteria" | "pinalti" | "juri" | "kontingen">("bobot");
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
+  const [adminPinInput, setAdminPinInput] = useState<string>("");
+  const [adminPinError, setAdminPinError] = useState<string | null>(null);
+
+  // Dynamic Criteria Matrix per Pos
+  const [criteriaByCategory, setCriteriaByCategory] = useState<
+    Record<string, { id: string; title: string; interval: number; peak: number }[]>
+  >(CRITERIA_BY_CATEGORY);
+  const [selectedAdminPos, setSelectedAdminPos] = useState<string>("pos-1");
+  const [newCriteriaTitle, setNewCriteriaTitle] = useState<string>("");
+  const [newCriteriaInterval, setNewCriteriaInterval] = useState<number>(3);
+  const [newCriteriaPeak, setNewCriteriaPeak] = useState<number>(100);
+
+  // Dynamic Official Judges & Security
+  const [judgesList, setJudgesList] = useState<JudgeProfile[]>(OFFICIAL_JUDGES);
+
+  // New Contingent Form
+  const [newContingentForm, setNewContingentForm] = useState({
+    drawNumber: 13,
+    schoolName: "",
+    teamName: "",
+    level: "SMA" as "SMA" | "SMP" | "PURNA",
+  });
 
   // RBAC & Judge Session State (Enforces "Hanya Role Juri yang Bisa Menilai & Merubah Nilai")
   const [currentUserRole, setCurrentUserRole] = useState<ScoreSystemRole>("juri");
@@ -503,9 +597,20 @@ export default function CetasScorePage() {
   const [boundaryPenalties, setBoundaryPenalties] = useState<number>(0);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
 
-  // LocalStorage Persistence for Gladi Kotor & Production Rehearsal
+  // LocalStorage Persistence & URL Param Handler for Gladi Kotor & Production Rehearsal
   useEffect(() => {
     try {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const urlMode = params.get("mode");
+        if (
+          urlMode &&
+          ["overview", "judge", "timer", "rekap", "display", "print", "admin"].includes(urlMode)
+        ) {
+          setActiveMode(urlMode as any);
+        }
+      }
+
       const saved = localStorage.getItem("cetas_gladi_participants_v2");
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -673,14 +778,14 @@ export default function CetasScorePage() {
   // RBAC Handlers
   const handleAuthenticateJudge = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const judge = OFFICIAL_JUDGES.find((j) => j.id === selectedJudgeId);
+    const judge = judgesList.find((j) => j.id === selectedJudgeId);
     if (!judge) {
       setPinError("Silakan pilih dewan juri.");
       return;
     }
 
-    if (pinInput !== judge.pin && pinInput !== "2026") {
-      setPinError(`PIN salah! Masukkan PIN resmi ${judge.name} (${judge.pin}) atau Master PIN 2026.`);
+    if (pinInput !== judge.pin && pinInput !== scoreConfig.masterPin && pinInput !== "2026") {
+      setPinError(`PIN salah! Masukkan PIN resmi ${judge.name} (${judge.pin}) atau Master PIN.`);
       return;
     }
 
@@ -721,7 +826,7 @@ export default function CetasScorePage() {
       return;
     }
 
-    const currentCritList = CRITERIA_BY_CATEGORY[selectedJudgeCategory] || [];
+    const currentCritList = criteriaByCategory[selectedJudgeCategory] || [];
     const categorySubtotal = currentCritList.reduce((sum, crit) => {
       return sum + (judgeScores[crit.id] || crit.peak);
     }, 0);
@@ -739,7 +844,14 @@ export default function CetasScorePage() {
         else if (selectedJudgeCategory === "pos-3") newDanton = categorySubtotal;
         else if (selectedJudgeCategory === "pos-4") newKostum = categorySubtotal;
 
-        const totalScore = newPbb + newVariasi + newDanton + newKostum - (p.penaltyTime + p.penaltyBoundary);
+        const totalScore = computeTotalScore(
+          newPbb,
+          newVariasi,
+          newDanton,
+          newKostum,
+          p.penaltyTime + p.penaltyBoundary,
+          scoreConfig
+        );
         return {
           ...p,
           pbbScore: newPbb,
@@ -822,7 +934,14 @@ export default function CetasScorePage() {
           ...p,
           [revisionCategory]: newScore,
         };
-        const totalScore = updatedP.pbbScore + updatedP.variasiScore + updatedP.dantonScore + updatedP.kostumScore - (updatedP.penaltyTime + updatedP.penaltyBoundary);
+        const totalScore = computeTotalScore(
+          updatedP.pbbScore,
+          updatedP.variasiScore,
+          updatedP.dantonScore,
+          updatedP.kostumScore,
+          updatedP.penaltyTime + updatedP.penaltyBoundary,
+          scoreConfig
+        );
         return {
           ...updatedP,
           totalScore,
@@ -865,6 +984,171 @@ export default function CetasScorePage() {
     });
 
     setRevisionModalParticipant(null);
+  };
+
+  // Admin & Scoring Configuration Handlers
+  const handleUnlockAdmin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (adminPinInput === scoreConfig.masterPin || adminPinInput === "2026") {
+      setIsAdminUnlocked(true);
+      setAdminPinError(null);
+      setAdminPinInput("");
+      setToast({
+        type: "success",
+        text: "Akses Konfigurasi Admin & Format Bobot Berhasil Terbuka!",
+      });
+    } else {
+      setAdminPinError("Master PIN salah! Masukkan PIN Master Panitia yang sah.");
+    }
+  };
+
+  const handleSaveWeightsConfig = (updated: ScoreConfig) => {
+    setScoreConfig(updated);
+    try {
+      localStorage.setItem("cetas_score_config_v3", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Storage error", e);
+    }
+
+    setParticipants((prev) => {
+      const recalculated = prev.map((p) => ({
+        ...p,
+        totalScore: computeTotalScore(
+          p.pbbScore,
+          p.variasiScore,
+          p.dantonScore,
+          p.kostumScore,
+          p.penaltyTime + p.penaltyBoundary,
+          updated
+        ),
+      }));
+      return assignAwardsAndRanks(recalculated);
+    });
+
+    setToast({
+      type: "success",
+      text: "Formula bobot & regulasi penilaian berhasil diterapkan! Seluruh nilai 12 kontingen telah dikalkulasi ulang otomatis.",
+    });
+  };
+
+  const handleAddCriteria = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCriteriaTitle.trim()) {
+      setToast({ type: "error", text: "Nama kriteria penilaian wajib diisi!" });
+      return;
+    }
+    const newCrit = {
+      id: `crit-${Date.now()}`,
+      title: newCriteriaTitle.trim(),
+      interval: Number(newCriteriaInterval) || 3,
+      peak: Number(newCriteriaPeak) || 100,
+    };
+    const updated = {
+      ...criteriaByCategory,
+      [selectedAdminPos]: [...(criteriaByCategory[selectedAdminPos] || []), newCrit],
+    };
+    setCriteriaByCategory(updated);
+    try {
+      localStorage.setItem("cetas_score_criteria_v3", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Storage error", e);
+    }
+    setNewCriteriaTitle("");
+    setToast({
+      type: "success",
+      text: `Kriteria baru berhasil ditambahkan ke ${selectedAdminPos.toUpperCase()}! Tombol interval juri langsung aktif.`,
+    });
+  };
+
+  const handleDeleteCriteria = (catPos: string, critId: string) => {
+    const list = criteriaByCategory[catPos] || [];
+    if (list.length <= 1) {
+      setToast({ type: "error", text: "Minimal harus ada 1 kriteria penilaian dalam pos ini!" });
+      return;
+    }
+    const updated = {
+      ...criteriaByCategory,
+      [catPos]: list.filter((c) => c.id !== critId),
+    };
+    setCriteriaByCategory(updated);
+    try {
+      localStorage.setItem("cetas_score_criteria_v3", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Storage error", e);
+    }
+    setToast({ type: "info", text: "Kriteria penilaian berhasil dihapus dari pos juri." });
+  };
+
+  const handleSaveJudgesConfig = () => {
+    try {
+      localStorage.setItem("cetas_score_judges_v3", JSON.stringify(judgesList));
+      localStorage.setItem("cetas_score_config_v3", JSON.stringify(scoreConfig));
+    } catch (e) {
+      console.warn("Storage error", e);
+    }
+    setToast({
+      type: "success",
+      text: "Data akun Dewan Juri dan PIN keamanan berhasil diperbarui!",
+    });
+  };
+
+  const handleAddContingent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContingentForm.schoolName.trim()) {
+      setToast({ type: "error", text: "Nama sekolah kontingen wajib diisi!" });
+      return;
+    }
+    const newContingent: ParticipantScore = {
+      drawNumber: Number(newContingentForm.drawNumber) || participants.length + 1,
+      schoolName: newContingentForm.schoolName.trim(),
+      teamName: newContingentForm.teamName.trim() || "Pasukan Inti",
+      level: newContingentForm.level,
+      pbbScore: 800,
+      variasiScore: 800,
+      dantonScore: 800,
+      kostumScore: 800,
+      penaltyTime: 0,
+      penaltyBoundary: 0,
+      totalScore: computeTotalScore(800, 800, 800, 800, 0, scoreConfig),
+      rank: participants.length + 1,
+      awardTitle: `Peringkat #${participants.length + 1} Utama`,
+      isLocked: false,
+    };
+    const updated = assignAwardsAndRanks([...participants, newContingent]);
+    setParticipants(updated);
+    setNewContingentForm({
+      drawNumber: updated.length + 1,
+      schoolName: "",
+      teamName: "",
+      level: "SMA",
+    });
+    setToast({
+      type: "success",
+      text: `Kontingen baru "${newContingent.schoolName}" berhasil didaftarkan ke sistem!`,
+    });
+  };
+
+  const handleDeleteContingent = (drawNumber: number) => {
+    if (participants.length <= 2) {
+      setToast({ type: "error", text: "Minimal harus menyisakan 2 kontingen dalam kompetisi!" });
+      return;
+    }
+    const updated = assignAwardsAndRanks(participants.filter((p) => p.drawNumber !== drawNumber));
+    setParticipants(updated);
+    setToast({
+      type: "info",
+      text: `Kontingen No. Undian #${drawNumber} telah dihapus dari turnamen.`,
+    });
+  };
+
+  const handleToggleLock = (drawNumber: number) => {
+    setParticipants((prev) =>
+      prev.map((p) => (p.drawNumber === drawNumber ? { ...p, isLocked: !p.isLocked } : p))
+    );
+    setToast({
+      type: "info",
+      text: `Status kunci kontingen #${drawNumber} telah diperbarui.`,
+    });
   };
 
   return (
@@ -1097,6 +1381,19 @@ export default function CetasScorePage() {
               <Printer className="h-4 w-4" />
               Format Cetak F4 Landscape
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveMode("admin")}
+              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition ${
+                activeMode === "admin"
+                  ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-400/40"
+                  : "bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border border-amber-400/30"
+              }`}
+            >
+              <Sliders className="h-4 w-4" />
+              Format Bobot & Admin
+            </button>
           </div>
         </div>
       </section>
@@ -1168,7 +1465,7 @@ export default function CetasScorePage() {
             </div>
 
             {/* Quick Navigation Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <div
                 onClick={() => setActiveMode("judge")}
                 className="cursor-pointer rounded-3xl border border-purple-100 bg-white p-6 shadow-xs purple-glow-hover transition space-y-3"
@@ -1216,6 +1513,23 @@ export default function CetasScorePage() {
                 </p>
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
                   <span>Buka Lembar Rekapitulasi</span>
+                  <ChevronRight className="h-4 w-4" />
+                </div>
+              </div>
+
+              <div
+                onClick={() => setActiveMode("admin")}
+                className="cursor-pointer rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white p-6 shadow-xs purple-glow-hover transition space-y-3"
+              >
+                <div className="h-12 w-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-sm">
+                  <Sliders className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Format & Bobot Nilai</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Konfigurasi formula Direct Sum vs Bobot %, kriteria pos, sanksi pinalti, akun juri & ganti PIN.
+                </p>
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800">
+                  <span>Kelola Bobot & Master Admin</span>
                   <ChevronRight className="h-4 w-4" />
                 </div>
               </div>
@@ -1313,10 +1627,11 @@ export default function CetasScorePage() {
                       onChange={(e) => setSelectedJudgeCategory(e.target.value)}
                       className="w-full rounded-2xl bg-purple-50/60 border border-purple-200 p-3 text-xs font-bold text-purple-950 outline-none"
                     >
-                      <option value="pos-1">Pos 1: PBB Murni (Mayor Bambang Sutedjo)</option>
-                      <option value="pos-2">Pos 2: Variasi & Formasi (Kapten Hendra Wijaya)</option>
-                      <option value="pos-3">Pos 3: Komandan Peleton / Danton (Lettu Rina Kartika)</option>
-                      <option value="pos-4">Pos 4: Kostum & Kerapihan (Ibu Desy Ratnasari)</option>
+                      {judgesList.map((j) => (
+                        <option key={j.categoryPos} value={j.categoryPos}>
+                          {j.categoryName} ({j.name})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1387,7 +1702,7 @@ export default function CetasScorePage() {
 
                   {/* Criteria Items with 10 Interval Buttons */}
                   <div className="space-y-4">
-                    {(CRITERIA_BY_CATEGORY[selectedJudgeCategory] || []).map((crit) => {
+                    {(criteriaByCategory[selectedJudgeCategory] || []).map((crit) => {
                       const options = Array.from({ length: 10 }, (_, i) => crit.peak - crit.interval * (9 - i));
                       const selectedVal = judgeScores[crit.id] || crit.peak;
 
@@ -2134,17 +2449,17 @@ export default function CetasScorePage() {
                 <div className="space-y-12">
                   <div>Koordinator Pos 1 (PBB Murni)</div>
                   <div className="border-b border-slate-900 mx-auto w-36" />
-                  <div className="font-bold">Mayor (Purn) Bambang Sutedjo</div>
+                  <div className="font-bold">{judgesList[0]?.name || "Mayor (Purn) Bambang Sutedjo"}</div>
                 </div>
                 <div className="space-y-12">
                   <div>Koordinator Pos 2 (Variasi & Formasi)</div>
                   <div className="border-b border-slate-900 mx-auto w-36" />
-                  <div className="font-bold">Kapten Marinir Hendra Wijaya</div>
+                  <div className="font-bold">{judgesList[1]?.name || "Kapten Marinir Hendra Wijaya"}</div>
                 </div>
                 <div className="space-y-12">
                   <div>Ketua Dewan Hakim Juri</div>
                   <div className="border-b border-slate-900 mx-auto w-36" />
-                  <div className="font-bold">Lettu Cba (K) Rina Kartika</div>
+                  <div className="font-bold">{judgesList[2]?.name || "Lettu Cba (K) Rina Kartika"}</div>
                 </div>
               </div>
 
@@ -2152,6 +2467,1167 @@ export default function CetasScorePage() {
                 Dokumen resmi ini dicetak langsung dari sistem CETAS.SCORE pada tanggal {new Date().toLocaleDateString("id-ID")} dengan integritas verifikasi hash HMAC SHA-256.
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 6: PENGATURAN FORMAT PENILAIAN, BOBOT & MASTER ADMIN */}
+        {activeMode === "admin" && (
+          <div className="space-y-6">
+            {!isAdminUnlocked && currentUserRole !== "panitia" ? (
+              <div className="max-w-md mx-auto my-12 rounded-3xl border border-amber-200 bg-white p-8 shadow-xl text-center space-y-6">
+                <div className="h-16 w-16 rounded-2xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center font-black">
+                  <Lock className="h-8 w-8" />
+                </div>
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black uppercase tracking-wider">
+                    <Shield className="h-3 w-3" />
+                    Panel Terproteksi Master PIN
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900">
+                    Konfigurasi Format & Bobot Nilai
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Bagian ini hanya dapat diakses oleh Panitia Inti & Ketua Dewan Hakim Juri untuk mengatur formula penilaian, persentase bobot tiap pos, sanksi pinalti, kriteria penilaian, dan akun juri.
+                  </p>
+                </div>
+
+                {adminPinError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>{adminPinError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleUnlockAdmin} className="space-y-4">
+                  <div>
+                    <input
+                      type="password"
+                      maxLength={4}
+                      value={adminPinInput}
+                      onChange={(e) => {
+                        setAdminPinInput(e.target.value);
+                        setAdminPinError(null);
+                      }}
+                      placeholder="••••"
+                      className="w-full text-center tracking-[0.8em] text-2xl font-mono py-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 text-amber-950 font-black focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminPinInput(scoreConfig.masterPin || "2026");
+                        setAdminPinError(null);
+                      }}
+                      className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                    >
+                      💡 Isi PIN Master (2026)
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-1/2 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md shadow-amber-500/30 transition active:scale-95"
+                    >
+                      Buka Kunci Admin
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Header Admin Bar */}
+                <div className="rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-purple-50 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="h-12 w-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-sm">
+                      <Sliders className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-slate-900 text-base">
+                          Panel Konfigurasi Format & Bobot Penilaian
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">
+                          Otoritas Admin Sah
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        Sesuaikan metode penilaian (Direct Sum / Weighted %), matriks kriteria pos, sanksi pinalti, akun juri, dan kontingen lomba.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/admin"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-purple-50 text-purple-900 font-bold text-xs border border-purple-200 shadow-xs transition"
+                    >
+                      <span>Dashboard Admin Pusat</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setIsAdminUnlocked(false)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 font-bold text-xs border border-slate-200 transition"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Kunci Panel</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-Tab Navigation Bar */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                  <button
+                    type="button"
+                    onClick={() => setAdminSubTab("bobot")}
+                    className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition ${
+                      adminSubTab === "bobot"
+                        ? "bg-purple-900 text-white shadow-md shadow-purple-900/30"
+                        : "bg-white hover:bg-purple-50 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    <Scale className="h-4 w-4 text-amber-400" />
+                    <span>Formula & Bobot Nilai (%)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdminSubTab("kriteria")}
+                    className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition ${
+                      adminSubTab === "kriteria"
+                        ? "bg-purple-900 text-white shadow-md shadow-purple-900/30"
+                        : "bg-white hover:bg-purple-50 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    <FileText className="h-4 w-4 text-cyan-400" />
+                    <span>Matriks Kriteria per Pos</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdminSubTab("pinalti")}
+                    className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition ${
+                      adminSubTab === "pinalti"
+                        ? "bg-purple-900 text-white shadow-md shadow-purple-900/30"
+                        : "bg-white hover:bg-purple-50 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    <Clock className="h-4 w-4 text-rose-400" />
+                    <span>Regulasi Pinalti & Timer</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdminSubTab("juri")}
+                    className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition ${
+                      adminSubTab === "juri"
+                        ? "bg-purple-900 text-white shadow-md shadow-purple-900/30"
+                        : "bg-white hover:bg-purple-50 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    <Key className="h-4 w-4 text-emerald-400" />
+                    <span>Akun Dewan Juri & Ganti PIN</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdminSubTab("kontingen")}
+                    className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition ${
+                      adminSubTab === "kontingen"
+                        ? "bg-purple-900 text-white shadow-md shadow-purple-900/30"
+                        : "bg-white hover:bg-purple-50 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    <UserCheck className="h-4 w-4 text-indigo-400" />
+                    <span>Roster Kontingen ({participants.length})</span>
+                  </button>
+                </div>
+
+                {/* SUB-TAB 1: BOBOT & FORMULA NILAI */}
+                {adminSubTab === "bobot" && (
+                  <div className="space-y-6">
+                    {/* Method Selector */}
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-purple-50">
+                        <div>
+                          <h4 className="text-base font-black text-slate-900">
+                            Metode Formula Perhitungan Nilai Akhir
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Pilih cara sistem mengakumulasikan nilai dari ke-4 pos dewan juri
+                          </p>
+                        </div>
+                        <span className="px-3 py-1 rounded-xl bg-purple-50 text-purple-800 text-xs font-bold border border-purple-200">
+                          {scoreConfig.calculationMethod === "DIRECT_SUM"
+                            ? "Metode: Akumulasi Langsung"
+                            : "Metode: Bobot Proporsional (%)"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div
+                          onClick={() =>
+                            setScoreConfig({ ...scoreConfig, calculationMethod: "DIRECT_SUM" })
+                          }
+                          className={`p-5 rounded-2xl border-2 cursor-pointer transition ${
+                            scoreConfig.calculationMethod === "DIRECT_SUM"
+                              ? "bg-purple-50/70 border-purple-600 shadow-sm"
+                              : "bg-slate-50 border-slate-200 hover:bg-purple-50/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-black text-sm text-slate-900">
+                              1. Akumulasi Jumlah Langsung (Direct Sum)
+                            </span>
+                            {scoreConfig.calculationMethod === "DIRECT_SUM" && (
+                              <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            Nilai setiap pos (1 s/d 1.000 poin) langsung dijumlahkan tanpa pengali bobot.
+                          </p>
+                          <div className="mt-3 p-2.5 rounded-xl bg-white border border-purple-100 text-[11px] font-mono text-purple-900 font-bold">
+                            Total = (Pos 1 + Pos 2 + Pos 3 + Pos 4) - Pinalti
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            Maksimal Total: 4.000 Poin (Standar umum LKBB Nasional)
+                          </div>
+                        </div>
+
+                        <div
+                          onClick={() =>
+                            setScoreConfig({
+                              ...scoreConfig,
+                              calculationMethod: "WEIGHTED_PERCENTAGE",
+                            })
+                          }
+                          className={`p-5 rounded-2xl border-2 cursor-pointer transition ${
+                            scoreConfig.calculationMethod === "WEIGHTED_PERCENTAGE"
+                              ? "bg-purple-50/70 border-purple-600 shadow-sm"
+                              : "bg-slate-50 border-slate-200 hover:bg-purple-50/30"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-black text-sm text-slate-900">
+                              2. Sistem Bobot Persentase (%)
+                            </span>
+                            {scoreConfig.calculationMethod === "WEIGHTED_PERCENTAGE" && (
+                              <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            Masing-masing pos dinilai sesuai porsi persentase kepentingan materi lomba.
+                          </p>
+                          <div className="mt-3 p-2.5 rounded-xl bg-white border border-purple-100 text-[11px] font-mono text-purple-900 font-bold">
+                            Total = Σ(Nilai Pos × Bobot %) × 4 - Pinalti
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            Memberikan porsi lebih besar pada aspek krusial (misal PBB murni)
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Weight Sliders Configuration */}
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-purple-50">
+                        <div>
+                          <h4 className="text-base font-black text-slate-900">
+                            Distribusi Bobot Nilai per Pos Penjurian
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Geser slider atau masukkan angka persentase untuk masing-masing pos
+                          </p>
+                        </div>
+                        {scoreConfig.weights.pbb +
+                          scoreConfig.weights.variasi +
+                          scoreConfig.weights.danton +
+                          scoreConfig.weights.kostum ===
+                        100 ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Total Bobot 100% (Sah)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-xs border border-rose-200 animate-pulse">
+                            <AlertTriangle className="h-4 w-4" />
+                            Total:{" "}
+                            {scoreConfig.weights.pbb +
+                              scoreConfig.weights.variasi +
+                              scoreConfig.weights.danton +
+                              scoreConfig.weights.kostum}
+                            % (Harus 100%)
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 4 Weight Controllers */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Pos 1: PBB */}
+                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-purple-950">
+                              Pos 1: PBB Murni
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={scoreConfig.weights.pbb}
+                                onChange={(e) =>
+                                  setScoreConfig({
+                                    ...scoreConfig,
+                                    weights: { ...scoreConfig.weights, pbb: Number(e.target.value) },
+                                  })
+                                }
+                                className="w-16 text-center font-black text-purple-900 bg-white border border-purple-200 rounded-lg py-1 text-xs outline-none"
+                              />
+                              <span className="text-xs font-black text-purple-700">%</span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={scoreConfig.weights.pbb}
+                            onChange={(e) =>
+                              setScoreConfig({
+                                ...scoreConfig,
+                                weights: { ...scoreConfig.weights, pbb: Number(e.target.value) },
+                              })
+                            }
+                            className="w-full accent-purple-600 cursor-pointer"
+                          />
+                          <p className="text-[11px] text-slate-500">
+                            Fokus: Kerapihan barisan, hadap, langkah tegap & penghormatan.
+                          </p>
+                        </div>
+
+                        {/* Pos 2: Variasi */}
+                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-purple-950">
+                              Pos 2: Variasi & Formasi
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={scoreConfig.weights.variasi}
+                                onChange={(e) =>
+                                  setScoreConfig({
+                                    ...scoreConfig,
+                                    weights: {
+                                      ...scoreConfig.weights,
+                                      variasi: Number(e.target.value),
+                                    },
+                                  })
+                                }
+                                className="w-16 text-center font-black text-purple-900 bg-white border border-purple-200 rounded-lg py-1 text-xs outline-none"
+                              />
+                              <span className="text-xs font-black text-purple-700">%</span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={scoreConfig.weights.variasi}
+                            onChange={(e) =>
+                              setScoreConfig({
+                                ...scoreConfig,
+                                weights: {
+                                  ...scoreConfig.weights,
+                                  variasi: Number(e.target.value),
+                                },
+                              })
+                            }
+                            className="w-full accent-purple-600 cursor-pointer"
+                          />
+                          <p className="text-[11px] text-slate-500">
+                            Fokus: Tingkat kesulitan gerakan, estetika visual & sinkronisasi.
+                          </p>
+                        </div>
+
+                        {/* Pos 3: Danton */}
+                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-purple-950">
+                              Pos 3: Komandan Peleton (Danton)
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={scoreConfig.weights.danton}
+                                onChange={(e) =>
+                                  setScoreConfig({
+                                    ...scoreConfig,
+                                    weights: { ...scoreConfig.weights, danton: Number(e.target.value) },
+                                  })
+                                }
+                                className="w-16 text-center font-black text-purple-900 bg-white border border-purple-200 rounded-lg py-1 text-xs outline-none"
+                              />
+                              <span className="text-xs font-black text-purple-700">%</span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={scoreConfig.weights.danton}
+                            onChange={(e) =>
+                              setScoreConfig({
+                                ...scoreConfig,
+                                weights: { ...scoreConfig.weights, danton: Number(e.target.value) },
+                              })
+                            }
+                            className="w-full accent-purple-600 cursor-pointer"
+                          />
+                          <p className="text-[11px] text-slate-500">
+                            Fokus: Artikulasi vokal aba-aba, wibawa, dan ketenangan memimpin.
+                          </p>
+                        </div>
+
+                        {/* Pos 4: Kostum */}
+                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-purple-950">
+                              Pos 4: Kostum & Kerapihan
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={scoreConfig.weights.kostum}
+                                onChange={(e) =>
+                                  setScoreConfig({
+                                    ...scoreConfig,
+                                    weights: { ...scoreConfig.weights, kostum: Number(e.target.value) },
+                                  })
+                                }
+                                className="w-16 text-center font-black text-purple-900 bg-white border border-purple-200 rounded-lg py-1 text-xs outline-none"
+                              />
+                              <span className="text-xs font-black text-purple-700">%</span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={scoreConfig.weights.kostum}
+                            onChange={(e) =>
+                              setScoreConfig({
+                                ...scoreConfig,
+                                weights: { ...scoreConfig.weights, kostum: Number(e.target.value) },
+                              })
+                            }
+                            className="w-full accent-purple-600 cursor-pointer"
+                          />
+                          <p className="text-[11px] text-slate-500">
+                            Fokus: Keserasian seragam, atribut evolet, sarung tangan & sepatu.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-purple-50">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScoreConfig({
+                              ...scoreConfig,
+                              weights: { pbb: 35, variasi: 30, danton: 20, kostum: 15 },
+                            })
+                          }
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                        >
+                          Reset ke Default (35/30/20/15)
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveWeightsConfig(scoreConfig)}
+                          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md shadow-purple-600/30 transition active:scale-95"
+                        >
+                          <Save className="h-4 w-4" />
+                          <span>Simpan & Terapkan Formula ke Seluruh Kontingen</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-TAB 2: MATRIKS KRITERIA PER POS */}
+                {adminSubTab === "kriteria" && (
+                  <div className="space-y-6">
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-purple-50">
+                        <div>
+                          <h4 className="text-base font-black text-slate-900">
+                            Matriks Kriteria Penilaian Dewan Juri
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Tambah, edit, dan hapus kriteria penilaian serta tentukan interval tombol juri
+                          </p>
+                        </div>
+
+                        {/* Pos Selector */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                          {[
+                            { id: "pos-1", label: "Pos 1 (PBB)" },
+                            { id: "pos-2", label: "Pos 2 (Variasi)" },
+                            { id: "pos-3", label: "Pos 3 (Danton)" },
+                            { id: "pos-4", label: "Pos 4 (Kostum)" },
+                          ].map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setSelectedAdminPos(p.id)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                                selectedAdminPos === p.id
+                                  ? "bg-purple-600 text-white shadow-xs"
+                                  : "bg-slate-100 hover:bg-purple-50 text-slate-700"
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Criteria Items Table */}
+                      <div className="space-y-3">
+                        {(criteriaByCategory[selectedAdminPos] || []).map((crit, idx) => {
+                          const previewOpts = Array.from(
+                            { length: 10 },
+                            (_, i) => crit.peak - crit.interval * (9 - i)
+                          );
+                          return (
+                            <div
+                              key={crit.id}
+                              className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                            >
+                              <div className="space-y-1.5 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="h-6 w-6 rounded-lg bg-purple-200 text-purple-900 text-xs font-black flex items-center justify-center">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="font-black text-slate-900 text-xs sm:text-sm">
+                                    {crit.title}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                                  <span>
+                                    Nilai Maksimal: <strong>{crit.peak} Poin</strong>
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    Interval Tombol: <strong>Tiap {crit.interval} Poin</strong>
+                                  </span>
+                                </div>
+                                {/* 10 Option Buttons Preview */}
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                  {previewOpts.map((v) => (
+                                    <span
+                                      key={v}
+                                      className="px-2 py-0.5 rounded-md bg-white border border-purple-200 text-[10px] font-mono font-bold text-purple-900"
+                                    >
+                                      {v}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCriteria(selectedAdminPos, crit.id)}
+                                className="shrink-0 p-2.5 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 transition"
+                                title="Hapus Kriteria"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Add New Criteria Form */}
+                      <form
+                        onSubmit={handleAddCriteria}
+                        className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4"
+                      >
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase">
+                          <PlusCircle className="h-4 w-4 text-purple-600" />
+                          <span>
+                            Tambah Kriteria Baru ke {selectedAdminPos.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                          <div className="sm:col-span-6">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Judul Kriteria Penilaian:
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={newCriteriaTitle}
+                              onChange={(e) => setNewCriteriaTitle(e.target.value)}
+                              placeholder="Contoh: Keselarasan Tempo Hentakan Kaki"
+                              className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 outline-none focus:border-purple-500"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-3">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Nilai Puncak (Max):
+                            </label>
+                            <input
+                              type="number"
+                              min={50}
+                              max={1000}
+                              value={newCriteriaPeak}
+                              onChange={(e) => setNewCriteriaPeak(Number(e.target.value))}
+                              className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 outline-none focus:border-purple-500"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-3">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Interval Step Tombol:
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={newCriteriaInterval}
+                              onChange={(e) => setNewCriteriaInterval(Number(e.target.value))}
+                              className="w-full text-xs font-semibold p-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 outline-none focus:border-purple-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition"
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span>Tambahkan Kriteria ke Pos Ini</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-TAB 3: REGULASI PINALTI & TIMER */}
+                {adminSubTab === "pinalti" && (
+                  <div className="space-y-6">
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
+                      <div className="pb-3 border-b border-purple-50">
+                        <h4 className="text-base font-black text-slate-900">
+                          Konfigurasi Sanksi Pinalti & Timer Lapangan
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Atur sanksi pengurangan nilai pelanggaran garis batas arena dan kelebihan durasi tampil
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Penalty Rules */}
+                        <div className="p-5 rounded-2xl bg-rose-50/50 border border-rose-100 space-y-4">
+                          <div className="flex items-center gap-2 text-rose-900 font-black text-xs uppercase">
+                            <AlertTriangle className="h-4 w-4 text-rose-600" />
+                            <span>Poin Sanksi Pengurangan Nilai</span>
+                          </div>
+
+                          <div className="space-y-3 text-xs">
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">
+                                Pinalti Pelanggaran Batas Garis Arena (Poin / Kejadian):
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={scoreConfig.penalties.boundaryPenaltyPerHit}
+                                  onChange={(e) =>
+                                    setScoreConfig({
+                                      ...scoreConfig,
+                                      penalties: {
+                                        ...scoreConfig.penalties,
+                                        boundaryPenaltyPerHit: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-24 text-center font-black text-sm p-2 rounded-xl bg-white border border-rose-200 text-rose-950 outline-none"
+                                />
+                                <span className="text-slate-500">Poin per injak garis arena</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">
+                                Pinalti Kelebihan Waktu Tampil (Poin / Satuan Over):
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={scoreConfig.penalties.timePenaltyPerOver}
+                                  onChange={(e) =>
+                                    setScoreConfig({
+                                      ...scoreConfig,
+                                      penalties: {
+                                        ...scoreConfig.penalties,
+                                        timePenaltyPerOver: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-24 text-center font-black text-sm p-2 rounded-xl bg-white border border-rose-200 text-rose-950 outline-none"
+                                />
+                                <span className="text-slate-500">Poin per detik/blok over limit</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Arena Timer Rules */}
+                        <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-4">
+                          <div className="flex items-center gap-2 text-indigo-900 font-black text-xs uppercase">
+                            <Clock className="h-4 w-4 text-indigo-600" />
+                            <span>Durasi Stopwatch Arena & Sinyal Bel</span>
+                          </div>
+
+                          <div className="space-y-3 text-xs">
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">
+                                Durasi Tampil Standar Peleton (Menit):
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={30}
+                                  value={scoreConfig.penalties.standardDurationMinutes}
+                                  onChange={(e) =>
+                                    setScoreConfig({
+                                      ...scoreConfig,
+                                      penalties: {
+                                        ...scoreConfig.penalties,
+                                        standardDurationMinutes: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-24 text-center font-black text-sm p-2 rounded-xl bg-white border border-indigo-200 text-indigo-950 outline-none"
+                                />
+                                <span className="text-slate-500">Menit ({scoreConfig.penalties.standardDurationMinutes * 60} detik)</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">
+                                Waktu Sinyal Bel Peringatan 1 (Menit Tersisa):
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  value={scoreConfig.penalties.warning1Minutes}
+                                  onChange={(e) =>
+                                    setScoreConfig({
+                                      ...scoreConfig,
+                                      penalties: {
+                                        ...scoreConfig.penalties,
+                                        warning1Minutes: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-24 text-center font-black text-sm p-2 rounded-xl bg-white border border-indigo-200 text-indigo-950 outline-none"
+                                />
+                                <span className="text-slate-500">Menit sebelum waktu habis (Bel Chime 880Hz)</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">
+                                Waktu Sinyal Bel Peringatan 2 (Menit Tersisa):
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={5}
+                                  value={scoreConfig.penalties.warning2Minutes}
+                                  onChange={(e) =>
+                                    setScoreConfig({
+                                      ...scoreConfig,
+                                      penalties: {
+                                        ...scoreConfig.penalties,
+                                        warning2Minutes: Number(e.target.value),
+                                      },
+                                    })
+                                  }
+                                  className="w-24 text-center font-black text-sm p-2 rounded-xl bg-white border border-indigo-200 text-indigo-950 outline-none"
+                                />
+                                <span className="text-slate-500">Menit sebelum waktu habis (Beep Waspada 1046Hz)</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try {
+                              localStorage.setItem("cetas_score_config_v3", JSON.stringify(scoreConfig));
+                            } catch (e) {
+                              console.warn("Storage error", e);
+                            }
+                            setToast({
+                              type: "success",
+                              text: "Regulasi pinalti dan durasi stopwatch arena berhasil disimpan!",
+                            });
+                          }}
+                          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition"
+                        >
+                          <Save className="h-4 w-4" />
+                          <span>Simpan Regulasi Pinalti & Timer</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-TAB 4: AKUN DEWAN JURI & GANTI PIN */}
+                {adminSubTab === "juri" && (
+                  <div className="space-y-6">
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
+                      <div className="pb-3 border-b border-purple-50">
+                        <h4 className="text-base font-black text-slate-900">
+                          Manajemen Akun Dewan Juri & PIN Keamanan
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Perbarui identitas dewan hakim juri, jabatan, pos penugasan, dan ganti 4-digit PIN resmi
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {judgesList.map((judge, idx) => (
+                          <div
+                            key={judge.id}
+                            className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-2xl">{judge.avatar}</span>
+                                <div>
+                                  <div className="text-xs font-black text-purple-950">
+                                    {judge.categoryName}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 uppercase font-mono">
+                                    ID: {judge.id}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-full bg-purple-200 text-purple-900 text-[10px] font-black uppercase">
+                                Juri #{idx + 1}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2 text-xs">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
+                                  Nama Lengkap Juri:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={judge.name}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setJudgesList((prev) =>
+                                      prev.map((j) => (j.id === judge.id ? { ...j, name: val } : j))
+                                    );
+                                  }}
+                                  className="w-full font-bold p-2 rounded-xl bg-white border border-purple-200 text-slate-900 outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
+                                  Jabatan & Gelar:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={judge.title}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setJudgesList((prev) =>
+                                      prev.map((j) => (j.id === judge.id ? { ...j, title: val } : j))
+                                    );
+                                  }}
+                                  className="w-full text-[11px] font-semibold p-2 rounded-xl bg-white border border-purple-200 text-slate-900 outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
+                                  4-Digit PIN Juri:
+                                </label>
+                                <input
+                                  type="text"
+                                  maxLength={4}
+                                  value={judge.pin}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setJudgesList((prev) =>
+                                      prev.map((j) => (j.id === judge.id ? { ...j, pin: val } : j))
+                                    );
+                                  }}
+                                  className="w-28 text-center font-mono font-black text-sm p-2 rounded-xl bg-white border border-purple-200 text-purple-950 outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Master PIN Override Setting */}
+                      <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-black text-amber-950">
+                              Master PIN Panitia & Override Keamanan:
+                            </div>
+                            <div className="text-[11px] text-amber-900/80">
+                              PIN master digunakan untuk membuka panel admin ini serta override darurat juri.
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              maxLength={4}
+                              value={scoreConfig.masterPin}
+                              onChange={(e) =>
+                                setScoreConfig({ ...scoreConfig, masterPin: e.target.value })
+                              }
+                              className="w-24 text-center font-mono font-black text-sm p-2 rounded-xl bg-white border border-amber-300 text-amber-950 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveJudgesConfig}
+                          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition"
+                        >
+                          <Save className="h-4 w-4" />
+                          <span>Simpan Perubahan Akun & PIN Juri</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-TAB 5: ROSTER KONTINGEN LOMBA */}
+                {adminSubTab === "kontingen" && (
+                  <div className="space-y-6">
+                    {/* Add New Contingent Form */}
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-4">
+                      <div className="pb-3 border-b border-purple-50">
+                        <h4 className="text-base font-black text-slate-900">
+                          Daftarkan Kontingen Baru ke Turnamen
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Tambahkan sekolah dan pasukan baru ke lembar penilaian digital
+                        </p>
+                      </div>
+
+                      <form onSubmit={handleAddContingent} className="space-y-4 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block font-bold text-slate-600 mb-1">
+                              No. Undian:
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={newContingentForm.drawNumber}
+                              onChange={(e) =>
+                                setNewContingentForm({
+                                  ...newContingentForm,
+                                  drawNumber: Number(e.target.value),
+                                })
+                              }
+                              className="w-full font-bold p-2.5 rounded-xl bg-slate-50 border border-slate-200 outline-none"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-4">
+                            <label className="block font-bold text-slate-600 mb-1">
+                              Nama Sekolah / Instansi:
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Contoh: SMA Negeri 5 Jakarta"
+                              value={newContingentForm.schoolName}
+                              onChange={(e) =>
+                                setNewContingentForm({
+                                  ...newContingentForm,
+                                  schoolName: e.target.value,
+                                })
+                              }
+                              className="w-full font-bold p-2.5 rounded-xl bg-slate-50 border border-slate-200 outline-none"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-4">
+                            <label className="block font-bold text-slate-600 mb-1">
+                              Nama Peleton / Pasukan:
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Contoh: Satria Tama"
+                              value={newContingentForm.teamName}
+                              onChange={(e) =>
+                                setNewContingentForm({
+                                  ...newContingentForm,
+                                  teamName: e.target.value,
+                                })
+                              }
+                              className="w-full font-bold p-2.5 rounded-xl bg-slate-50 border border-slate-200 outline-none"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="block font-bold text-slate-600 mb-1">
+                              Kategori:
+                            </label>
+                            <select
+                              value={newContingentForm.level}
+                              onChange={(e) =>
+                                setNewContingentForm({
+                                  ...newContingentForm,
+                                  level: e.target.value as "SMA" | "SMP" | "PURNA",
+                                })
+                              }
+                              className="w-full font-bold p-2.5 rounded-xl bg-slate-50 border border-slate-200 outline-none"
+                            >
+                              <option value="SMA">SMA</option>
+                              <option value="SMP">SMP</option>
+                              <option value="PURNA">PURNA</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition"
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span>Daftarkan Kontingen ke Sistem</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Contingent Roster Table */}
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-purple-50">
+                        <div>
+                          <h4 className="text-base font-black text-slate-900">
+                            Daftar Kontingen Terdaftar ({participants.length} Regu)
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Kelola status kunci nilai dan roster peleton peserta turnamen
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-purple-50/60 border-b border-purple-100 text-purple-950 font-black">
+                              <th className="p-3">Undian</th>
+                              <th className="p-3">Nama Sekolah & Pasukan</th>
+                              <th className="p-3">Kategori</th>
+                              <th className="p-3 text-center">Total Skor</th>
+                              <th className="p-3 text-center">Peringkat</th>
+                              <th className="p-3 text-center">Status</th>
+                              <th className="p-3 text-center">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-purple-50">
+                            {participants.map((p) => (
+                              <tr key={p.drawNumber} className="hover:bg-purple-50/20">
+                                <td className="p-3 font-mono font-black text-purple-700">
+                                  #{p.drawNumber < 10 ? `0${p.drawNumber}` : p.drawNumber}
+                                </td>
+                                <td className="p-3">
+                                  <div className="font-bold text-slate-900">{p.schoolName}</div>
+                                  <div className="text-[11px] text-purple-700">&ldquo;{p.teamName}&rdquo;</div>
+                                </td>
+                                <td className="p-3">
+                                  <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold text-[10px]">
+                                    {p.level}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center font-mono font-black text-slate-900">
+                                  {p.totalScore}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className="font-bold text-emerald-700">Rank #{p.rank}</span>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleLock(p.drawNumber)}
+                                    className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border transition ${
+                                      p.isLocked
+                                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                                        : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                    }`}
+                                  >
+                                    {p.isLocked ? "🔒 Terkunci" : "🔓 Terbuka"}
+                                  </button>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteContingent(p.drawNumber)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                    title="Hapus Kontingen"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -2196,7 +3672,7 @@ export default function CetasScorePage() {
                 Pilih Identitas Dewan Juri Anda:
               </label>
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {OFFICIAL_JUDGES.map((judge) => (
+                {judgesList.map((judge) => (
                   <div
                     key={judge.id}
                     onClick={() => {
@@ -2253,7 +3729,7 @@ export default function CetasScorePage() {
                   💡 Tombol Cepat Pengujian Juri:
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[11px]">
-                  {OFFICIAL_JUDGES.map((j) => (
+                  {judgesList.map((j) => (
                     <button
                       key={j.id}
                       type="button"
@@ -2270,12 +3746,12 @@ export default function CetasScorePage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setPinInput("2026");
+                      setPinInput(scoreConfig.masterPin || "2026");
                       setPinError(null);
                     }}
                     className="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 hover:bg-amber-100 font-bold text-amber-800 transition"
                   >
-                    Master (2026)
+                    Master ({scoreConfig.masterPin || "2026"})
                   </button>
                 </div>
               </div>

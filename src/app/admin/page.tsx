@@ -272,8 +272,8 @@ export default function AdminDashboardPage() {
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
-    "FINANCES" | "EVENTS" | "SUBMISSIONS" | "ATTENDEES" | "VOTE" | "PRODUCTION" | "ADS" | "STAFF" | "AUDIT"
-  >("VOTE"); // Default to VOTE so user sees requested changes immediately!
+    "FINANCES" | "EVENTS" | "SUBMISSIONS" | "ATTENDEES" | "VOTE" | "PRODUCTION" | "ADS" | "STAFF" | "AUDIT" | "SCORE"
+  >("SCORE"); // Default to SCORE so user directly lands on CETAS.SCORE Admin!
 
   // Initial Data Fetching
   useEffect(() => {
@@ -1312,6 +1312,21 @@ export default function AdminDashboardPage() {
 
       {/* Main Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab("SCORE")}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
+            activeTab === "SCORE"
+              ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
+              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          }`}
+        >
+          <Sliders className="h-3.5 w-3.5 text-purple-300" />
+          CETAS.SCORE (Penjurian)
+          <span className="text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-300 font-extrabold px-1.5 py-0.5 rounded-md">
+            MASTER
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab("VOTE")}
           className={`px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
@@ -2380,6 +2395,458 @@ export default function AdminDashboardPage() {
                 <span className="text-[11px] text-slate-400 shrink-0 ml-4">{log.time}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* TAB: CETAS.SCORE (PENJURIAN & FORMAT BOBOT NILAI) */}
+      {/* ------------------------------------------------------------------ */}
+      {activeTab === "SCORE" && (
+        <div className="space-y-6">
+          {/* Hero Header */}
+          <div className="rounded-3xl border border-purple-200 dark:border-purple-800/80 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold">
+                  <ShieldCheck className="h-3.5 w-3.5 text-purple-300" />
+                  Sistem Penjurian & Rekapitulasi Real-Time Standar Nasional LKBB
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+                  CETAS.SCORE — Format Bobot & Penjurian
+                </h2>
+                <p className="text-xs sm:text-sm text-purple-200/80 leading-relaxed">
+                  Bagian Admin untuk <strong>CETAS.SCORE</strong> tidak dihilangkan, melainkan dipusatkan di sini dan terintegrasi dengan Master Control di <code className="bg-purple-950/60 px-2 py-0.5 rounded text-amber-300 font-mono">/score</code>. Anda memiliki kendali penuh atas formula bobot (%), rubrik kriteria per pos, regulasi pinalti arena, dan PIN dewan juri.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2.5 shrink-0">
+                <Link
+                  href="/score?mode=admin"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition active:scale-95"
+                >
+                  <Sliders className="h-4 w-4" />
+                  Atur Bobot & Formula (PIN 2026) →
+                </Link>
+                <Link
+                  href="/score"
+                  target="_blank"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs transition active:scale-95"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Buka Portal CETAS.SCORE
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Access Grid / Launchers */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Layers className="h-4 w-4 text-purple-500" />
+                6 Mode Operasional Lapangan (Gladi Kotor & Hari H)
+              </h3>
+              <span className="text-[11px] text-slate-400">Pilih mode untuk membuka langsung</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {/* Launcher 1: Admin & Bobot */}
+              <Link
+                href="/score?mode=admin"
+                className="group p-4 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/50 dark:bg-amber-950/20 hover:border-amber-500 transition-all hover:scale-[1.01] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 text-[10px] font-black">
+                      <Sliders className="h-3 w-3" />
+                      MODE ADMIN
+                    </span>
+                    <span className="text-[10px] text-amber-700 dark:text-amber-300 font-mono font-bold">
+                      PIN: 2026
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-amber-600 transition">
+                    Format Bobot & Kriteria Nilai
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    Ubah metode kalkulasi (Direct Sum vs Bobot %), atur slider persentase 4 Pos, tambah kriteria rubrik, pinalti arena, dan kelola PIN juri.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-amber-200 dark:border-amber-800/40 text-[11px] font-bold text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                  <span>Masuk ke Mode Admin</span>
+                  <span>→</span>
+                </div>
+              </Link>
+
+              {/* Launcher 2: Bilik Juri */}
+              <Link
+                href="/score?mode=judge"
+                className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-purple-500 transition-all hover:scale-[1.01] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[10px] font-black">
+                      <Award className="h-3 w-3" />
+                      ROLE JURI ONLY
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">4 Bilik Tablet</span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 transition">
+                    Bilik Penilaian Juri Digital
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    Layar input nilai touch-friendly untuk Pos 1 (PBB), Pos 2 (Variasi), Pos 3 (Danton), dan Pos 4 (Kostum). Terkunci hanya untuk role juri dengan PIN unik.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-bold text-purple-600 dark:text-purple-400 flex items-center justify-between">
+                  <span>Buka Bilik Juri</span>
+                  <span>→</span>
+                </div>
+              </Link>
+
+              {/* Launcher 3: Timer Arena */}
+              <Link
+                href="/score?mode=timer"
+                className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-rose-500 transition-all hover:scale-[1.01] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[10px] font-black">
+                      <Clock className="h-3 w-3" />
+                      WASIT ARENA
+                    </span>
+                    <span className="text-[10px] text-rose-600 font-bold">Horn & Audio Aktif</span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 transition">
+                    Official Timer & Pinalti Arena
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    Stopwatch resmi 10 menit dengan klakson otomatis (3 menit chime, 1 menit warning beep) serta tombol counter pinalti garis / injak border.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center justify-between">
+                  <span>Buka Timer Arena</span>
+                  <span>→</span>
+                </div>
+              </Link>
+
+              {/* Launcher 4: Rekap Nilai */}
+              <Link
+                href="/score?mode=rekap"
+                className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500 transition-all hover:scale-[1.01] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-black">
+                      <TrendingUp className="h-3 w-3" />
+                      AUDIT & REKAP
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-mono">HMAC SHA-256</span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 transition">
+                    Rekapitulasi Nilai & Verifikasi
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    Tabel matriks nilai transparan per kontingen lengkap dengan breakdown 4 pos, pemotongan pinalti, ranking otomatis, dan log riwayat revisi.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center justify-between">
+                  <span>Lihat Rekapitulasi</span>
+                  <span>→</span>
+                </div>
+              </Link>
+
+              {/* Launcher 5: Display Videotron */}
+              <Link
+                href="/score?mode=display"
+                className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500 transition-all hover:scale-[1.01] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
+                      <Megaphone className="h-3 w-3" />
+                      LAYAR PUBLIK
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold">Live Stream Ready</span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 transition">
+                    Display Videotron & TV Arena
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    Tampilan full-screen ultra contrast untuk proyektor, TV hall, dan LED Videotron outdoor dengan auto-refresh dan visual podium juara.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                  <span>Buka Layar Videotron</span>
+                  <span>→</span>
+                </div>
+              </Link>
+
+              {/* Launcher 6: Cetak Berita Acara */}
+              <Link
+                href="/score?mode=print"
+                className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-500 transition-all hover:scale-[1.01] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-black">
+                      <Ticket className="h-3 w-3" />
+                      BERITA ACARA F4
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">Rangkap 3</span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-slate-600 transition">
+                    Cetak Lembar Penjurian & TTD
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                    Format cetak presisi Folio / F4 siap print dengan kop resmi panitia, matriks skor lengkap, dan kolom tanda tangan basah 4 dewan juri.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Buka Preview Cetak F4</span>
+                  <span>→</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick Guidance: Cara Atur Format Penilaian & Bobot */}
+          <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+                <Sliders className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Panduan: Cara Mengatur Format Penilaian & Bobot Nilai (%)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Ikuti langkah mudah berikut jika Anda ingin mengubah formula, bobot, kriteria, atau pinalti sebelum gladi kotor:
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                    LANGKAH 1
+                  </span>
+                  <KeyRound className="h-4 w-4 text-purple-500" />
+                </div>
+                <div className="text-xs font-black text-slate-900 dark:text-white">
+                  Buka Mode Admin & Buka Kunci
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Buka menu <strong>"Format Bobot & Admin"</strong> di bar atas atau klik tombol oranye di atas. Masukkan Master PIN <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono font-bold text-slate-900 dark:text-white">2026</code> untuk membuka proteksi.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                    LANGKAH 2
+                  </span>
+                  <Sliders className="h-4 w-4 text-amber-500" />
+                </div>
+                <div className="text-xs font-black text-slate-900 dark:text-white">
+                  Pilih Formula & Geser Bobot (%)
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Pilih mode <strong>Bobot Persentase (%)</strong> atau <strong>Akumulasi Langsung</strong>. Geser slider untuk Pos 1 (PBB), Pos 2 (Variasi), Pos 3 (Danton), Pos 4 (Kostum) hingga total pas 100%.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
+                    LANGKAH 3
+                  </span>
+                  <CheckCircle className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div className="text-xs font-black text-slate-900 dark:text-white">
+                  Terapkan & Hitung Ulang Otomatis
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Klik <strong>"Terapkan Formula & Hitung Ulang Nilai Kontingen"</strong>. Seluruh nilai peserta, peringkat leaderboard, videotron, dan lembar F4 akan terupdate secara instan!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Configuration Matrix Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Card: Konfigurasi Formula & Bobot Saat Ini */}
+            <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <Sliders className="h-4 w-4 text-purple-600" />
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                    Formula & Distribusi Bobot Default
+                  </h4>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                  Total 100% Valid
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💂</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Pos 1: PBB Murni (Dasar & Langkah)
+                      </div>
+                      <div className="text-[10px] text-slate-400">10 Kriteria Penilaian</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-purple-600 font-mono">35%</span>
+                    <div className="text-[9px] text-slate-400">Bobot Utama</div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎭</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Pos 2: Variasi & Formasi
+                      </div>
+                      <div className="text-[10px] text-slate-400">8 Kriteria Penilaian</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-purple-600 font-mono">30%</span>
+                    <div className="text-[9px] text-slate-400">Kreativitas & Transisi</div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🗣️</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Pos 3: Komandan / Danton
+                      </div>
+                      <div className="text-[10px] text-slate-400">6 Kriteria Penilaian</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-purple-600 font-mono">20%</span>
+                    <div className="text-[9px] text-slate-400">Vokal & Penguasaan Arena</div>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">👔</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">
+                        Pos 4: Kostum & Kerapihan
+                      </div>
+                      <div className="text-[10px] text-slate-400">4 Kriteria Penilaian</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-purple-600 font-mono">15%</span>
+                    <div className="text-[9px] text-slate-400">Atribut & Keserasian</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <Link
+                  href="/score?mode=admin"
+                  className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                >
+                  Edit Bobot & Kriteria di Editor Master →
+                </Link>
+              </div>
+            </div>
+
+            {/* Card: Regulasi Pinalti & Akun Dewan Juri */}
+            <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                    Dewan Juri Resmi & Master PIN
+                  </h4>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  Master PIN: 2026
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="text-[10px] font-bold text-slate-400">Juri 1 (Pos 1: PBB)</div>
+                  <div className="text-xs font-black text-slate-900 dark:text-white truncate mt-0.5">
+                    Mayor (Purn) Bambang
+                  </div>
+                  <div className="text-[10px] font-mono text-purple-600 dark:text-purple-400 mt-1 font-bold">
+                    PIN Tablet: 1111
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="text-[10px] font-bold text-slate-400">Juri 2 (Pos 2: Variasi)</div>
+                  <div className="text-xs font-black text-slate-900 dark:text-white truncate mt-0.5">
+                    Kapten Mar Hendra
+                  </div>
+                  <div className="text-[10px] font-mono text-purple-600 dark:text-purple-400 mt-1 font-bold">
+                    PIN Tablet: 2222
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="text-[10px] font-bold text-slate-400">Juri 3 (Pos 3: Danton)</div>
+                  <div className="text-xs font-black text-slate-900 dark:text-white truncate mt-0.5">
+                    Lettu Cba Rina K.
+                  </div>
+                  <div className="text-[10px] font-mono text-purple-600 dark:text-purple-400 mt-1 font-bold">
+                    PIN Tablet: 3333
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="text-[10px] font-bold text-slate-400">Juri 4 (Pos 4: Kostum)</div>
+                  <div className="text-xs font-black text-slate-900 dark:text-white truncate mt-0.5">
+                    Dra. Hj. Nurul Anisa
+                  </div>
+                  <div className="text-[10px] font-mono text-purple-600 dark:text-purple-400 mt-1 font-bold">
+                    PIN Tablet: 4444
+                  </div>
+                </div>
+              </div>
+
+              {/* Pinalti Arena Rule summary */}
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-1.5">
+                <div className="text-xs font-bold text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-rose-600" />
+                  Regulasi Pinalti Arena (Wasit Lapangan)
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-rose-800 dark:text-rose-300">
+                  <div>• Pelanggaran Garis: <strong>-50 poin / insiden</strong></div>
+                  <div>• Overlimit Waktu: <strong>-10 poin / detik</strong></div>
+                  <div>• Durasi Tampil: <strong>10 Menit (600 dtk)</strong></div>
+                  <div>• Warning Chime: <strong>3 & 1 Menit</strong></div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <Link
+                  href="/score?mode=admin"
+                  className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                >
+                  Kelola Profil Juri & Regulasi Pinalti →
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}

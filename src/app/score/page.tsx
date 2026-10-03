@@ -49,6 +49,8 @@ import {
   Scale,
   HelpCircle,
 } from "lucide-react";
+import JudgeView from "@/components/score/JudgeView";
+import RekapInputView from "@/components/score/RekapInputView";
 
 export function playArenaTone(freq: number, durationMs: number, type: OscillatorType = "sine", count = 1) {
   if (typeof window === "undefined") return;
@@ -589,6 +591,41 @@ export default function CetasScorePage() {
     "pbb-4": 94,
     "pbb-5": 97,
   });
+
+  // CETAS Real Database Scores State
+  const [cetasScores, setCetasScores] = useState<Record<string, { score: number; label: string; note: string }>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cetas_real_scores_v1");
+      if (saved) {
+        setCetasScores(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.warn("Error loading real scores", e);
+    }
+  }, []);
+
+  const handleUpdateCetasScore = (
+    participantId: string,
+    criterionId: string,
+    score: number,
+    label: string,
+    note = ""
+  ) => {
+    setCetasScores((prev) => {
+      const next = {
+        ...prev,
+        [`${participantId}:${criterionId}`]: { score, label, note },
+      };
+      try {
+        localStorage.setItem("cetas_real_scores_v1", JSON.stringify(next));
+      } catch (e) {
+        console.warn("Error saving real scores", e);
+      }
+      return next;
+    });
+  };
 
   // Timer Arena State
   // Timer Arena State & Audio
@@ -1537,268 +1574,19 @@ export default function CetasScorePage() {
           </div>
         )}
 
-        {/* TAB 1: JUDGE SCORING SHEET (TABLET PENILAIAN JURI) */}
+        {/* TAB 1: JUDGE SCORING SHEET (TABLET PENILAIAN JURI — 100% IDENTIK DENGAN app/judge/category/[categoryId]/page.tsx) */}
         {activeMode === "judge" && (
-          <div className="space-y-6">
-            {/* RBAC Warning / Verified Banner */}
-            {!canJudge ? (
-              <div className="p-5 rounded-3xl bg-amber-500/10 border-2 border-amber-300 text-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
-                <div className="flex items-center gap-3.5">
-                  <div className="h-12 w-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                    <Lock className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-amber-950 text-sm">
-                        Akses Penilaian Terkunci (Mode: {currentUserRole.toUpperCase()})
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase">
-                        Read-Only
-                      </span>
-                    </div>
-                    <p className="text-xs text-amber-900/80 mt-1 leading-relaxed">
-                      Sesuai regulasi turnamen CETAS: <strong>Hanya role Dewan Juri yang berhak memberikan dan merubah nilai</strong>. Tombol lembar penilaian saat ini dalam status terkunci.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsJudgeAuthModalOpen(true)}
-                  className="shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-purple-900 hover:bg-purple-800 text-white font-black text-xs shadow-md transition active:scale-95"
-                >
-                  <Key className="h-4 w-4 text-cyan-300" />
-                  <span>Otentikasi PIN Juri</span>
-                </button>
-              </div>
-            ) : (
-              <div className="p-4 rounded-3xl bg-emerald-500/10 border border-emerald-300/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3">
-                  <div className="h-11 w-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
-                    {activeJudge.avatar}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-emerald-950 text-xs sm:text-sm">
-                        Dewan Juri Terverifikasi: {activeJudge.name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black uppercase">
-                        Hak Akses Penuh
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-emerald-800/90 mt-0.5">
-                      {activeJudge.title} ({activeJudge.categoryName}) • Otoritas sah untuk menilai & merubah nilai kontingen #{currentParticipant.drawNumber}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleLogoutJudge}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 font-bold text-xs border border-rose-200 shadow-xs transition"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span>Ganti Juri</span>
-                </button>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left: Judge & Participant Control */}
-              <div className="lg:col-span-4 space-y-4">
-                <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-4">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center justify-between">
-                    <span>Pos Juri & Kontingen</span>
-                    {canJudge ? (
-                      <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        ✓ Terverifikasi
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        🔒 Terkunci
-                      </span>
-                    )}
-                  </h3>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Pilih Pos Penilaian:
-                    </label>
-                    <select
-                      value={selectedJudgeCategory}
-                      onChange={(e) => setSelectedJudgeCategory(e.target.value)}
-                      className="w-full rounded-2xl bg-purple-50/60 border border-purple-200 p-3 text-xs font-bold text-purple-950 outline-none"
-                    >
-                      {judgesList.map((j) => (
-                        <option key={j.categoryPos} value={j.categoryPos}>
-                          {j.categoryName} ({j.name})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Pilih Kontingen yang Dinilai:
-                    </label>
-                    <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                      {participants.map((p) => (
-                        <button
-                          key={p.drawNumber}
-                          type="button"
-                          onClick={() => setSelectedDrawNumber(p.drawNumber)}
-                          className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition ${
-                            selectedDrawNumber === p.drawNumber
-                              ? "bg-purple-600 text-white font-black shadow-xs"
-                              : "bg-slate-50 hover:bg-purple-50 text-slate-700"
-                          }`}
-                        >
-                          <span className="font-mono font-bold">
-                            #{p.drawNumber < 10 ? `0${p.drawNumber}` : p.drawNumber}
-                          </span>
-                          <span className="truncate max-w-[150px]">{p.schoolName}</span>
-                          {p.isLocked && <Lock className="h-3 w-3 shrink-0 opacity-70" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100 text-xs space-y-1">
-                    <div className="text-slate-500">Kontingen Terpilih:</div>
-                    <div className="font-black text-slate-900">{currentParticipant.schoolName}</div>
-                    <div className="text-[11px] text-purple-700 font-bold">&ldquo;{currentParticipant.teamName}&rdquo;</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Scoring Criteria Matrix */}
-              <div className="lg:col-span-8 space-y-4">
-                <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-purple-50">
-                    <div>
-                      <h3 className="text-lg font-black text-slate-900">
-                        Lembar Penilaian {selectedJudgeCategory === "pos-1" ? "Pos 1: PBB Murni" : selectedJudgeCategory === "pos-2" ? "Pos 2: Variasi & Formasi" : selectedJudgeCategory === "pos-3" ? "Pos 3: Komandan Peleton (Danton)" : "Pos 4: Kostum & Kerapihan"}
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        {canJudge
-                          ? `Dewan Juri Bertugas: ${activeJudge.name} • 10 tombol interval nilai bulat`
-                          : "Mode Terkunci — Hanya Dewan Juri resmi yang dapat memilih dan merubah nilai"}
-                      </p>
-                    </div>
-                    {canJudge ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-200">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Otoritas Juri Aktif
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setIsJudgeAuthModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200 hover:bg-amber-100 transition"
-                      >
-                        <Lock className="h-3.5 w-3.5 text-amber-600" />
-                        Klik untuk Buka Juri
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Criteria Items with 10 Interval Buttons */}
-                  <div className="space-y-4">
-                    {(criteriaByCategory[selectedJudgeCategory] || []).map((crit) => {
-                      const options = Array.from({ length: 10 }, (_, i) => crit.peak - crit.interval * (9 - i));
-                      const selectedVal = judgeScores[crit.id] || crit.peak;
-
-                      return (
-                        <div key={crit.id} className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-slate-900">{crit.title}</span>
-                            <span className={`text-sm font-black px-2.5 py-0.5 rounded-lg ${
-                              canJudge
-                                ? "text-purple-700 bg-purple-100"
-                                : "text-slate-500 bg-slate-100"
-                            }`}>
-                              Nilai: {selectedVal}
-                            </span>
-                          </div>
-
-                          {/* 10 Option Buttons */}
-                          <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
-                            {options.map((val) => (
-                              <button
-                                key={val}
-                                type="button"
-                                onClick={() => handleScoreClick(crit.id, val)}
-                                className={`py-2 rounded-xl text-xs font-bold transition ${
-                                  selectedVal === val
-                                    ? canJudge
-                                      ? "bg-purple-700 text-white shadow-xs font-black scale-105"
-                                      : "bg-slate-300 text-slate-700 font-bold"
-                                    : canJudge
-                                    ? "bg-white text-slate-700 hover:bg-purple-100/70 border border-purple-100"
-                                    : "bg-slate-100/80 text-slate-400 border border-slate-200 cursor-not-allowed"
-                                }`}
-                                title={canJudge ? `Pilih nilai ${val}` : "Terkunci: Hanya Role Juri yang berhak menilai"}
-                              >
-                                {val}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Subtotal & Submit */}
-                  <div className="pt-4 border-t border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                      <div className="text-xs text-slate-500">
-                        Subtotal Nilai Pos {selectedJudgeCategory.replace("pos-", "")}:
-                      </div>
-                      <div className="text-2xl font-black text-purple-700">
-                        {(CRITERIA_BY_CATEGORY[selectedJudgeCategory] || []).reduce(
-                          (sum, c) => sum + (judgeScores[c.id] || c.peak),
-                          0
-                        )}{" "}
-                        Poin
-                      </div>
-                    </div>
-
-                    {canJudge ? (
-                      <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                        <button
-                          type="button"
-                          onClick={handleNextParticipant}
-                          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-xs border border-purple-200 transition active:scale-95"
-                          title="Lanjut ke kontingen berikutnya"
-                        >
-                          <span>Peserta Berikutnya</span>
-                          <ArrowRight className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSubmitJudgeScore}
-                          className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md shadow-purple-600/30 transition active:scale-95"
-                        >
-                          <Lock className="h-4 w-4" />
-                          Kunci & Kirim Nilai Juri Terenkripsi
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsJudgeAuthModalOpen(true);
-                          setPinError("Silakan otentikasi PIN Juri Anda untuk mengunci dan mengirim nilai.");
-                        }}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition active:scale-95"
-                      >
-                        <Lock className="h-4 w-4" />
-                        Masuk Sebagai Juri untuk Menilai
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <JudgeView
+            canJudge={canJudge}
+            activeJudge={activeJudge || judgesList[0]}
+            onOpenPinModal={() => {
+              setPinError(null);
+              setIsJudgeAuthModalOpen(true);
+            }}
+            onLogoutJudge={handleLogoutJudge}
+            savedScores={cetasScores}
+            onUpdateScore={handleUpdateCetasScore}
+          />
         )}
 
         {/* TAB 2: TIMER ARENA & PINALTI */}
@@ -1964,228 +1752,17 @@ export default function CetasScorePage() {
           </div>
         )}
 
-        {/* TAB 3: REKAPITULASI KESELURUHAN & PENENTUAN JUARA */}
+        {/* TAB 3: REKAPITULASI & INPUT NILAI (100% IDENTIK DENGAN app/rekap/input/page.tsx) */}
         {activeMode === "rekap" && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                  <span>Lembar Rekapitulasi & Penentuan Juara (Live)</span>
-                  {canJudge ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black border border-emerald-300">
-                      ✓ Akses Revisi Juri Terbuka
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black border border-amber-300">
-                      🔒 Read-Only (Hanya Juri yang Bisa Merubah)
-                    </span>
-                  )}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Perangkingan otomatis dewan juri dengan sistem tie breaker (PBB ➔ Variasi ➔ Danton).
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAuditDrawer(!showAuditDrawer)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition shadow-xs ${
-                    showAuditDrawer
-                      ? "bg-purple-700 text-white border-purple-700"
-                      : "bg-white hover:bg-purple-50 text-purple-900 border-purple-200"
-                  }`}
-                >
-                  <History className="h-4 w-4" />
-                  <span>Riwayat Audit Juri ({auditLogs.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canJudge) {
-                      setToast({
-                        type: "error",
-                        text: "Akses Ditolak! Hanya role Juri yang berhak mengunci seluruh hasil lomba.",
-                      });
-                      setIsJudgeAuthModalOpen(true);
-                      return;
-                    }
-                    setToast({
-                      type: "success",
-                      text: "Seluruh lembar nilai berhasil dikunci sah oleh Dewan Juri!",
-                    });
-                  }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-purple-950 hover:bg-purple-900 text-white font-bold text-xs shadow-xs transition"
-                >
-                  <Lock className="h-4 w-4" />
-                  Kunci Semua Hasil
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active:scale-95"
-                  title="Ekspor rekapitulasi ke file CSV (Excel)"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Ekspor CSV (Excel)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveMode("print")}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition"
-                >
-                  <Printer className="h-4 w-4" />
-                  Cetak Berita Acara F4
-                </button>
-              </div>
-            </div>
-
-            {/* Collapsible Audit History Drawer */}
-            {showAuditDrawer && (
-              <div className="p-5 rounded-3xl bg-slate-900 text-white border border-purple-800/40 shadow-xl space-y-4 animate-in fade-in">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-cyan-300" />
-                    <h4 className="text-sm font-black text-white">Log Audit Integritas Nilai & Revisi Juri</h4>
-                  </div>
-                  <span className="text-[10px] text-purple-300 font-mono">HMAC SHA-256 Verified</span>
-                </div>
-
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1 text-xs">
-                  {auditLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-white/10 transition"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                              log.action === "REVISI"
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
-                                : "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
-                            }`}
-                          >
-                            {log.action}
-                          </span>
-                          <span className="font-black text-white">{log.schoolName}</span>
-                          <span className="text-purple-300 font-bold font-mono">#{log.drawNumber}</span>
-                          <span className="text-slate-400">• {log.category}</span>
-                        </div>
-                        {log.reason && (
-                          <div className="text-[11px] text-amber-200/90 mt-1 italic">
-                            &ldquo;{log.reason}&rdquo;
-                          </div>
-                        )}
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          Oleh: <strong>{log.judgeName}</strong> • {log.timestamp} • Hash: <span className="font-mono text-cyan-300">{log.hash}</span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        {log.oldScore !== undefined && (
-                          <span className="text-slate-400 line-through mr-2 font-mono">{log.oldScore}</span>
-                        )}
-                        <span className="text-amber-400 font-black text-sm font-mono">{log.newScore} Poin</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Rekap Table */}
-            <div className="rounded-3xl border border-purple-100 bg-white overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="bg-purple-50/80 border-b border-purple-100 text-purple-900">
-                      <th className="p-3.5 font-bold">Rank</th>
-                      <th className="p-3.5 font-bold">No. Undian</th>
-                      <th className="p-3.5 font-bold">Sekolah & Pasukan</th>
-                      <th className="p-3.5 font-bold">PBB Murni</th>
-                      <th className="p-3.5 font-bold">Variasi</th>
-                      <th className="p-3.5 font-bold">Danton</th>
-                      <th className="p-3.5 font-bold">Kostum</th>
-                      <th className="p-3.5 font-bold">Pinalti</th>
-                      <th className="p-3.5 font-black text-purple-800">Total Nilai</th>
-                      <th className="p-3.5 font-bold">Keterangan Juara</th>
-                      <th className="p-3.5 font-bold text-center">Aksi Juri</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-purple-50">
-                    {participants.map((p) => (
-                      <tr key={p.drawNumber} className="hover:bg-purple-50/30 transition">
-                        <td className="p-3.5">
-                          <span
-                            className={`h-7 w-7 rounded-lg font-black text-xs inline-flex items-center justify-center ${
-                              p.rank === 1
-                                ? "bg-amber-400 text-amber-950 font-black shadow-xs"
-                                : p.rank === 2
-                                ? "bg-slate-200 text-slate-800"
-                                : p.rank === 3
-                                ? "bg-amber-700/20 text-amber-900"
-                                : "bg-purple-50 text-purple-700"
-                            }`}
-                          >
-                            #{p.rank}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-mono font-bold">#{p.drawNumber}</td>
-                        <td className="p-3.5">
-                          <div className="font-black text-slate-900">{p.schoolName}</div>
-                          <div className="text-[11px] text-purple-700 font-bold">&ldquo;{p.teamName}&rdquo;</div>
-                        </td>
-                        <td className="p-3.5 font-bold">{p.pbbScore}</td>
-                        <td className="p-3.5 font-bold">{p.variasiScore}</td>
-                        <td className="p-3.5 font-bold">{p.dantonScore}</td>
-                        <td className="p-3.5 font-bold">{p.kostumScore}</td>
-                        <td className="p-3.5 font-bold text-rose-600">
-                          {p.penaltyTime + p.penaltyBoundary > 0 ? `-${p.penaltyTime + p.penaltyBoundary}` : "0"}
-                        </td>
-                        <td className="p-3.5 font-black text-purple-700 text-sm">
-                          {p.totalScore}
-                        </td>
-                        <td className="p-3.5">
-                          <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 font-extrabold text-[11px]">
-                            {p.awardTitle}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-center">
-                          {canJudge ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenRevision(p)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] shadow-xs transition active:scale-95"
-                              title={`Revisi nilai kontingen #${p.drawNumber} (Otoritas Juri: ${activeJudge.name})`}
-                            >
-                              <Edit3 className="h-3 w-3" />
-                              <span>Revisi Nilai</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setToast({
-                                  type: "error",
-                                  text: `Akses Ditolak! Hanya role Dewan Juri resmi yang dapat merubah nilai ${p.schoolName}. Silakan login sebagai Juri.`,
-                                });
-                                setIsJudgeAuthModalOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-[11px] border border-slate-200 transition"
-                              title="Terkunci: Hanya Role Juri yang berhak merubah nilai"
-                            >
-                              <Lock className="h-3 w-3 text-slate-400" />
-                              <span>Revisi (Terkunci)</span>
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <RekapInputView
+            canJudge={canJudge}
+            savedScores={cetasScores}
+            onUpdateScore={handleUpdateCetasScore}
+            onOpenPinModal={() => {
+              setPinError(null);
+              setIsJudgeAuthModalOpen(true);
+            }}
+          />
         )}
 
         {/* TAB 4: LAYAR DISPLAY VIDEOTRON PANGGUNG (BIG SCREEN) */}

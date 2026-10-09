@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
   // Coba ambil dari DB jika tersedia
   try {
-    const dbAttendees = await prisma.eventAttendee.findMany({
+    const dbAttendees = await (prisma as any).eventAttendee.findMany({
       take: 50,
       orderBy: { registeredAt: "desc" },
     });
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     // Sync ke DB jika aktif
     try {
-      await prisma.eventAttendee.create({
+      await (prisma as any).eventAttendee.create({
         data: {
           id: newAttendee.id,
           eventId: event.id,

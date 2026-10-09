@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Periksa ke database PostgreSQL jika aktif
     try {
-      const ticket = await prisma.ticket.findUnique({
+      const ticket = await (prisma as any).ticket.findUnique({
         where: { ticketCode },
         include: {
           tier: {
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Update database: tiket digunakan
-        const updatedTicket = await prisma.ticket.update({
+        const updatedTicket = await (prisma as any).ticket.update({
           where: { id: ticket.id },
           data: {
             isCheckedIn: true,

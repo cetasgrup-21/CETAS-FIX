@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createMidtransTransaction } from "@/lib/midtrans";
+import { createDokuDirectPayment, DokuPaymentMethod } from "@/lib/doku";
 import { createTicketQRString } from "@/lib/ticket-security";
 
 const checkoutSchema = z.object({
   orderType: z.enum(["TICKET", "VOTE", "PRODUCTION", "REGISTRATION"]),
   customerName: z.string().min(2, "Nama minimal 2 karakter"),
   customerEmail: z.string().email("Format email tidak valid"),
-  customerPhone: z.string().min(8, "Nomor telepon minimal 8 digit"),
+  customerPhone: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim().length >= 8 ? val.trim() : "081234567890")),
+  paymentMethod: z.enum(["QRIS", "OVO", "SHOPEEPAY", "DANA"]).optional().default("QRIS"),
+  ovoPhoneNumber: z.string().optional(),
   items: z.array(
     z.object({
       id: z.string(), // tierId, productId, or candidateId
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
     let orderId = `dev-order-${Date.now()}`;
 
     try {
-      const order = await prisma.$transaction(async (tx) => {
+      const order = await prisma.$transaction(async (tx: any) => {
         const newOrder = await tx.order.create({
           data: {
             orderNumber,
@@ -123,14 +128,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Generate Snap Token via Midtrans (dengan fallback aman jika kunci API masih placeholder dev)
-    let snapToken = `SNAP-SIMULATION-${Date.now()}`;
-    let redirectUrl = `https://app.sandbox.midtrans.com/snap/v2/vtweb/${snapToken}`;
+    // 3. Generate DOKU Direct API Payment (QRIS MPM & E-Wallet: OVO, ShopeePay, DANA)
+    let dokuResult = null;
 
     try {
-      const midtransRes = await createMidtransTransaction({
+      dokuResult = await createDokuDirectPayment({
         orderId: orderNumber,
         grossAmount: totalAmount,
+        paymentMethod: validatedData.paymentMethod as DokuPaymentMethod,
+        ovoPhoneNumber: validatedData.ovoPhoneNumber,
         customerDetails: {
           first_name: validatedData.customerName,
           email: validatedData.customerEmail,
@@ -144,35 +150,38 @@ export async function POST(req: NextRequest) {
         })),
       });
 
-      snapToken = midtransRes.token;
-      redirectUrl = midtransRes.redirectUrl;
-
-      // Simpan snapToken jika DB aktif
+      // Simpan data payment jika DB aktif
       if (isDbConnected) {
-        await prisma.payment.create({
+        await (prisma as any).payment.create({
           data: {
             orderId: orderId,
-            snapToken: midtransRes.token,
-            redirectUrl: midtransRes.redirectUrl,
+            snapToken: dokuResult.invoiceNumber,
+            redirectUrl: dokuResult.redirectUrl || `/order/${orderNumber}/doku`,
             status: "PENDING",
           },
         });
       }
-    } catch (midtransErr) {
-      console.warn("[Midtrans Dev Placeholder Mode]: Kunci API belum diisi di .env, mengaktifkan simulasi checkout sukses", midtransErr);
+    } catch (dokuErr) {
+      console.warn("[DOKU Dev Mode]: Fallback simulator aktif", dokuErr);
     }
 
     return NextResponse.json({
       success: true,
       orderNumber: orderNumber,
-      snapToken: snapToken,
-      redirectUrl: redirectUrl,
-      isSimulated: !isDbConnected,
+      paymentGateway: "DOKU_DIRECT_API",
+      paymentMethod: validatedData.paymentMethod || "QRIS",
+      grossAmount: totalAmount,
+      doku: dokuResult,
+      isSimulated: !isDbConnected || dokuResult?.isSimulated,
+      // Backward compatibility fields for legacy frontend callers
+      snapToken: dokuResult?.invoiceNumber || orderNumber,
+      redirectUrl: dokuResult?.redirectUrl || `/order/${orderNumber}`,
     });
   } catch (error) {
     console.error("[Checkout API Error]:", error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, errors: error.issues }, { status: 400 });
+      const firstIssue = error.issues[0]?.message || "Data formulir tidak valid";
+      return NextResponse.json({ success: false, message: firstIssue, errors: error.issues }, { status: 400 });
     }
     return NextResponse.json({ success: false, message: "Gagal memproses pesanan" }, { status: 500 });
   }

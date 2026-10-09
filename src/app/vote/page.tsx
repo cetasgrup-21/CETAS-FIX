@@ -34,7 +34,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
-import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
+import { DokuPaymentModal } from "@/components/doku-payment-modal";
+import { playVoteNotificationSound } from "@/lib/sound";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
 import {
@@ -111,6 +112,12 @@ function VotePageContent() {
   const [voterPhone, setVoterPhone] = useState("");
   const [isLoadingVote, setIsLoadingVote] = useState(false);
   const [voteStatus, setVoteStatus] = useState<string | null>(null);
+  const [liveVoteAlert, setLiveVoteAlert] = useState<{
+    count: number;
+    candidateName: string;
+    candidateNumber: string;
+    voterName: string;
+  } | null>(null);
 
   // Ticketing Purchase State
   const [selectedTier, setSelectedTier] = useState<UnifiedTicketTier | null>(null);
@@ -121,12 +128,13 @@ function VotePageContent() {
   const [isBuyingTicket, setIsBuyingTicket] = useState(false);
   const [issuedTicket, setIssuedTicket] = useState<IssuedTicket | null>(null);
 
-  // Simulator Modal State
   const [simulatorData, setSimulatorData] = useState<{
     orderNumber: string;
     grossAmount: number;
     customerName: string;
     orderType: "VOTE" | "TICKET";
+    candidate?: VoteCandidate;
+    voteCount?: number;
   } | null>(null);
 
   // Fetch initial data
@@ -135,7 +143,7 @@ function VotePageContent() {
     fetch("/api/vote")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.eventVotings && data.eventVotings.length > 0) {
+        if (data.success && Array.isArray(data.eventVotings)) {
           setEventVotings(data.eventVotings);
         }
       })
@@ -145,7 +153,7 @@ function VotePageContent() {
     fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.events && data.events.length > 0) {
+        if (data.success && Array.isArray(data.events)) {
           setUnifiedEvents(data.events);
         }
       })
@@ -254,7 +262,7 @@ function VotePageContent() {
         isOpenTicketing: false,
         isOpenOnlineRegistration: false,
         quotaRemaining: 0,
-        facilities: ["Bilik Voting Digital", "Verifikasi Midtrans Realtime"],
+        facilities: ["Bilik Voting Digital", "Verifikasi DOKU Direct API Realtime"],
       });
     }
   });
@@ -322,19 +330,11 @@ function VotePageContent() {
   };
 
   // -------------------------------------------------------------
-  // LOGIKA PEMBAYARAN VOTE (MIDTRANS)
+  // LOGIKA PEMBAYARAN VOTE (DOKU DIRECT API - TANPA DISKON)
   // -------------------------------------------------------------
   const pricePerVote = activeCategory?.pricePerVote || 2000;
-  const votePackages = [
-    { count: 1, label: "1 Suara", price: pricePerVote },
-    { count: 5, label: "5 Suara (Diskon 5%)", price: Math.round(pricePerVote * 5 * 0.95) },
-    { count: 10, label: "10 Suara (Diskon 10%)", price: Math.round(pricePerVote * 10 * 0.9) },
-    { count: 50, label: "50 Suara (Best Value)", price: Math.round(pricePerVote * 50 * 0.85) },
-    { count: 100, label: "100 Suara (VIP Pack)", price: Math.round(pricePerVote * 100 * 0.8) },
-  ];
-
-  const currentPackagePrice =
-    votePackages.find((p) => p.count === voteCount)?.price ?? voteCount * pricePerVote;
+  const safeVoteCount = Math.max(1, voteCount);
+  const currentPackagePrice = safeVoteCount * pricePerVote;
 
   const handlePayVote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,51 +343,45 @@ function VotePageContent() {
     setIsLoadingVote(true);
     setVoteStatus(null);
 
+    const safePhone = voterPhone?.trim() || "081234567890";
+
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderType: "VOTE",
-          customerName: voterName,
-          customerEmail: voterEmail,
-          customerPhone: voterPhone,
+          customerName: voterName.trim(),
+          customerEmail: voterEmail.trim() || "voter@cetas.id",
+          customerPhone: safePhone,
           items: [
             {
               id: selectedCandidate.id,
-              name: `Paket Voting (${voteCount} Suara) untuk #${selectedCandidate.candidateNumber} ${selectedCandidate.name} [${activeCategory.title}]`,
-              quantity: voteCount,
-              price: currentPackagePrice / voteCount,
+              name: `Voting (${safeVoteCount} Suara) #${selectedCandidate.candidateNumber} ${selectedCandidate.name}`,
+              quantity: safeVoteCount,
+              price: pricePerVote,
             },
           ],
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Gagal checkout");
-
-      // Midtrans Live or Simulator
-      if (data.isSimulationFallback || !data.snapToken || data.snapToken.startsWith("SNAP-SIMULATION")) {
-        setSimulatorData({
-          orderNumber: data.orderNumber,
-          grossAmount: currentPackagePrice,
-          customerName: voterName,
-          orderType: "VOTE",
-        });
-      } else if (typeof window !== "undefined" && window.snap) {
-        window.snap.pay(data.snapToken, {
-          onSuccess: () => applySuccessfulVote(),
-          onPending: () => setVoteStatus("Pembayaran sedang menunggu settlement Midtrans."),
-          onError: () => setVoteStatus("Pembayaran dibatalkan atau gagal."),
-        });
-      } else {
-        setSimulatorData({
-          orderNumber: data.orderNumber,
-          grossAmount: currentPackagePrice,
-          customerName: voterName,
-          orderType: "VOTE",
-        });
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || data.errors?.[0]?.message || "Gagal memproses checkout pembayaran");
       }
+
+      // Sukses: Tutup form voter dan langsung buka DOKU Direct API Modal (QRIS & E-Wallet)
+      const cand = selectedCandidate;
+      const count = safeVoteCount;
+      setSelectedCandidate(null);
+      setSimulatorData({
+        orderNumber: data.orderNumber,
+        grossAmount: currentPackagePrice,
+        customerName: voterName.trim(),
+        orderType: "VOTE",
+        candidate: cand,
+        voteCount: count,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
       setVoteStatus(`Error: ${msg}`);
@@ -397,8 +391,25 @@ function VotePageContent() {
   };
 
   const applySuccessfulVote = () => {
-    if (!selectedCandidate || !activeEvent || !activeCategory) return;
-    const addedVotes = voteCount;
+    const targetCandidate = simulatorData?.candidate || selectedCandidate;
+    const addedVotes = simulatorData?.voteCount || safeVoteCount;
+    if (!targetCandidate || !activeEvent || !activeCategory) return;
+
+    // 1. Putar efek suara notifikasi masuk
+    playVoteNotificationSound();
+
+    // 2. Munculkan Toast Notifikasi Vote Masuk
+    setLiveVoteAlert({
+      count: addedVotes,
+      candidateName: targetCandidate.name,
+      candidateNumber: targetCandidate.candidateNumber,
+      voterName: simulatorData?.customerName || voterName || "Voter Publik",
+    });
+
+    // Otomatis tutup toast setelah 7 detik
+    setTimeout(() => {
+      setLiveVoteAlert(null);
+    }, 7000);
 
     // Update in-memory / state
     setEventVotings((prev) =>
@@ -411,7 +422,7 @@ function VotePageContent() {
             return {
               ...cat,
               candidates: cat.candidates.map((cand) =>
-                cand.id === selectedCandidate.id
+                cand.id === targetCandidate.id
                   ? { ...cand, totalVotes: cand.totalVotes + addedVotes }
                   : cand
               ),
@@ -429,14 +440,14 @@ function VotePageContent() {
         action: "RECORD_VOTE",
         eventId: activeEvent.id,
         categoryId: activeCategory.id,
-        candidateId: selectedCandidate.id,
+        candidateId: targetCandidate.id,
         addedVotes: addedVotes,
         orderNumber: simulatorData?.orderNumber || `VOTE-${Date.now()}`,
-        voterName: voterName || "Voter Publik Cetas",
+        voterName: simulatorData?.customerName || voterName || "Voter Publik Cetas",
       }),
     }).catch(() => {});
 
-    setVoteStatus(`Terima kasih! ${addedVotes} Suara berhasil diverifikasi untuk ${selectedCandidate.name}.`);
+    setVoteStatus(`Terima kasih! ${addedVotes} Vote telah berhasil ditambahkan untuk #${targetCandidate.candidateNumber} ${targetCandidate.name}.`);
     setSimulatorData(null);
   };
 
@@ -498,29 +509,13 @@ function VotePageContent() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      const isRealMidtransToken =
-        data.snapToken &&
-        !data.snapToken.startsWith("SNAP-SIMULATION") &&
-        !data.isSimulated;
-
-      if (typeof window !== "undefined" && window.snap && isRealMidtransToken) {
-        window.snap.pay(data.snapToken, {
-          onSuccess: async function () {
-            await generateTicketPass(selectedTier);
-            setSelectedTier(null);
-          },
-          onClose: function () {
-            setIsBuyingTicket(false);
-          },
-        });
-      } else {
-        setSimulatorData({
-          orderNumber: data.orderNumber,
-          grossAmount: selectedTier.price * ticketQty,
-          customerName: buyerName,
-          orderType: "TICKET",
-        });
-      }
+      // Tampilkan DOKU Direct API Modal (QRIS & E-Wallet)
+      setSimulatorData({
+        orderNumber: data.orderNumber,
+        grossAmount: selectedTier.price * ticketQty,
+        customerName: buyerName,
+        orderType: "TICKET",
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
       alert(msg);
@@ -604,14 +599,24 @@ function VotePageContent() {
 
           {/* Grid Katalog Event */}
           {filteredEvents.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 p-16 text-center space-y-3">
+            <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 p-16 text-center space-y-3 bg-white dark:bg-slate-900">
               <Calendar className="h-10 w-10 text-slate-300 mx-auto" />
               <div className="text-base font-bold text-slate-700 dark:text-slate-300">
-                Tidak ada event yang cocok dengan pencarian Anda
+                {mergedEventsList.length === 0 ? "Belum ada event atau bilik pemilihan aktif saat ini" : "Tidak ada event yang cocok dengan pencarian Anda"}
               </div>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Silakan ganti kata kunci atau reset filter pencarian di atas.
+                {mergedEventsList.length === 0 ? "Event, kategori voting, dan peserta dapat ditambahkan langsung melalui Lingkup Kerja Admin." : "Silakan ganti kata kunci atau reset filter pencarian di atas."}
               </p>
+              {mergedEventsList.length === 0 && (
+                <div className="pt-2">
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition"
+                  >
+                    Buka Lingkup Kerja Admin →
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1107,7 +1112,7 @@ function VotePageContent() {
                                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-black text-white shadow-md flex items-center justify-center gap-1.5 transition active:scale-95 ${activeTheme.buttonClass}`}
                                 >
                                   <Heart className="h-4 w-4" />
-                                  Vote Sekarang (Midtrans)
+                                  Vote Sekarang (DOKU QRIS)
                                 </button>
                               </div>
                             </div>
@@ -1340,29 +1345,100 @@ function VotePageContent() {
             </div>
 
             <form onSubmit={handlePayVote} className="overflow-y-auto flex-1 pr-1 space-y-4 my-2">
-              {/* Pilihan Paket Vote */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  Pilih Paket Jumlah Suara:
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {votePackages.map((pkg) => (
-                    <button
-                      key={pkg.count}
-                      type="button"
-                      onClick={() => setVoteCount(pkg.count)}
-                      className={`p-3 rounded-2xl border text-left transition ${
-                        voteCount === pkg.count
-                          ? "border-orange-500 bg-orange-50 dark:bg-orange-950/40 text-orange-900 dark:text-orange-200 ring-2 ring-orange-500/20 shadow-sm"
-                          : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
-                      }`}
-                    >
-                      <div className="text-xs font-bold">{pkg.label}</div>
-                      <div className="text-sm font-black text-orange-600 dark:text-orange-400 mt-1 font-mono">
-                        {formatRupiah(pkg.price)}
-                      </div>
-                    </button>
-                  ))}
+              {voteStatus && voteStatus.startsWith("Error:") && (
+                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                  {voteStatus}
+                </div>
+              )}
+
+              {/* Pemilihan Jumlah Suara (Bebas / Custom Vote Tanpa Diskon) */}
+              <div className="p-4 rounded-3xl bg-orange-50/60 dark:bg-orange-950/20 border-2 border-orange-500/30 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-black text-slate-900 dark:text-white block">
+                      Jumlah Suara yang Ingin Diberikan:
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Ketik angka berapa saja (misal 6, 7, dll.) atau pilih tombol cepat.
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/60 px-2.5 py-1 rounded-full border border-orange-300 dark:border-orange-800">
+                    {formatRupiah(pricePerVote)} / suara
+                  </span>
+                </div>
+
+                {/* Input Angka Bebas dengan Stepper (-) dan (+) */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVoteCount((prev) => Math.max(1, prev - 1))}
+                    className="h-12 w-12 shrink-0 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 font-black text-xl text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-orange-500 hover:text-white hover:border-orange-500 transition shadow-xs active:scale-95"
+                    title="Kurangi 1 suara"
+                  >
+                    -
+                  </button>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={10000}
+                      value={voteCount}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setVoteCount(isNaN(val) || val < 1 ? 1 : val);
+                      }}
+                      className="w-full h-12 rounded-2xl border-2 border-orange-500 bg-white dark:bg-slate-800 px-4 text-center font-mono font-black text-2xl text-orange-600 dark:text-orange-400 outline-none focus:ring-4 focus:ring-orange-500/20 shadow-xs"
+                      placeholder="Masukkan jumlah suara"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
+                      Suara
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVoteCount((prev) => prev + 1)}
+                    className="h-12 w-12 shrink-0 rounded-2xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 font-black text-xl text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-orange-500 hover:text-white hover:border-orange-500 transition shadow-xs active:scale-95"
+                    title="Tambah 1 suara"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Pintasan Angka Cepat (Termasuk 6 & 7) */}
+                <div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Pilihan Cepat Suara:
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                    {[1, 3, 5, 6, 7, 10, 25, 50].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setVoteCount(num)}
+                        className={`py-2 rounded-xl text-xs font-black transition text-center ${
+                          voteCount === num
+                            ? "bg-orange-600 text-white shadow-md shadow-orange-500/20 ring-2 ring-orange-500"
+                            : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-orange-400 hover:bg-orange-50/50"
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total Bayar Realtime */}
+                <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs">
+                  <div className="text-slate-600 dark:text-slate-400">
+                    <span className="font-bold text-slate-900 dark:text-white">{voteCount} Suara</span>
+                    <span> × {formatRupiah(pricePerVote)}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Total Bayar</div>
+                    <div className="text-base font-black text-orange-600 dark:text-orange-400 font-mono">
+                      {formatRupiah(currentPackagePrice)}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1567,7 +1643,7 @@ function VotePageContent() {
                     disabled={isBuyingTicket}
                     className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition"
                   >
-                    {isBuyingTicket ? "Memproses..." : "Bayar Tiket (Midtrans) →"}
+                    {isBuyingTicket ? "Memproses..." : "Bayar Tiket (DOKU QRIS / E-Wallet) →"}
                   </button>
                 </div>
               </div>
@@ -1636,13 +1712,23 @@ function VotePageContent() {
         </div>
       )}
 
-      {/* Simulator Modal jika offline merchant key */}
-      <MidtransSimulatorModal
+      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
+      <DokuPaymentModal
         isOpen={Boolean(simulatorData)}
         onClose={() => setSimulatorData(null)}
         orderNumber={simulatorData?.orderNumber || ""}
         grossAmount={simulatorData?.grossAmount || 0}
         customerName={simulatorData?.customerName || ""}
+        successTitle={
+          simulatorData?.orderType === "VOTE"
+            ? `${simulatorData?.voteCount || voteCount} Vote Telah Berhasil Ditambahkan!`
+            : "Pembayaran Tiket Berhasil! 🎟️"
+        }
+        successSubtitle={
+          simulatorData?.orderType === "VOTE"
+            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh DOKU Direct API dan langsung masuk ke leaderboard realtime.`
+            : `E-tiket resmi acara telah terbit dan siap digunakan.`
+        }
         onSuccess={() => {
           if (simulatorData?.orderType === "VOTE") {
             applySuccessfulVote();
@@ -1651,6 +1737,42 @@ function VotePageContent() {
           }
         }}
       />
+
+      {/* Floating Live Vote Entry Notification (Notifikasi Vote Masuk dengan Suara) */}
+      {liveVoteAlert && (
+        <div className="fixed top-20 right-4 sm:right-6 z-[110] max-w-sm sm:max-w-md w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-3xl p-4 shadow-2xl border-2 border-emerald-500 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="relative shrink-0">
+              <div className="h-11 w-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center font-black text-lg shadow-md shadow-emerald-500/30 animate-bounce">
+                🔔
+              </div>
+              <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-slate-900 dark:border-white animate-ping" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 dark:text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                  Vote Masuk Realtime
+                </span>
+                <span className="text-[10px] font-bold text-slate-400">
+                  🔊 Suara Notif Aktif
+                </span>
+              </div>
+              <h4 className="text-sm font-black mt-1 leading-snug">
+                +{liveVoteAlert.count} Vote Telah Berhasil Ditambahkan!
+              </h4>
+              <p className="text-xs text-slate-300 dark:text-slate-600 mt-0.5 truncate">
+                Untuk #{liveVoteAlert.candidateNumber} {liveVoteAlert.candidateName} • Oleh {liveVoteAlert.voterName}
+              </p>
+            </div>
+            <button
+              onClick={() => setLiveVoteAlert(null)}
+              className="text-slate-400 hover:text-white dark:hover:text-slate-900 p-1 rounded-lg"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

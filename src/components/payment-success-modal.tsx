@@ -84,7 +84,7 @@ export function PaymentSuccessModal({
           {/* Headline */}
           <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200 mb-3">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>Pembayaran Terverifikasi Midtrans</span>
+            <span>Pembayaran Terverifikasi DOKU Direct API</span>
           </div>
 
           <h3 className="text-2xl font-black text-slate-900 tracking-tight">

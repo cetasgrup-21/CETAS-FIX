@@ -1,344 +1,409 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-enum RoleCode {
-  SUPER_ADMIN
-  EVENT_ADMIN
-  PROD_ADMIN
-  SCANNER_STAFF
-  EVENT_ORGANIZER
-  PUBLIC_USER
-}
-
-enum SubmissionStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-enum EventStatus {
-  DRAFT
-  PUBLISHED
-  ONGOING
-  FINISHED
-  CANCELLED
-}
-
-enum AdPlacement {
-  HOME_HERO
-  EVENT_PAGE
-  TICKET_FOOTER
-}
-
-enum VoteType {
-  FREE
-  PAID
-}
-
-enum OrderType {
-  TICKET
-  VOTE
-  PRODUCTION
-  REGISTRATION
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  EXPIRED
-  CANCELLED
-  REFUNDED
-}
-
-enum ProductCategory {
-  MERCHANDISE
-  SOUND_SYSTEM
-  LIGHTING
-  LED_VIDEOTRON
-  LIVE_STREAMING
-  BOOTH_VENDOR
-}
-
-model User {
-  id           String            @id @default(uuid())
-  name         String
-  email        String            @unique
-  phone        String?
-  passwordHash String
-  avatarUrl    String?
-  role         RoleCode          @default(PUBLIC_USER)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  submissions  EventSubmission[]
-  orders       Order[]
-  attendances  EventAttendee[]
-  auditLogs    AuditLog[]
-  checkedInTickets Ticket[]      @relation("CheckedInByStaff")
-
-  @@index([email])
-}
-
-model EventSubmission {
-  id                String           @id @default(uuid())
-  userId            String
-  user              User             @relation(fields: [userId], references: [id])
-  eventName         String
-  proposalFileUrl   String?
-  targetAudience    String?
-  featuresRequested String           // JSON or comma separated: TICKETING, VOTE, REGISTRATION
-  status            SubmissionStatus @default(PENDING)
-  reviewNotes       String?
-  submittedAt       DateTime         @default(now())
-  reviewedAt        DateTime?
-
-  approvedEvent     Event?
-
-  @@index([userId])
-  @@index([status])
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Event {
-  id                 String           @id @default(uuid())
-  submissionId       String?          @unique
-  submission         EventSubmission? @relation(fields: [submissionId], references: [id])
-  title              String
-  slug               String           @unique
-  description        String
-  bannerUrl          String?
-  location           String
-  startDate          DateTime
-  endDate            DateTime
-  status             EventStatus      @default(DRAFT)
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id          String    @id @default(cuid())
+  name        String
+  date        DateTime?
+  location    String?
+  logo        String?
+  banner      String?
+  status      String    @default("ACTIVE")
+  inputMode   String    @default("DIGITAL")
+  totalPoints Int       @default(5000)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  ads                CetasAd[]
-  ticketTiers        TicketTier[]
-  voteCategories     VoteCategory[]
-  registrationFields RegistrationField[]
-  attendees          EventAttendee[]
-
-  @@index([slug])
-  @@index([status])
+  categories      Category[]
+  participants    Participant[]
+  levels          EventLevel[]
+  timerGroups     TimerGroup[]
+  timerRecords    TimerRecord[]
+  awardCategories AwardCategory[]
 }
 
-model CetasAd {
-  id               String       @id @default(uuid())
-  eventId          String?
-  event            Event?       @relation(fields: [eventId], references: [id])
-  title            String
-  bannerImageUrl   String
-  targetLink       String
-  placementType    AdPlacement  @default(HOME_HERO)
-  totalImpressions Int          @default(0)
-  totalClicks      Int          @default(0)
-  isActive         Boolean      @default(true)
-  createdAt        DateTime     @default(now())
+model EventLevel {
+  id        String   @id @default(cuid())
+  eventId   String
+  code      String
+  name      String
+  sortOrder Int      @default(0)
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([placementType, isActive])
+  event           Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  categories      Category[]
+  categoryLinks   CategoryLevel[]
+  participants    Participant[]
+  judgeLinks      LevelJudge[]
+  awardCategories AwardCategory[]
+
+  @@unique([eventId, code])
+  @@index([eventId, sortOrder])
 }
 
-model TicketTier {
-  id             String    @id @default(uuid())
-  eventId        String
-  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name           String    // e.g. Early Bird, Presale, VIP
-  price          Decimal   @db.Decimal(12, 2)
-  quotaTotal     Int
-  quotaRemaining Int
-  saleStart      DateTime
-  saleEnd        DateTime
+model Category {
+  id           String  @id @default(cuid())
+  eventId      String
+  eventLevelId String?
+  name         String
+  percentage   Float   @default(0)
+  status       String  @default("ACTIVE")
+  sortOrder    Int     @default(0)
 
-  tickets        Ticket[]
-  orderItems     OrderItem[]
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventLevel EventLevel? @relation(fields: [eventLevelId], references: [id], onDelete: SetNull)
 
-  @@index([eventId])
+  levelLinks           CategoryLevel[]
+  judgeLinks           CategoryJudge[]
+  criteria             Criterion[]
+  participants         Participant[]
+  scores               Score[]
+  subCategories        SubCategory[]
+  timerGroupCategories TimerGroupCategory[]
+  awardCategories      AwardCategory[]
+  awardCategorySources AwardCategorySource[]
+
+  @@index([eventId, eventLevelId, sortOrder])
 }
 
-model Ticket {
-  id            String      @id @default(uuid())
-  orderId       String
-  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  tierId        String
-  tier          TicketTier  @relation(fields: [tierId], references: [id])
-  ticketCode    String      @unique // e.g. CETAS-TCK-928374
-  qrHash        String      // HMAC-SHA256 signature for gate security
-  holderName    String
-  holderEmail   String
-  holderPhone   String?
-  isCheckedIn   Boolean     @default(false)
-  checkedInAt   DateTime?
-  checkedInById String?
-  checkedInBy   User?       @relation("CheckedInByStaff", fields: [checkedInById], references: [id])
+model CategoryLevel {
+  categoryId String
+  levelId    String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
 
-  @@index([ticketCode])
-  @@index([orderId])
-  @@index([isCheckedIn])
-}
+  category Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  level    EventLevel @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
-model VoteCategory {
-  id            String          @id @default(uuid())
-  eventId       String
-  event         Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  title         String          // e.g. Duta Terfavorit 2026
-  voteType      VoteType        @default(PAID)
-  pricePerVote  Decimal         @default(0) @db.Decimal(12, 2)
-  endVotingAt   DateTime
-
-  candidates    VoteCandidate[]
-
-  @@index([eventId])
-}
-
-model VoteCandidate {
-  id              String       @id @default(uuid())
-  categoryId      String
-  category        VoteCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  candidateNumber String       // e.g. "01", "02"
-  name            String
-  photoUrl        String?
-  visionMission   String?
-  totalVotes      Int          @default(0)
-
-  voteLogs        VoteLog[]
-
+  @@id([categoryId, levelId])
+  @@index([levelId, sortOrder])
   @@index([categoryId])
 }
 
-model VoteLog {
-  id          String        @id @default(uuid())
-  candidateId String
-  candidate   VoteCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  orderId     String?
-  order       Order?        @relation(fields: [orderId], references: [id])
-  voteCount   Int           @default(1)
-  voterIp     String?
-  recordedAt  DateTime      @default(now())
+model SubCategory {
+  id         String @id @default(cuid())
+  categoryId String
+  name       String
+  percentage Float  @default(0)
+  sortOrder  Int    @default(0)
+  status     String @default("ACTIVE")
 
-  @@index([candidateId])
+  criteria Criterion[]
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, sortOrder])
 }
 
-model RegistrationField {
-  id          String   @id @default(uuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  label       String   // e.g. Nomor Induk Mahasiswa / Instansi
-  fieldType   String   // text, email, select, file
-  isRequired  Boolean  @default(true)
-  optionsJson String?  // serialized json for dropdown choices
+model MasterMaterial {
+  id        String   @id @default(cuid())
+  category  String
+  section   String
+  name      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([eventId])
+  criteria Criterion[]
+
+  @@index([category, section])
 }
 
-model EventAttendee {
-  id             String    @id @default(uuid())
-  eventId        String
-  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  userId         String?
-  user           User?     @relation(fields: [userId], references: [id])
-  name           String
-  email          String
-  phone          String
-  customDataJson String?   // Answers to dynamic RegistrationField
-  qrCode         String    @unique
-  isPresent      Boolean   @default(false)
-  registeredAt   DateTime  @default(now())
+model Criterion {
+  id            String  @id @default(cuid())
+  categoryId    String
+  subCategoryId String?
+  materialId    String?
+  name          String
+  section       String?
+  interval      Int?
+  sortOrder     Int     @default(0)
+  inputType     String  @default("RATING")
+  difficulty    String  @default("MUDAH")
 
-  @@index([eventId])
-  @@index([email])
+  material MasterMaterial? @relation(fields: [materialId], references: [id])
+
+  subCategory SubCategory? @relation(fields: [subCategoryId], references: [id])
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  scores  Score[]
+  options ScoreOption[]
+
+  @@index([categoryId, subCategoryId, sortOrder])
 }
 
-model ProductionProduct {
-  id             String          @id @default(uuid())
-  name           String
-  category       ProductCategory
-  basePrice      Decimal         @db.Decimal(12, 2)
-  stock          Int             @default(0)
-  specifications String?
-  imageUrl       String?
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
+model ScoreOption {
+  id          String @id @default(cuid())
+  criterionId String
+  label       String
+  score       Float
+  sortOrder   Int    @default(0)
 
-  orderItems     OrderItem[]
-
-  @@index([category])
+  criterion Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
 }
 
-model Order {
-  id            String        @id @default(uuid())
-  userId        String?
-  user          User?         @relation(fields: [userId], references: [id])
-  orderNumber   String        @unique // e.g. CETAS-ORD-20261002-XXXX
-  orderType     OrderType
-  totalAmount   Decimal       @db.Decimal(12, 2)
-  paymentStatus PaymentStatus @default(PENDING)
-  customerName  String
-  customerEmail String
-  customerPhone String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  pinHash   String
+  role      String   @default("OPERATOR")
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  items         OrderItem[]
-  payment       Payment?
-  tickets       Ticket[]
-  voteLogs      VoteLog[]
-
-  @@index([orderNumber])
-  @@index([paymentStatus])
+  auditLogs     AuditLog[]
+  categoryLinks CategoryJudge[]
+  levelLinks    LevelJudge[]
+  scores        Score[]
+  sessions      Session[]
 }
 
-model OrderItem {
-  id                  String             @id @default(uuid())
-  orderId             String
-  order               Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  tierId              String?
-  ticketTier          TicketTier?        @relation(fields: [tierId], references: [id])
-  productionProductId String?
-  productionProduct   ProductionProduct? @relation(fields: [productionProductId], references: [id])
-  itemDescription     String             // Name/title of ticket, merch, or vote package
-  quantity            Int
-  unitPrice           Decimal            @db.Decimal(12, 2)
-  subtotal            Decimal            @db.Decimal(12, 2)
+model LevelJudge {
+  levelId String
+  judgeId String
 
-  @@index([orderId])
+  level EventLevel @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  judge User       @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+
+  @@id([levelId, judgeId])
+  @@index([judgeId])
 }
 
-model Payment {
-  id                   String        @id @default(uuid())
-  orderId              String        @unique
-  order                Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  snapToken            String?
-  redirectUrl          String?
-  gatewayTransactionId String?       @unique // Midtrans transaction_id
-  paymentType          String?       // qris, bank_transfer, gopay, etc.
-  vaNumber             String?       // Virtual Account Number if available
-  amountPaid           Decimal?      @db.Decimal(12, 2)
-  status               PaymentStatus @default(PENDING)
-  payloadJson          String?       // Full raw webhook notification payload
-  settledAt            DateTime?
+model CategoryJudge {
+  categoryId String
+  judgeId    String
 
-  @@index([gatewayTransactionId])
-  @@index([status])
+  judge    User     @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, judgeId])
+  @@index([judgeId])
+}
+
+model Participant {
+  id           String  @id @default(cuid())
+  eventId      String
+  categoryId   String?
+  eventLevelId String?
+  number       Int
+  displayOrder Int?
+  name         String
+  school       String?
+  level        String?
+  photo        String?
+  logo         String?
+  status       String  @default("ACTIVE")
+
+  bonuses      Bonus[]
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventLevel   EventLevel?   @relation(fields: [eventLevelId], references: [id], onDelete: SetNull)
+  penalties    Penalty[]
+  results      Result?
+  scores       Score[]
+  timerRecords TimerRecord[]
+  awardWins    AwardWinner[]
+
+  @@index([eventId, eventLevelId])
+}
+
+model Score {
+  id            String    @id @default(cuid())
+  participantId String
+  criterionId   String
+  categoryId    String
+  judgeId       String
+  score         Float
+  label         String?
+  note          String?
+  status        String    @default("DRAFT")
+  submittedAt   DateTime?
+  lockedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  judge       User        @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  criterion   Criterion   @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, criterionId, judgeId])
+}
+
+model Penalty {
+  id            String  @id @default(cuid())
+  participantId String
+  type          String
+  amount        Float
+  note          String?
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model Bonus {
+  id            String  @id @default(cuid())
+  participantId String
+  type          String
+  amount        Float
+  note          String?
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model Result {
+  id            String   @id @default(cuid())
+  participantId String   @unique
+  rawScore      Float    @default(0)
+  bonus         Float    @default(0)
+  penalty       Float    @default(0)
+  finalScore    Float    @default(0)
+  rank          Int?
+  status        String   @default("ACTIVE")
+  updatedAt     DateTime @updatedAt
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  action      String   // e.g. EVENT_APPROVED, REFUND_ISSUED, TICKET_SCANNED
-  entityName  String   // e.g. Event, Order, Ticket
-  entityId    String
-  detailsJson String?
-  ipAddress   String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  targetType String
+  targetId   String
+  oldValue   String?
+  newValue   String?
+  reason     String?
+  createdAt  DateTime @default(now())
 
-  @@index([action])
-  @@index([entityName])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenId   String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model TimerGroup {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  sortOrder Int      @default(0)
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event      Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  categories TimerGroupCategory[]
+  records    TimerRecord[]
+
+  @@index([eventId, sortOrder])
+}
+
+model TimerGroupCategory {
+  groupId    String
+  categoryId String
+  sortOrder  Int    @default(0)
+
+  group    TimerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  category Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, categoryId])
+  @@index([categoryId])
+}
+
+model TimerRecord {
+  id            String    @id @default(cuid())
+  eventId       String
+  participantId String
+  timerGroupId  String?
+  mode          String    @default("PARTICIPANT")
+  runKey        String    @unique
+  startedAt     DateTime?
+  stoppedAt     DateTime?
+  durationSec   Int?
+  status        String    @default("READY")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  timerGroup  TimerGroup? @relation(fields: [timerGroupId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, participantId])
+  @@index([eventId, timerGroupId])
+  @@index([participantId, timerGroupId])
+}
+
+model AwardCategory {
+  id               String    @id @default(cuid())
+  eventId          String
+  eventLevelId     String?
+  sourceCategoryId String?
+  name             String
+  method           String    @default("RANKING")
+  rankPosition     Int?
+  sortOrder        Int       @default(0)
+  status           String    @default("DRAFT")
+  tieBreakers      String?
+  lockedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventLevel     EventLevel?   @relation(fields: [eventLevelId], references: [id], onDelete: SetNull)
+  sourceCategory Category?     @relation(fields: [sourceCategoryId], references: [id], onDelete: SetNull)
+  winners        AwardWinner[]
+  categorySources AwardCategorySource[]
+
+  @@index([eventId, eventLevelId, sortOrder])
+  @@index([sourceCategoryId])
+}
+
+model AwardCategorySource {
+  id              String   @id @default(cuid())
+  awardCategoryId String
+  categoryId      String
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  awardCategory AwardCategory @relation(fields: [awardCategoryId], references: [id], onDelete: Cascade)
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([awardCategoryId, categoryId])
+  @@index([categoryId])
+}
+
+model AwardWinner {
+  id              String   @id @default(cuid())
+  awardCategoryId String
+  participantId   String
+  winnerOrder     Int      @default(1)
+  source          String   @default("MANUAL")
+  score           Float?
+  note            String?
+  createdAt       DateTime @default(now())
+
+  awardCategory AwardCategory @relation(fields: [awardCategoryId], references: [id], onDelete: Cascade)
+  participant   Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([awardCategoryId, participantId])
+  @@index([participantId])
 }

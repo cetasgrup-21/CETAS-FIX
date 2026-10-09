@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ShoppingBag, Check, ShieldCheck, ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
-import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
+import { DokuPaymentModal } from "@/components/doku-payment-modal";
 import { UnifiedProduct } from "@/lib/production-unified-data";
 
 interface Product {
@@ -173,33 +173,12 @@ export default function ProductionPage() {
         throw new Error(data.message || "Gagal membuat invoice pesanan");
       }
 
-      const isRealMidtransToken =
-        data.snapToken &&
-        !data.snapToken.startsWith("SNAP-SIMULATION") &&
-        !data.isSimulated;
-
-      if (typeof window !== "undefined" && window.snap && isRealMidtransToken) {
-        window.snap.pay(data.snapToken, {
-          onSuccess: function (res: unknown) {
-            console.log("Success:", res);
-            setOrderDoneMsg(
-              `Pesanan Production ${data.orderNumber} berhasil dibayar! Tim logistik Cetas akan menghubungi WhatsApp Anda untuk koordinasi pengiriman/setup.`
-            );
-            setCart({});
-            setIsCheckoutOpen(false);
-          },
-          onClose: function () {
-            setIsProcessing(false);
-          },
-        });
-      } else {
-        // Tampilkan Midtrans Sandbox Simulator Cetas
-        setSimulatorData({
-          orderNumber: data.orderNumber,
-          grossAmount: cartTotal,
-          customerName: customer.name,
-        });
-      }
+      // Tampilkan DOKU Direct API Modal (QRIS & E-Wallet)
+      setSimulatorData({
+        orderNumber: data.orderNumber,
+        grossAmount: cartTotal,
+        customerName: customer.name,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan sistem";
       alert(msg);
@@ -433,7 +412,7 @@ export default function ProductionPage() {
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-500">Total Invoice Midtrans</div>
+                  <div className="text-[10px] text-slate-500">Total Tagihan DOKU Direct</div>
                   <div className="text-base font-black text-cyan-400">
                     {formatRupiah(cartTotal)}
                   </div>
@@ -441,10 +420,10 @@ export default function ProductionPage() {
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-1.5"
+                  className="rounded-xl bg-gradient-to-r from-[#E1251B] to-rose-600 hover:from-red-700 hover:to-rose-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-red-500/25 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  {isProcessing ? "Menyiapkan Invoice..." : "Bayar via Midtrans"}
+                  {isProcessing ? "Menyiapkan Invoice..." : "Bayar via DOKU (QRIS / E-Wallet)"}
                 </button>
               </div>
             </form>
@@ -452,13 +431,14 @@ export default function ProductionPage() {
         </div>
       )}
 
-      {/* Midtrans Sandbox Simulator Modal */}
+      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
       {simulatorData && (
-        <MidtransSimulatorModal
+        <DokuPaymentModal
           isOpen={!!simulatorData}
           orderNumber={simulatorData.orderNumber}
           grossAmount={simulatorData.grossAmount}
           customerName={simulatorData.customerName}
+          customerPhone={customer.phone}
           onClose={() => setSimulatorData(null)}
           onSuccess={() => {
             setOrderDoneMsg(

@@ -64,9 +64,9 @@ export const ROLE_DEFINITIONS: Record<
     canAccessScanner: true,
   },
   FINANCE_ADMIN: {
-    title: "💰 Admin Keuangan & Midtrans",
+    title: "💰 Admin Keuangan & DOKU Gateway",
     badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800",
-    description: "Memantau arus kas masuk Midtrans (QRIS, VA, GoPay), settlement transaksi, dan rekonsiliasi omzet tiket/vote/production.",
+    description: "Memantau arus kas masuk DOKU Direct API (QRIS, OVO, ShopeePay, DANA), settlement transaksi, dan rekonsiliasi omzet tiket/vote/production.",
     canEditFinances: false, // Hanya Super Admin yang boleh mengubah angka manual
     canManageStaff: false,
     canManageAds: false,

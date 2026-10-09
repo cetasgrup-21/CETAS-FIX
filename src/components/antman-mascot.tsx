@@ -21,8 +21,8 @@ export function AntmanMascot({
 }: AntmanMascotProps) {
   const imgSrc =
     pose === "thumbsup"
-      ? "/mascot/cetas_ant_thumbsup.png"
-      : "/mascot/cetas_ant_waving.png";
+      ? "/mascot/cetas_ant_thumbsup_v3.png"
+      : "/mascot/cetas_ant_waving_v3.png";
 
   const imgAlt =
     pose === "thumbsup"

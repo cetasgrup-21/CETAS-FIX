@@ -1,0 +1,3631 @@
+﻿"use client";
+
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  useParams,
+  useRouter,
+} from "next/navigation";
+
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
+type Option = {
+  id: string;
+  label: string;
+  score: number;
+  sortOrder: number;
+};
+
+type Criterion = {
+  id: string;
+  name: string;
+  section?: string | null;
+  interval?: number | null;
+  sortOrder: number;
+  inputType: string;
+  difficulty: string;
+  options: Option[];
+};
+
+type SubCategory = {
+  id: string;
+  name: string;
+  percentage: number;
+  sortOrder: number;
+  criteria: Criterion[];
+};
+
+type EventLevel = {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  percentage: number;
+  sortOrder: number;
+  eventId: string;
+  eventLevelId?: string | null;
+  eventLevel?: EventLevel | null;
+};
+
+type Participant = {
+  id: string;
+  eventId: string;
+  categoryId?: string | null;
+  number: number;
+  displayOrder?: number | null;
+  name: string;
+  school?: string | null;
+  level?: string | null;
+  photo?: string | null;
+  logo?: string | null;
+  status?: string;
+};
+
+type Score = {
+  id: string;
+  participantId: string;
+  criterionId: string;
+  categoryId?: string | null;
+  score: number;
+  label?: string | null;
+  note?: string | null;
+  status?: string;
+  submittedAt?: string | null;
+  lockedAt?: string | null;
+};
+
+type MainData = {
+  user: {
+    id: string;
+    name: string;
+    username: string;
+    role: string;
+    status: string;
+  };
+
+  event: {
+    id: string;
+    name: string;
+    date?: string | null;
+    location?: string | null;
+    logo?: string | null;
+    banner?: string | null;
+    totalPoints: number;
+  };
+
+  category: Category;
+
+  judgeCount: number;
+
+  categoryMaxScore: number;
+
+  maxScorePerJudge: number;
+
+  subCategories: SubCategory[];
+
+  criteria: Criterion[];
+
+  scores: Score[];
+};
+
+type ParticipantResponse = {
+  success: boolean;
+
+  category: {
+    id: string;
+    name: string;
+    eventId: string;
+    eventLevelId?: string | null;
+    percentage: number;
+    sortOrder: number;
+    eventLevel?: EventLevel | null;
+  };
+
+  participants: Participant[];
+
+  error?: string;
+};
+
+/*
+ * =========================================================
+ * HELPERS
+ * =========================================================
+ */
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/*
+ * Nilai yang dipilih Juri adalah nilai mentah yang tampil pada opsi materi.
+ * Tidak ada pembagian atau rumus pada POV Juri.
+ * Nilai yang ditekan Juri dikirim dan disimpan apa adanya.
+ * Pengolahan antar-juri dilakukan di Rekap.
+ */
+function getJudgeScore(score: number) {
+  return Number(score);
+}
+
+/*
+ * =========================================================
+ * SCORE GROUP
+ * =========================================================
+ *
+ * Options diurutkan berdasarkan sortOrder.
+ *
+ * Pembagian:
+ *
+ * KURANG       -> 30% pertama
+ * CUKUP        -> 30% berikutnya
+ * BAIK         -> 30% berikutnya
+ * SANGAT BAIK  -> sisanya
+ *
+ * Contoh 10 option:
+ *
+ * 1  2  3
+ * 4  5  6
+ * 7  8  9
+ * 10
+ *
+ * Yang tampil tetap nilai asli dari database.
+ *
+ * Misalnya:
+ *
+ * 7  9  12
+ * 14 17 19
+ * 22 24 27
+ * 29
+ */
+
+function getScoreGroups(options: Option[]) {
+  const sorted = [...options].sort(
+    (a, b) => a.sortOrder - b.sortOrder
+  );
+
+  const total = sorted.length;
+
+  if (total === 0) {
+    return {
+      kurang: [],
+      cukup: [],
+      baik: [],
+      sangatBaik: [],
+    };
+  }
+
+  const firstSize =
+    total >= 4
+      ? Math.ceil(total * 0.3)
+      : Math.ceil(total / 3);
+
+  const secondSize =
+    total >= 4
+      ? Math.ceil(total * 0.3)
+      : Math.ceil(
+          (total - firstSize) / 2
+        );
+
+  const thirdSize =
+    total >= 4
+      ? Math.ceil(total * 0.3)
+      : Math.max(
+          0,
+          total -
+            firstSize -
+            secondSize
+        );
+
+  const kurang =
+    sorted.slice(
+      0,
+      firstSize
+    );
+
+  const cukup =
+    sorted.slice(
+      firstSize,
+      firstSize + secondSize
+    );
+
+  const baik =
+    sorted.slice(
+      firstSize + secondSize,
+      firstSize +
+        secondSize +
+        thirdSize
+    );
+
+  const sangatBaik =
+    sorted.slice(
+      firstSize +
+        secondSize +
+        thirdSize
+    );
+
+  return {
+    kurang,
+    cukup,
+    baik,
+    sangatBaik,
+  };
+}
+
+/*
+ * =========================================================
+ * SCORE GROUP COMPONENT
+ * =========================================================
+ */
+
+function ScoreGroup({
+  title,
+  options,
+  currentValue,
+  saving,
+  onSelect,
+  judgeCount,
+}: {
+  title: string;
+  options: Option[];
+  currentValue?: {
+    score: number;
+    label: string;
+    note: string;
+  };
+  saving: boolean;
+  onSelect: (
+    option: Option
+  ) => void;
+  judgeCount: number;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col">
+      {/* JUDUL */}
+      <div className="mb-3 text-center">
+        <h4 className="text-sm font-black uppercase text-[#071a3d] md:text-base">
+          {title}
+        </h4>
+      </div>
+
+      {/* OPTIONS */}
+      <div className="flex flex-col gap-3">
+        {options.map((option) => {
+          const judgeScore =
+            getJudgeScore(Number(option.score));
+
+          const isSelected =
+            currentValue?.score ===
+            judgeScore;
+
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={saving}
+              onClick={() =>
+                onSelect(option)
+              }
+              className={[
+                "relative flex min-h-[56px] w-full items-center justify-center rounded-xl border-2 px-4 transition-all",
+                "active:scale-[0.97]",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+
+                isSelected
+                  ? "border-[#1769e0] bg-[#1769e0] text-white shadow-md shadow-blue-100"
+                  : "border-slate-300 bg-white text-[#071a3d] hover:border-[#1769e0] hover:bg-blue-50",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "text-xl font-black md:text-2xl",
+                  isSelected
+                    ? "text-white"
+                    : "text-[#071a3d]",
+                ].join(" ")}
+              >
+                {formatNumber(judgeScore)}
+              </span>
+
+              {option.label ? (
+                <span
+                  className={[
+                    "absolute bottom-1 left-0 right-0 truncate px-2 text-[8px] font-bold uppercase",
+                    isSelected
+                      ? "text-white/70"
+                      : "text-slate-400",
+                  ].join(" ")}
+                >
+                  {option.label}
+                </span>
+              ) : null}
+
+              {isSelected ? (
+                <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-[10px] font-black text-[#1769e0]">
+                  âœ“
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+
+        {options.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-xs font-bold text-slate-300">
+            -
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/*
+ * =========================================================
+ * PAGE
+ * =========================================================
+ */
+
+export default function JudgeCategoryPage() {
+  const params =
+    useParams();
+
+  const router =
+    useRouter();
+
+  const categoryId =
+    String(
+      params.categoryId || ""
+    );
+
+  /*
+   * =======================================================
+   * JUDGE WORKFLOW
+   * =======================================================
+   *
+   * Satu peserta harus menyelesaikan seluruh kategori yang
+   * ditugaskan pada tingkatan yang sedang dibuka.
+   * Urutan: kategori -> materi -> kategori berikutnya ->
+   * review -> submit -> peserta berikutnya.
+   */
+  const [workflowCategories, setWorkflowCategories] =
+    useState<Category[]>([]);
+
+  const [workflowIndex, setWorkflowIndex] =
+    useState(0);
+
+  const [categoryDataMap, setCategoryDataMap] =
+    useState<Record<string, MainData>>({});
+
+  const activeCategoryId =
+    workflowCategories[workflowIndex]?.id || categoryId;
+
+  /*
+   * =======================================================
+   * MAIN DATA
+   * =======================================================
+   */
+
+  const [
+    data,
+    setData,
+  ] =
+    useState<MainData | null>(
+      null
+    );
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    error,
+    setError,
+  ] =
+    useState("");
+
+  /*
+   * =======================================================
+   * PARTICIPANTS
+   * =======================================================
+   */
+
+  const [
+    participants,
+    setParticipants,
+  ] =
+    useState<Participant[]>(
+      []
+    );
+
+  const [
+    participantsLoading,
+    setParticipantsLoading,
+  ] =
+    useState(false);
+
+  /*
+   * =======================================================
+   * CURRENT PARTICIPANT
+   * =======================================================
+   */
+
+  const [
+    participantIndex,
+    setParticipantIndex,
+  ] =
+    useState(0);
+
+  const [
+    positionInitialized,
+    setPositionInitialized,
+  ] =
+    useState(false);
+
+  /*
+   * =======================================================
+   * CURRENT CRITERION
+   * =======================================================
+   */
+
+  const [
+    criterionIndex,
+    setCriterionIndex,
+  ] =
+    useState(0);
+
+  /*
+   * =======================================================
+   * SELECTED VALUES
+   * =======================================================
+   *
+   * Key:
+   *
+   * participantId:criterionId
+   */
+
+  const [
+    selectedValues,
+    setSelectedValues,
+  ] =
+    useState<
+      Record<
+        string,
+        {
+          score: number;
+          label: string;
+          note: string;
+        }
+      >
+    >({});
+
+  /*
+   * =======================================================
+   * SAVING
+   * =======================================================
+   */
+
+  const [
+    saving,
+    setSaving,
+  ] =
+    useState(false);
+
+  /*
+   * =======================================================
+   * SUCCESS
+   * =======================================================
+   */
+
+  const [
+    successMessage,
+    setSuccessMessage,
+  ] =
+    useState("");
+
+  /*
+   * =======================================================
+   * PARTICIPANT CONTROL
+   * =======================================================
+   */
+
+  const [showParticipantPicker, setShowParticipantPicker] =
+    useState(false);
+
+  const [showCriterionPicker, setShowCriterionPicker] =
+    useState(false);
+
+  const [showWithdrawConfirm, setShowWithdrawConfirm] =
+    useState(false);
+
+  const [participantActionLoading, setParticipantActionLoading] =
+    useState(false);
+
+  const [withdrawReason, setWithdrawReason] =
+    useState("");
+
+  const [showReview, setShowReview] =
+    useState(false);
+
+  /*
+   * =======================================================
+   * REQUEST PERUBAHAN NILAI
+   * =======================================================
+   */
+
+  const [showChangeRequest, setShowChangeRequest] =
+    useState(false);
+
+  const [changeReason, setChangeReason] =
+    useState("");
+
+  const [changeRequestLoading, setChangeRequestLoading] =
+    useState(false);
+
+  const [changeRequestPending, setChangeRequestPending] =
+    useState(false);
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  /*
+   * =======================================================
+   * LOAD MAIN DATA
+   * =======================================================
+   */
+
+  async function loadMainData(targetCategoryId = activeCategoryId) {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response =
+        await fetch(
+          `/api/judge/category/${encodeURIComponent(
+            targetCategoryId
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Cache-Control":
+                "no-cache",
+            },
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Gagal mengambil data penilaian."
+        );
+      }
+
+      /*
+       * =====================================================
+       * LOAD SCORE OPTIONS
+       * =====================================================
+       */
+
+      let enrichedResult =
+        result;
+
+      try {
+        const criteriaResponse =
+          await fetch(
+            `/api/criteria?categoryId=${encodeURIComponent(
+              targetCategoryId
+            )}`,
+            {
+              method: "GET",
+              cache: "no-store",
+              headers: {
+                "Cache-Control":
+                  "no-cache",
+              },
+            }
+          );
+
+        const criteriaResult =
+          await criteriaResponse.json();
+
+        if (
+          criteriaResponse.ok &&
+          Array.isArray(
+            criteriaResult?.criteria
+          )
+        ) {
+          const optionMap =
+            new Map<
+              string,
+              Option[]
+            >();
+
+          criteriaResult.criteria.forEach(
+            (
+              criterion: Criterion
+            ) => {
+              optionMap.set(
+                criterion.id,
+                Array.isArray(
+                  criterion.options
+                )
+                  ? criterion.options
+                  : []
+              );
+            }
+          );
+
+          const mergeOptions = (
+            criterion: Criterion
+          ): Criterion => {
+            const options =
+              optionMap.get(
+                criterion.id
+              );
+
+            return {
+              ...criterion,
+              options:
+                options ??
+                (Array.isArray(
+                  criterion.options
+                )
+                  ? criterion.options
+                  : []),
+            };
+          };
+
+          enrichedResult = {
+            ...result,
+
+            criteria:
+              Array.isArray(
+                result.criteria
+              )
+                ? result.criteria.map(
+                    mergeOptions
+                  )
+                : [],
+
+            subCategories:
+              Array.isArray(
+                result.subCategories
+              )
+                ? result.subCategories.map(
+                    (
+                      subCategory: SubCategory
+                    ) => ({
+                      ...subCategory,
+
+                      criteria:
+                        Array.isArray(
+                          subCategory.criteria
+                        )
+                          ? subCategory.criteria.map(
+                              mergeOptions
+                            )
+                          : [],
+                    })
+                  )
+                : [],
+          };
+        }
+      } catch (optionsError) {
+        console.warn(
+          "LOAD SCORE OPTIONS WARNING:",
+          optionsError
+        );
+      }
+
+      setData(
+        enrichedResult
+      );
+
+      setCategoryDataMap((current) => ({
+        ...current,
+        [targetCategoryId]: enrichedResult as MainData,
+      }));
+    } catch (error) {
+      console.error(
+        "LOAD JUDGE CATEGORY ERROR:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil data penilaian."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * LOAD PARTICIPANTS
+   * =======================================================
+   */
+
+  async function loadParticipants(
+    targetCategoryId = activeCategoryId,
+    preserveParticipantId?: string | null
+  ) {
+    try {
+      setParticipantsLoading(
+        true
+      );
+
+      const response =
+        await fetch(
+          `/api/judge/category/${encodeURIComponent(
+            targetCategoryId
+          )}/participants`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Cache-Control":
+                "no-cache",
+            },
+          }
+        );
+
+      const result =
+        (await response.json()) as
+          ParticipantResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Gagal mengambil peserta."
+        );
+      }
+
+      const list =
+        Array.isArray(
+          result.participants
+        )
+          ? result.participants
+          : [];
+
+      const sorted =
+        [...list].sort(
+          (a, b) => {
+            const orderA =
+              Number(
+                a.displayOrder ||
+                  a.number ||
+                  0
+              );
+
+            const orderB =
+              Number(
+                b.displayOrder ||
+                  b.number ||
+                  0
+              );
+
+            return (
+              orderA -
+              orderB
+            );
+          }
+        );
+
+      setParticipants(
+        sorted
+      );
+
+      /*
+       * Saat berpindah kategori dalam workflow yang sama,
+       * peserta TIDAK boleh ikut berpindah.
+       * Cari kembali peserta yang sama berdasarkan ID.
+       */
+      if (preserveParticipantId) {
+        const preservedIndex = sorted.findIndex(
+          (participant) =>
+            participant.id === preserveParticipantId
+        );
+
+        if (preservedIndex >= 0) {
+          setParticipantIndex(preservedIndex);
+          setCriterionIndex(0);
+          setPositionInitialized(true);
+        } else {
+          setPositionInitialized(false);
+        }
+      }
+    } catch (error) {
+      console.error(
+        "LOAD JUDGE PARTICIPANTS ERROR:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil peserta."
+      );
+    } finally {
+      setParticipantsLoading(
+        false
+      );
+    }
+  }
+
+  /*
+   * =======================================================
+   * INITIAL LOAD + WORKFLOW CATEGORIES
+   * =======================================================
+   */
+
+  useEffect(() => {
+    if (!categoryId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function initializeWorkflow() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch("/api/judge/me", {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error || "Gagal mengambil penugasan juri."
+          );
+        }
+
+        const assigned = Array.isArray(result?.categories)
+          ? (result.categories as Category[])
+          : [];
+
+        const currentCategory = assigned.find(
+          (item) => item.id === categoryId
+        );
+
+        if (!currentCategory) {
+          throw new Error(
+            "Kategori ini tidak termasuk dalam penugasan Anda."
+          );
+        }
+
+        const sameLevel = assigned
+          .filter((item) => {
+            if (item.eventId !== currentCategory.eventId) {
+              return false;
+            }
+
+            return (
+              (item.eventLevelId || null) ===
+              (currentCategory.eventLevelId || null)
+            );
+          })
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+
+        const start = sameLevel.findIndex(
+          (item) => item.id === categoryId
+        );
+
+        const ordered =
+          start >= 0 ? sameLevel.slice(start) : sameLevel;
+
+        if (!ordered.length) {
+          throw new Error("Tidak ada kategori penilaian yang ditugaskan.");
+        }
+
+        if (cancelled) return;
+
+        setWorkflowCategories(ordered);
+        setWorkflowIndex(0);
+        setPositionInitialized(false);
+
+        await Promise.all([
+          loadMainData(ordered[0].id),
+          loadParticipants(ordered[0].id),
+        ]);
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("LOAD JUDGE WORKFLOW ERROR:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil penugasan juri."
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initializeWorkflow();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId]);
+
+  /*
+   * =======================================================
+   * ALL CRITERIA
+   * =======================================================
+   */
+
+  const allCriteria =
+    useMemo(() => {
+      if (!data) {
+        return [];
+      }
+
+      const result: Criterion[] =
+        [];
+
+      /*
+       * SUB CATEGORY
+       */
+
+      data.subCategories
+        .sort(
+          (a, b) =>
+            a.sortOrder -
+            b.sortOrder
+        )
+        .forEach(
+          (subCategory) => {
+            const criteria =
+              [
+                ...subCategory.criteria,
+              ].sort(
+                (a, b) =>
+                  a.sortOrder -
+                  b.sortOrder
+              );
+
+            result.push(
+              ...criteria
+            );
+          }
+        );
+
+      /*
+       * DIRECT CATEGORY CRITERIA
+       */
+
+      const directCriteria =
+        [
+          ...data.criteria,
+        ].sort(
+          (a, b) =>
+            a.sortOrder -
+            b.sortOrder
+        );
+
+      result.push(
+        ...directCriteria
+      );
+
+      /*
+       * REMOVE DUPLICATES
+       */
+
+      const unique =
+        new Map<
+          string,
+          Criterion
+        >();
+
+      result.forEach(
+        (criterion) => {
+          unique.set(
+            criterion.id,
+            criterion
+          );
+        }
+      );
+
+      return Array.from(
+        unique.values()
+      );
+    }, [data]);
+
+  /*
+   * =======================================================
+   * CURRENT PARTICIPANT
+   * =======================================================
+   */
+
+  const currentParticipant =
+    participants[
+      participantIndex
+    ] || null;
+
+  /*
+   * =======================================================
+   * CURRENT CRITERION
+   * =======================================================
+   */
+
+  const currentCriterion =
+    allCriteria[
+      criterionIndex
+    ] || null;
+
+  /*
+   * =======================================================
+   * CURRENT KEY
+   * =======================================================
+   */
+
+  const currentKey =
+    currentParticipant &&
+    currentCriterion
+      ? `${currentParticipant.id}:${currentCriterion.id}`
+      : "";
+
+  /*
+   * =======================================================
+   * CURRENT VALUE
+   * =======================================================
+   */
+
+  const currentValue =
+    currentKey
+      ? selectedValues[
+          currentKey
+        ]
+      : undefined;
+
+  /*
+   * =======================================================
+   * INITIALIZE EXISTING SCORES
+   * =======================================================
+   */
+
+  useEffect(() => {
+    if (
+      !data ||
+      !Array.isArray(
+        data.scores
+      )
+    ) {
+      return;
+    }
+
+    setSelectedValues(
+      (current) => {
+        const next = {
+          ...current,
+        };
+
+        data.scores.forEach(
+          (score) => {
+            if (
+              score.categoryId &&
+              score.categoryId !==
+                activeCategoryId
+            ) {
+              return;
+            }
+
+            const key =
+              `${score.participantId}:${score.criterionId}`;
+
+            if (
+              !next[key]
+            ) {
+              next[key] = {
+                score:
+                  Number(
+                    score.score
+                  ),
+
+                label:
+                  score.label ||
+                  "",
+
+                note:
+                  score.note ||
+                  "",
+              };
+            }
+          }
+        );
+
+        return next;
+      }
+    );
+  }, [
+    data,
+    activeCategoryId,
+  ]);
+
+  /*
+   * =======================================================
+   * RESUME POSITION
+   * =======================================================
+   */
+
+  useEffect(() => {
+    if (
+      positionInitialized ||
+      !data ||
+      participants.length === 0 ||
+      allCriteria.length === 0
+    ) {
+      return;
+    }
+
+    const scoreKeys =
+      new Set(
+        data.scores
+          .filter(
+            (score) =>
+              !score.categoryId ||
+              score.categoryId ===
+                activeCategoryId
+          )
+          .map(
+            (score) =>
+              `${score.participantId}:${score.criterionId}`
+          )
+      );
+
+    let targetParticipant = 0;
+    let targetCriterion = 0;
+    let foundIncomplete = false;
+
+    for (
+      let p = 0;
+      p < participants.length;
+      p += 1
+    ) {
+      for (
+        let c = 0;
+        c < allCriteria.length;
+        c += 1
+      ) {
+        const key =
+          `${participants[p].id}:${allCriteria[c].id}`;
+
+        if (
+          !scoreKeys.has(key)
+        ) {
+          targetParticipant =
+            p;
+
+          targetCriterion =
+            c;
+
+          foundIncomplete =
+            true;
+
+          break;
+        }
+      }
+
+      if (
+        foundIncomplete
+      ) {
+        break;
+      }
+    }
+
+    if (
+      !foundIncomplete
+    ) {
+      targetParticipant =
+        participants.length -
+        1;
+
+      targetCriterion =
+        allCriteria.length -
+        1;
+    }
+
+    setParticipantIndex(
+      targetParticipant
+    );
+
+    setCriterionIndex(
+      targetCriterion
+    );
+
+    setPositionInitialized(
+      true
+    );
+  }, [
+    data,
+    participants,
+    allCriteria,
+    activeCategoryId,
+    positionInitialized,
+  ]);
+
+  /*
+   * =======================================================
+   * GO TO PARTICIPANT
+   * =======================================================
+   */
+
+  function goToParticipant(
+    index: number
+  ) {
+    if (
+      index < 0 ||
+      index >=
+        participants.length
+    ) {
+      return;
+    }
+
+    setParticipantIndex(
+      index
+    );
+
+    setCriterionIndex(0);
+
+    setSuccessMessage("");
+  }
+
+  /*
+   * =======================================================
+   * PINDAH PESERTA
+   * =======================================================
+   *
+   * Pindah peserta hanya mengubah posisi tampilan juri.
+   * Nilai yang sudah tersimpan tetap terkait ke participantId.
+   */
+
+  function openParticipantPicker() {
+    if (saving || participantActionLoading) {
+      return;
+    }
+
+    setShowParticipantPicker(true);
+  }
+
+  function selectParticipant(index: number) {
+    if (participantActionLoading) {
+      return;
+    }
+
+    goToParticipant(index);
+    setShowParticipantPicker(false);
+  }
+
+  /*
+   * =======================================================
+   * TANDAI MENGUNDURKAN DIRI
+   * =======================================================
+   *
+   * Tidak menghapus nilai / data peserta.
+   * Hanya mengubah status peserta menjadi INACTIVE melalui API.
+   */
+
+  async function withdrawCurrentParticipant() {
+    if (!currentParticipant || participantActionLoading) {
+      return;
+    }
+
+    try {
+      setParticipantActionLoading(true);
+      setError("");
+
+      const response = await fetch("/api/judge/participant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          participantId: currentParticipant.id,
+          categoryId: activeCategoryId,
+          action: "WITHDRAW",
+          reason: withdrawReason.trim() || null,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          result?.error ||
+            "Gagal menandai peserta mengundurkan diri."
+        );
+      }
+
+      const removedIndex = participantIndex;
+
+      setParticipants((current) =>
+        current.filter((participant) =>
+          participant.id !== currentParticipant.id
+        )
+      );
+
+      setShowWithdrawConfirm(false);
+      setWithdrawReason("");
+      setSuccessMessage("Peserta ditandai mengundurkan diri.");
+      setCriterionIndex(0);
+
+      setParticipantIndex((currentIndex) => {
+        const nextLength = participants.length - 1;
+
+        if (nextLength <= 0) {
+          return 0;
+        }
+
+        return Math.min(removedIndex, nextLength - 1);
+      });
+    } catch (error) {
+      console.error("WITHDRAW PARTICIPANT ERROR:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Gagal menandai peserta mengundurkan diri."
+      );
+    } finally {
+      setParticipantActionLoading(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * PINDAH MATERI
+   * =======================================================
+   *
+   * Hanya mengubah posisi materi. Nilai tetap aman karena
+   * penyimpanan score menggunakan participantId:criterionId.
+   */
+
+  function openCriterionPicker() {
+    if (saving || participantActionLoading) {
+      return;
+    }
+
+    setShowCriterionPicker(true);
+  }
+
+  function selectCriterion(index: number) {
+    if (saving || participantActionLoading) {
+      return;
+    }
+
+    if (index < 0 || index >= allCriteria.length) {
+      return;
+    }
+
+    setCriterionIndex(index);
+    setSuccessMessage("");
+    setShowCriterionPicker(false);
+  }
+
+  /*
+   * =======================================================
+   * GO TO CRITERION
+   * =======================================================
+   */
+
+  function goToCriterion(
+    index: number
+  ) {
+    if (
+      index < 0 ||
+      index >=
+        allCriteria.length
+    ) {
+      return;
+    }
+
+    setCriterionIndex(
+      index
+    );
+
+    setSuccessMessage("");
+  }
+
+  /*
+   * =======================================================
+   * SELECT OPTION
+   * =======================================================
+   */
+
+  async function selectOption(
+    option: Option
+  ) {
+    if (
+      !currentParticipant ||
+      !currentCriterion ||
+      saving
+    ) {
+      return;
+    }
+
+    const key =
+      `${currentParticipant.id}:${currentCriterion.id}`;
+
+    /*
+     * Update UI terlebih dahulu.
+     */
+
+    setSelectedValues(
+      (current) => ({
+        ...current,
+
+        [key]: {
+          score:
+            getJudgeScore(Number(option.score)),
+
+          label:
+            option.label,
+
+          note:
+            current[key]
+              ?.note || "",
+        },
+      })
+    );
+
+    /*
+     * Simpan ke server.
+     */
+
+    await saveCurrentScore(
+      option
+    );
+  }
+
+  /*
+   * =======================================================
+   * SAVE CURRENT SCORE
+   * =======================================================
+   */
+
+  async function saveCurrentScore(
+    option: Option
+  ) {
+    if (
+      !currentParticipant ||
+      !currentCriterion
+    ) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      setError("");
+
+      setSuccessMessage("");
+
+      const response =
+        await fetch(
+          `/api/judge/category/${encodeURIComponent(
+            activeCategoryId
+          )}`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              participantId:
+                currentParticipant.id,
+
+              criterionId:
+                currentCriterion.id,
+
+              categoryId:
+                activeCategoryId,
+
+              score:
+                getJudgeScore(Number(option.score)),
+
+              label:
+                option.label,
+
+              note:
+                selectedValues[
+                  `${currentParticipant.id}:${currentCriterion.id}`
+                ]?.note || null,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Gagal menyimpan nilai."
+        );
+      }
+
+      /*
+       * Update score lokal.
+       */
+
+      setData(
+        (current) => {
+          if (!current) {
+            return current;
+          }
+
+          const savedScore =
+            result.score ||
+            result;
+
+          const scoreObject: Score =
+            {
+              id:
+                savedScore.id ||
+                `${currentParticipant.id}-${currentCriterion.id}`,
+
+              participantId:
+                currentParticipant.id,
+
+              criterionId:
+                currentCriterion.id,
+
+              categoryId:
+                activeCategoryId,
+
+              score:
+                getJudgeScore(Number(option.score)),
+
+              label:
+                option.label,
+
+              note:
+                selectedValues[
+                  `${currentParticipant.id}:${currentCriterion.id}`
+                ]?.note ||
+                null,
+
+              status:
+                savedScore.status ||
+                "DRAFT",
+            };
+
+          const index =
+            current.scores.findIndex(
+              (score) =>
+                score.participantId ===
+                  currentParticipant.id &&
+                score.criterionId ===
+                  currentCriterion.id
+            );
+
+          if (
+            index === -1
+          ) {
+            return {
+              ...current,
+
+              scores: [
+                ...current.scores,
+                scoreObject,
+              ],
+            };
+          }
+
+          const nextScores = [
+            ...current.scores,
+          ];
+
+          nextScores[index] =
+            scoreObject;
+
+          return {
+            ...current,
+
+            scores:
+              nextScores,
+          };
+        }
+      );
+
+      setSuccessMessage(
+        `Nilai ${formatNumber(
+          getJudgeScore(Number(option.score))
+        )} tersimpan`
+      );
+
+      /*
+       * ===================================================
+       * AUTO NEXT
+       * ===================================================
+       */
+
+      setTimeout(() => {
+        /*
+         * MASIH ADA MATERI
+         */
+
+        if (
+          criterionIndex <
+          allCriteria.length - 1
+        ) {
+          setCriterionIndex(
+            (current) =>
+              current + 1
+          );
+
+          setSuccessMessage("");
+
+          return;
+        }
+
+        /*
+         * MATERI TERAKHIR â†’ KATEGORI BERIKUTNYA
+         *
+         * Peserta TIDAK berubah. Peserta yang sama harus
+         * menyelesaikan PBB, KOMANDAN, dst sesuai penugasan.
+         */
+        const nextCategoryIndex = workflowIndex + 1;
+
+        if (nextCategoryIndex < workflowCategories.length) {
+          const nextCategory = workflowCategories[nextCategoryIndex];
+
+          setSuccessMessage(
+            `Selesai ${data?.category.name || "kategori ini"}. Lanjut ${nextCategory.name}...`
+          );
+
+          setLoading(true);
+          setPositionInitialized(false);
+
+          const preserveParticipantId =
+            currentParticipant?.id || null;
+
+          Promise.all([
+            loadMainData(nextCategory.id),
+            loadParticipants(
+              nextCategory.id,
+              preserveParticipantId
+            ),
+          ])
+            .then(() => {
+              setWorkflowIndex(nextCategoryIndex);
+              setCriterionIndex(0);
+              setSuccessMessage("");
+            })
+            .catch((nextError) => {
+              console.error("LOAD NEXT JUDGE CATEGORY ERROR:", nextError);
+              setError(
+                nextError instanceof Error
+                  ? nextError.message
+                  : "Gagal membuka kategori berikutnya."
+              );
+            })
+            .finally(() => {
+              setLoading(false);
+            });
+
+          return;
+        }
+
+        /*
+         * KATEGORI TERAKHIR SELESAI â†’ REVIEW PESERTA
+         */
+        setSuccessMessage("Semua kategori peserta ini sudah dinilai. Membuka review...");
+        setShowReview(true);
+      }, 350);
+    } catch (error) {
+      console.error(
+        "SAVE JUDGE SCORE ERROR:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Gagal menyimpan nilai."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * COMPLETED COUNT
+   * =======================================================
+   */
+
+  const workflowCriteria = useMemo(() => {
+    const result: Array<{
+      categoryId: string;
+      categoryName: string;
+      criteria: Criterion[];
+    }> = [];
+
+    for (const category of workflowCategories) {
+      const categoryData = categoryDataMap[category.id];
+      if (!categoryData) continue;
+
+      const criteria: Criterion[] = [];
+
+      [...categoryData.subCategories]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .forEach((subCategory) => {
+          criteria.push(
+            ...[...subCategory.criteria].sort(
+              (a, b) => a.sortOrder - b.sortOrder
+            )
+          );
+        });
+
+      criteria.push(
+        ...[...categoryData.criteria].sort(
+          (a, b) => a.sortOrder - b.sortOrder
+        )
+      );
+
+      const unique = Array.from(
+        new Map(criteria.map((criterion) => [criterion.id, criterion])).values()
+      );
+
+      result.push({
+        categoryId: category.id,
+        categoryName: category.name,
+        criteria: unique,
+      });
+    }
+
+    return result;
+  }, [workflowCategories, categoryDataMap]);
+
+  const totalWorkflowCriteria = workflowCriteria.reduce(
+    (sum, group) => sum + group.criteria.length,
+    0
+  );
+
+  const completedWorkflowCriteria = currentParticipant
+    ? workflowCriteria.reduce(
+        (sum, group) =>
+          sum +
+          group.criteria.filter((criterion) =>
+            Boolean(
+              selectedValues[`${currentParticipant.id}:${criterion.id}`]
+            )
+          ).length,
+        0
+      )
+    : 0;
+
+  const completedCriteria =
+    currentParticipant
+      ? allCriteria.filter(
+          (criterion) => {
+            const key =
+              `${currentParticipant.id}:${criterion.id}`;
+
+            return Boolean(
+              selectedValues[key]
+            );
+          }
+        ).length
+      : 0;
+
+  const currentParticipantSubmitted =
+    currentParticipant &&
+    data &&
+    allCriteria.length > 0
+      ? allCriteria.every((criterion) => {
+          const score = data.scores.find(
+            (item) =>
+              item.participantId === currentParticipant.id &&
+              item.criterionId === criterion.id
+          );
+
+          return score?.status === "SUBMITTED" ||
+            score?.status === "LOCKED";
+        })
+      : false;
+
+  /*
+   * Status submit khusus kategori yang sedang dibuka.
+   * Dipakai hanya untuk tombol REQUEST_CHANGE.
+   */
+  const currentCategorySubmitted =
+    currentParticipant &&
+    data &&
+    allCriteria.length > 0
+      ? allCriteria.every((criterion) => {
+          const score = data.scores.find(
+            (item) =>
+              item.participantId === currentParticipant.id &&
+              item.criterionId === criterion.id
+          );
+
+          return score?.status === "SUBMITTED" ||
+            score?.status === "LOCKED";
+        })
+      : false;
+
+  /*
+   * =======================================================
+   * SUBMIT CURRENT PARTICIPANT
+   * =======================================================
+   */
+
+  /*
+   * =======================================================
+   * REQUEST PERUBAHAN NILAI KE ADMIN
+   * =======================================================
+   */
+
+  async function requestScoreChange() {
+    if (
+      !currentParticipant ||
+      changeRequestLoading ||
+      changeRequestPending
+    ) {
+      return;
+    }
+
+    const reason = changeReason.trim();
+
+    if (reason.length < 5) {
+      setError(
+        "Alasan perubahan minimal 5 karakter."
+      );
+      return;
+    }
+
+    try {
+      setChangeRequestLoading(true);
+      setError("");
+      setSuccessMessage("");
+
+      const response = await fetch(
+        `/api/judge/category/${encodeURIComponent(activeCategoryId)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            action: "REQUEST_CHANGE",
+            participantId: currentParticipant.id,
+            categoryId: activeCategoryId,
+            reason,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (
+          result?.code ===
+          "SCORE_CHANGE_REQUEST_PENDING"
+        ) {
+          setChangeRequestPending(true);
+        }
+
+        throw new Error(
+          result?.error ||
+            "Gagal mengirim permintaan perubahan nilai."
+        );
+      }
+
+      setChangeRequestPending(true);
+      setShowChangeRequest(false);
+      setChangeReason("");
+
+      setSuccessMessage(
+        "Permintaan perubahan nilai berhasil dikirim kepada Admin."
+      );
+    } catch (error) {
+      console.error(
+        "REQUEST SCORE CHANGE ERROR:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengirim permintaan perubahan nilai."
+      );
+    } finally {
+      setChangeRequestLoading(false);
+    }
+  }
+  async function submitCurrentParticipant() {
+    if (
+      !currentParticipant ||
+      submitting ||
+      saving
+    ) {
+      return;
+    }
+
+    if (
+      totalWorkflowCriteria === 0 ||
+      completedWorkflowCriteria !== totalWorkflowCriteria
+    ) {
+      setError(
+        `Nilai belum lengkap. ${completedWorkflowCriteria} dari ${totalWorkflowCriteria} materi sudah dinilai.`
+      );
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccessMessage("");
+
+      const submittedAt = new Date().toISOString();
+
+      for (const group of workflowCriteria) {
+        const response = await fetch(
+          `/api/judge/category/${encodeURIComponent(group.categoryId)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "SUBMIT",
+              participantId: currentParticipant.id,
+              categoryId: group.categoryId,
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result.error ||
+              `Gagal submit kategori ${group.categoryName}.`
+          );
+        }
+
+        const categorySubmittedAt =
+          result.submittedAt || submittedAt;
+
+        setCategoryDataMap((current) => {
+          const existing = current[group.categoryId];
+          if (!existing) return current;
+
+          return {
+            ...current,
+            [group.categoryId]: {
+              ...existing,
+              scores: existing.scores.map((score) =>
+                score.participantId === currentParticipant.id
+                  ? {
+                      ...score,
+                      status: "SUBMITTED",
+                      submittedAt: categorySubmittedAt,
+                    }
+                  : score
+              ),
+            },
+          };
+        });
+      }
+
+      setData((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          scores: current.scores.map((score) =>
+            score.participantId === currentParticipant.id
+              ? {
+                  ...score,
+                  status: "SUBMITTED",
+                  submittedAt,
+                }
+              : score
+          ),
+        };
+      });
+
+      setShowReview(false);
+      setSuccessMessage("Nilai peserta berhasil disubmit.");
+
+      setTimeout(async () => {
+        if (participantIndex < participants.length - 1) {
+          const nextParticipantIndex = participantIndex + 1;
+          const firstCategory = workflowCategories[0];
+
+          if (!firstCategory) {
+            setSuccessMessage(
+              "Semua peserta pada tingkatan ini sudah dinilai dan disubmit."
+            );
+            return;
+          }
+
+          try {
+            setLoading(true);
+            setError("");
+
+            /*
+             * Peserta berikutnya selalu dimulai dari kategori
+             * pertama pada tingkatan tersebut (mis. PBB â†’
+             * KOMANDAN untuk peserta yang sama, lalu peserta
+             * berikutnya kembali mulai dari PBB).
+             */
+            setWorkflowIndex(0);
+            setParticipantIndex(nextParticipantIndex);
+            setCriterionIndex(0);
+            setShowReview(false);
+            setPositionInitialized(true);
+
+            const firstCategoryData =
+              categoryDataMap[firstCategory.id];
+
+            if (firstCategoryData) {
+              setData(firstCategoryData);
+            } else {
+              await loadMainData(firstCategory.id);
+            }
+
+            setSuccessMessage("");
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            });
+          } catch (nextParticipantError) {
+            console.error(
+              "LOAD NEXT PARTICIPANT WORKFLOW ERROR:",
+              nextParticipantError
+            );
+
+            setError(
+              nextParticipantError instanceof Error
+                ? nextParticipantError.message
+                : "Gagal membuka peserta berikutnya."
+            );
+          } finally {
+            setLoading(false);
+          }
+
+          return;
+        }
+
+        setSuccessMessage(
+          "Semua peserta pada tingkatan ini sudah dinilai dan disubmit."
+        );
+      }, 350);
+    } catch (error) {
+      console.error("SUBMIT JUDGE WORKFLOW ERROR:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Gagal submit nilai peserta."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /*
+   * =======================================================
+   * LOGOUT
+   * =======================================================
+   */
+
+  async function logout() {
+    try {
+      await fetch(
+        "/api/auth/logout",
+        {
+          method: "POST",
+        }
+      );
+    } catch {
+      // ignore
+    }
+
+    router.replace(
+      "/login?next=/judge"
+    );
+
+    router.refresh();
+  }
+
+  /*
+   * =======================================================
+   * LOADING
+   * =======================================================
+   */
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#f4f7fb] p-5">
+        <div className="mx-auto flex min-h-[80vh] max-w-5xl items-center justify-center">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#1769e0]" />
+
+            <p className="mt-5 font-black text-[#071a3d]">
+              Memuat penilaian...
+            </p>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Menyiapkan kategori dan peserta.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * =======================================================
+   * ERROR
+   * =======================================================
+   */
+
+  if (
+    error &&
+    !data
+  ) {
+    return (
+      <main className="min-h-screen bg-[#f4f7fb] p-5">
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-3xl border border-red-200 bg-white p-8 shadow-sm">
+            <div className="rounded-2xl bg-red-50 p-5">
+              <p className="font-black text-red-700">
+                Gagal membuka halaman penilaian
+              </p>
+
+              <p className="mt-2 text-sm text-red-600">
+                {error}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  "/judge"
+                )
+              }
+              className="mt-5 rounded-xl bg-[#071a3d] px-5 py-3 text-sm font-black text-white"
+            >
+              â† Kembali ke Juri
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * =======================================================
+   * NO DATA
+   * =======================================================
+   */
+
+  if (!data) {
+    return null;
+  }
+
+  /*
+   * =======================================================
+   * SCORE GROUPS
+   * =======================================================
+   */
+
+  const scoreGroups =
+    currentCriterion
+      ? getScoreGroups(
+          currentCriterion.options ||
+            []
+        )
+      : {
+          kurang: [],
+          cukup: [],
+          baik: [],
+          sangatBaik: [],
+        };
+
+  /*
+   * =======================================================
+   * RENDER
+   * =======================================================
+   */
+
+  return (
+    <main className="min-h-screen bg-[#f4f7fb]">
+      <div className="mx-auto max-w-6xl px-3 py-3 sm:px-4 sm:py-5 md:px-6 md:py-7">
+
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
+        <header className="overflow-hidden rounded-2xl bg-[#071a3d] shadow-lg sm:rounded-3xl">
+
+          <div className="p-4 sm:p-5 md:p-7">
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-5">
+
+              <div>
+
+                <div className="flex flex-wrap items-center gap-2">
+
+                  <span className="rounded-full bg-blue-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-blue-200">
+                    JURI
+                  </span>
+
+                  {data.category.eventLevel ? (
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/70">
+                      {
+                        data.category.eventLevel.name
+                      }
+                    </span>
+                  ) : null}
+
+                </div>
+
+                <h1 className="mt-3 break-words text-xl font-black leading-tight text-white sm:text-2xl md:text-3xl">
+                  {data.category.name}
+                </h1>
+
+                {workflowCategories.length > 1 ? (
+                  <p className="mt-2 text-xs font-black uppercase tracking-wider text-blue-200">
+                    Kategori {workflowIndex + 1} / {workflowCategories.length} Â· Peserta {participantIndex + 1} / {participants.length}
+                  </p>
+                ) : null}
+
+                <p className="mt-1 text-sm text-white/50">
+                  {
+                    data.event.name
+                  }
+                </p>
+
+              </div>
+
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/judge"
+                    )
+                  }
+                  className="min-h-10 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-black text-white transition hover:bg-white/15 sm:px-4 sm:text-sm"
+                >
+                  â† Kategori
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openCriterionPicker}
+                  disabled={
+                    saving ||
+                    participantActionLoading ||
+                    submitting ||
+                    allCriteria.length <= 1
+                  }
+                  className="min-h-10 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-black text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                >
+                  Pindah Materi
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowReview(true)}
+                  disabled={
+                    saving ||
+                    participantActionLoading ||
+                    submitting ||
+                    completedCriteria !== allCriteria.length ||
+                    currentParticipantSubmitted
+                  }
+                  className="min-h-10 rounded-xl bg-blue-500 px-3 py-2.5 text-xs font-black text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                >
+                  {currentParticipantSubmitted
+                    ? "âœ“ Sudah Submit"
+                    : "Review & Submit"}
+                </button>
+
+                {currentCategorySubmitted ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangeReason("");
+                      setShowChangeRequest(true);
+                    }}
+                    disabled={
+                      saving ||
+                      participantActionLoading ||
+                      submitting ||
+                      changeRequestLoading ||
+                      changeRequestPending
+                    }
+                    className="min-h-10 rounded-xl bg-amber-500 px-3 py-2.5 text-xs font-black text-white transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                  >
+                    {changeRequestPending
+                      ? "Menunggu Persetujuan Admin"
+                      : "Ajukan Perubahan Nilai"}
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={openParticipantPicker}
+                  disabled={
+                    saving ||
+                    participantActionLoading ||
+                    participants.length <= 1
+                  }
+                  className="min-h-10 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-black text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
+                >
+                  Pindah Peserta
+                </button>
+
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="min-h-10 rounded-xl bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-200 sm:px-4 sm:text-sm"
+                >
+                  Keluar
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* PROGRESS */}
+
+          <div className="border-t border-white/10 bg-black/10 p-3 sm:p-4 md:p-5">
+
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-3">
+
+              <ProgressBox
+                label="Peserta"
+                value={
+                  participants.length
+                    ? `${participantIndex + 1} / ${participants.length}`
+                    : "0 / 0"
+                }
+              />
+
+              <ProgressBox
+                label="Materi"
+                value={
+                  allCriteria.length
+                    ? `${criterionIndex + 1} / ${allCriteria.length}`
+                    : "0 / 0"
+                }
+              />
+
+              <ProgressBox
+                label="Sudah Dinilai"
+                value={`${completedCriteria} / ${allCriteria.length}`}
+              />
+
+            </div>
+
+          </div>
+
+        </header>
+
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-600">
+            {error}
+          </div>
+        ) : null}
+
+        {/* =================================================
+            PARTICIPANTS LOADING
+        ================================================= */}
+
+        {participantsLoading ? (
+          <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#1769e0]" />
+
+            <p className="mt-3 text-sm font-black text-slate-500">
+              Memuat peserta...
+            </p>
+
+          </div>
+        ) : participants.length === 0 ? (
+
+          /* =================================================
+             NO PARTICIPANT
+          ================================================= */
+
+          <div className="mt-5 rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-xl font-black text-amber-500">
+              !
+            </div>
+
+            <h2 className="mt-4 text-lg font-black text-[#071a3d]">
+              Belum ada peserta
+            </h2>
+
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
+              Tidak ditemukan peserta aktif
+              untuk tingkatan{" "}
+              <b>
+                {
+                  data.category
+                    .eventLevel
+                    ?.name ||
+                  "-"
+                }
+              </b>
+              .
+            </p>
+
+            <div className="mx-auto mt-5 max-w-lg rounded-2xl bg-slate-50 p-4 text-left text-xs leading-6 text-slate-500">
+
+              <p className="font-black text-slate-700">
+                Data yang digunakan:
+              </p>
+
+              <p>
+                Event ID:{" "}
+                {
+                  data.event.id
+                }
+              </p>
+
+              <p>
+                Category ID:{" "}
+                {
+                  data.category.id
+                }
+              </p>
+
+              <p>
+                Event Level ID:{" "}
+                {
+                  data.category
+                    .eventLevelId ||
+                  "-"
+                }
+              </p>
+
+              <p>
+                Tingkatan:{" "}
+                {
+                  data.category
+                    .eventLevel
+                    ?.name ||
+                  "-"
+                }
+              </p>
+
+            </div>
+
+          </div>
+
+        ) : (
+
+          /* =================================================
+             MAIN
+          ================================================= */
+
+          <>
+            {currentParticipant &&
+            currentCriterion ? (
+
+              <section className="mt-5">
+
+                {/* =========================================
+                    PARTICIPANT INFORMATION
+                ========================================= */}
+
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:rounded-3xl">
+
+                  <div className="p-4 sm:p-5 md:p-6">
+
+                    <div className="flex items-center gap-3 sm:gap-4">
+
+                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#071a3d] text-lg font-black text-white sm:h-16 sm:w-16 sm:text-xl">
+                        {
+                          currentParticipant.number
+                        }
+                      </div>
+
+                      <div>
+
+                        <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+                          PESERTA{" "}
+                          {
+                            participantIndex +
+                            1
+                          }
+                        </p>
+
+                        <h2 className="mt-1 break-words text-lg font-black leading-tight text-[#071a3d] sm:text-xl md:text-2xl">
+                          {
+                            currentParticipant.name
+                          }
+                        </h2>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                          {
+                            currentParticipant.school ||
+                            "-"
+                          }
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* =========================================
+                    PARTICIPANT ACTIONS
+                ========================================= */}
+
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+
+                  <button
+                    type="button"
+                    onClick={openCriterionPicker}
+                    disabled={
+                      saving ||
+                      participantActionLoading ||
+                      allCriteria.length <= 1
+                    }
+                    className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-black text-[#071a3d] transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+                  >
+                    Pindah Materi
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openParticipantPicker}
+                    disabled={
+                      saving ||
+                      participantActionLoading ||
+                      participants.length <= 1
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-[#071a3d] transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Pindah Peserta
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWithdrawReason("");
+                      setShowWithdrawConfirm(true);
+                    }}
+                    disabled={
+                      saving ||
+                      participantActionLoading
+                    }
+                    className="col-span-2 min-h-11 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 sm:col-span-1"
+                  >
+                    Tandai Mengundurkan Diri
+                  </button>
+
+                </div>
+
+                {/* =========================================
+                    CURRENT CRITERION
+                ========================================= */}
+
+                <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+
+                  {/* MATERI HEADER */}
+
+                  <div className="border-b border-slate-200 p-4 sm:p-5 md:p-7">
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+
+                      <div className="flex min-w-0 gap-3 sm:gap-4">
+
+                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-base font-black text-blue-700 sm:h-12 sm:w-12 sm:text-lg">
+                          {
+                            criterionIndex +
+                            1
+                          }
+                        </div>
+
+                        <div>
+
+                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+                            MATERI{" "}
+                            {
+                              criterionIndex +
+                              1
+                            }{" "}
+                            DARI{" "}
+                            {
+                              allCriteria.length
+                            }
+                          </p>
+
+                          <h3 className="mt-1 break-words text-lg font-black leading-tight text-[#071a3d] sm:text-xl md:text-2xl">
+                            {
+                              currentCriterion.name
+                            }
+                          </h3>
+
+                          {currentCriterion.section ? (
+                            <p className="mt-1 text-sm text-slate-400">
+                              {
+                                currentCriterion.section
+                              }
+                            </p>
+                          ) : null}
+
+                        </div>
+
+                      </div>
+
+                      {currentCriterion.difficulty ? (
+                        <span className="self-start rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-500">
+                          {
+                            currentCriterion.difficulty
+                          }
+                        </span>
+                      ) : null}
+
+                    </div>
+
+                  </div>
+
+                  {/* =======================================
+                      SCORE OPTIONS
+                  ======================================= */}
+
+                  <div className="p-4 sm:p-5 md:p-8">
+
+                    {currentCriterion.options &&
+                    currentCriterion.options.length > 0 ? (
+
+                      <>
+
+                        <div className="mb-7 text-center">
+
+                          <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                            PILIH NILAI
+                          </p>
+
+                          <p className="mt-1 text-sm font-bold text-slate-500">
+                            Tekan salah satu nilai sesuai hasil penilaian.
+                          </p>
+                          <p className="mt-1 text-[11px] font-black uppercase tracking-wider text-blue-500">
+                            Nilai sesuai opsi materi Â· tanpa perhitungan
+                          </p>
+
+                        </div>
+
+                        {/* =================================
+                            FOUR SCORE GROUPS
+                        ================================= */}
+
+                        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4 md:gap-6">
+
+                          <ScoreGroup
+                            title="KURANG"
+                            options={
+                              scoreGroups.kurang
+                            }
+                            currentValue={
+                              currentValue
+                            }
+                            saving={
+                              saving
+                            }
+                            onSelect={
+                              selectOption
+                            }
+                            judgeCount={
+                              data.judgeCount || 1
+                            }
+                          />
+
+                          <ScoreGroup
+                            title="CUKUP"
+                            options={
+                              scoreGroups.cukup
+                            }
+                            currentValue={
+                              currentValue
+                            }
+                            saving={
+                              saving
+                            }
+                            onSelect={
+                              selectOption
+                            }
+                            judgeCount={
+                              data.judgeCount || 1
+                            }
+                          />
+
+                          <ScoreGroup
+                            title="BAIK"
+                            options={
+                              scoreGroups.baik
+                            }
+                            currentValue={
+                              currentValue
+                            }
+                            saving={
+                              saving
+                            }
+                            onSelect={
+                              selectOption
+                            }
+                            judgeCount={
+                              data.judgeCount || 1
+                            }
+                          />
+
+                          <ScoreGroup
+                            title="SANGAT BAIK"
+                            options={
+                              scoreGroups.sangatBaik
+                            }
+                            currentValue={
+                              currentValue
+                            }
+                            saving={
+                              saving
+                            }
+                            onSelect={
+                              selectOption
+                            }
+                            judgeCount={
+                              data.judgeCount || 1
+                            }
+                          />
+
+                        </div>
+
+                        {/* =================================
+                            NOTE
+                        ================================= */}
+
+                        <div className="mt-8">
+
+                          <label
+                            htmlFor="judge-note"
+                            className="mb-2 block text-xs font-black uppercase tracking-widest text-slate-400"
+                          >
+                            CATATAN JURI â€” OPSIONAL
+                          </label>
+
+                          <textarea
+                            id="judge-note"
+                            value={
+                              currentValue?.note ||
+                              ""
+                            }
+                            onChange={(
+                              event
+                            ) => {
+
+                              const key =
+                                currentParticipant &&
+                                currentCriterion
+                                  ? `${currentParticipant.id}:${currentCriterion.id}`
+                                  : "";
+
+                              if (!key) {
+                                return;
+                              }
+
+                              setSelectedValues(
+                                (
+                                  current
+                                ) => ({
+                                  ...current,
+
+                                  [key]: {
+                                    score:
+                                      current[
+                                        key
+                                      ]?.score ||
+                                      0,
+
+                                    label:
+                                      current[
+                                        key
+                                      ]?.label ||
+                                      "",
+
+                                    note:
+                                      event
+                                        .target
+                                        .value,
+                                  },
+                                })
+                              );
+
+                            }}
+                            placeholder="Catatan untuk materi ini..."
+                            rows={3}
+                            className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                          />
+
+                        </div>
+
+                      </>
+
+                    ) : (
+
+                      /* =================================
+                         NO OPTIONS
+                      ================================= */
+
+                      <div className="rounded-2xl border border-red-200 bg-red-50 p-7 text-center">
+
+                        <p className="font-black text-red-700">
+                          Belum ada pilihan nilai
+                        </p>
+
+                        <p className="mt-2 text-sm text-red-500">
+                          Materi ini belum memiliki
+                          opsi nilai di Master Materi.
+                        </p>
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                  {/* =======================================
+                      NAVIGATION
+                  ======================================= */}
+
+                  <div className="grid gap-3 border-t border-slate-200 bg-slate-50 p-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:p-5">
+
+                    <button
+                      type="button"
+                      disabled={
+                        saving ||
+                        criterionIndex ===
+                          0
+                      }
+                      onClick={() =>
+                        goToCriterion(
+                          criterionIndex -
+                            1
+                        )
+                      }
+                      className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-30 sm:w-auto"
+                    >
+                      â† Sebelumnya
+                    </button>
+
+                    <div className="order-first text-center sm:order-none">
+
+                      {saving ? (
+
+                        <p className="text-xs font-black text-blue-600">
+                          Menyimpan nilai...
+                        </p>
+
+                      ) : successMessage ? (
+
+                        <p className="text-xs font-black text-emerald-600">
+                          âœ“{" "}
+                          {
+                            successMessage
+                          }
+                        </p>
+
+                      ) : (
+
+                        <p className="text-xs font-bold text-slate-400">
+                          Pilih nilai untuk
+                          melanjutkan
+                        </p>
+
+                      )}
+
+                    </div>
+
+                    <div className="min-w-0 text-center text-xs font-bold leading-5 text-slate-400 sm:min-w-[180px] sm:text-right">
+
+                      {criterionIndex <
+                      allCriteria.length -
+                        1
+                        ? "Pilih nilai â†’ otomatis ke materi berikutnya"
+                        : workflowIndex < workflowCategories.length - 1
+                          ? "Pilih nilai â†’ otomatis ke kategori berikutnya"
+                          : "Pilih nilai terakhir â†’ Review & Submit"}
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </section>
+
+            ) : null}
+          </>
+        )}
+
+        {/* =================================================
+            REQUEST PERUBAHAN NILAI MODAL
+        ================================================= */}
+
+        {showChangeRequest && currentParticipant ? (
+          <div
+            className="fixed inset-0 z-[70] flex items-end justify-center bg-[#071a3d]/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="w-full overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-lg sm:rounded-3xl">
+
+              <div className="border-b border-slate-200 p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-amber-600">
+                      Permintaan Perubahan
+                    </p>
+
+                    <h2 className="mt-1 text-xl font-black text-[#071a3d]">
+                      Ajukan Perubahan Nilai
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Nilai tidak akan berubah sebelum disetujui Admin.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!changeRequestLoading) {
+                        setShowChangeRequest(false);
+                      }
+                    }}
+                    disabled={changeRequestLoading}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-500 transition hover:bg-slate-200 disabled:opacity-50"
+                    aria-label="Tutup"
+                  >
+                    ×
+                  </button>
+
+                </div>
+              </div>
+
+              <div className="space-y-4 p-5 sm:p-6">
+
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">
+                    Peserta
+                  </p>
+
+                  <p className="mt-1 text-sm font-black text-[#071a3d]">
+                    {currentParticipant.name}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    No. {currentParticipant.number || "-"} ·{" "}
+                    {currentParticipant.school || "-"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Kategori
+                  </p>
+
+                  <p className="mt-1 text-sm font-black text-[#071a3d]">
+                    {data?.category?.name || "Kategori aktif"}
+                  </p>
+
+                  <p className="mt-1 text-xs font-bold text-emerald-600">
+                    Status nilai: SUBMITTED
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="score-change-reason"
+                    className="mb-2 block text-xs font-black uppercase tracking-wider text-[#071a3d]"
+                  >
+                    Alasan Perubahan
+                  </label>
+
+                  <textarea
+                    id="score-change-reason"
+                    value={changeReason}
+                    onChange={(event) =>
+                      setChangeReason(event.target.value)
+                    }
+                    disabled={changeRequestLoading}
+                    rows={5}
+                    maxLength={500}
+                    placeholder="Contoh: Saya salah memilih opsi nilai pada materi PBB dan ingin melakukan koreksi."
+                    className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-amber-400 focus:ring-4 focus:ring-amber-100 disabled:bg-slate-50"
+                  />
+
+                  <div className="mt-1 flex justify-between gap-3">
+                    <p className="text-[10px] font-medium text-slate-400">
+                      Minimal 5 karakter.
+                    </p>
+
+                    <p className="text-[10px] font-bold text-slate-400">
+                      {changeReason.length}/500
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-xs font-black text-blue-700">
+                    Perhatian
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-blue-600">
+                    Permintaan ini hanya dikirim kepada Admin.
+                    Nilai tetap tersimpan seperti sekarang sampai
+                    Admin menyetujui permintaan.
+                  </p>
+                </div>
+
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 p-4 sm:flex-row sm:justify-end">
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!changeRequestLoading) {
+                      setShowChangeRequest(false);
+                    }
+                  }}
+                  disabled={changeRequestLoading}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={requestScoreChange}
+                  disabled={
+                    changeRequestLoading ||
+                    changeReason.trim().length < 5
+                  }
+                  className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-100 transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {changeRequestLoading
+                    ? "Mengirim Permintaan..."
+                    : "Kirim Permintaan"}
+                </button>
+
+              </div>
+
+            </div>
+          </div>
+        ) : null}
+
+        {/* =================================================
+            REVIEW & SUBMIT MODAL
+        ================================================= */}
+
+        {showReview && currentParticipant ? (
+          <div
+            className="fixed inset-0 z-[58] flex items-end justify-center bg-[#071a3d]/65 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl">
+              <div className="shrink-0 border-b border-slate-200 p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-blue-600">
+                      Review Penilaian
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-[#071a3d]">
+                      {currentParticipant.name}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      No. {currentParticipant.number} Â· {currentParticipant.school || "-"}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowReview(false)}
+                    disabled={submitting}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-500 transition hover:bg-slate-200 disabled:opacity-50"
+                    aria-label="Tutup review"
+                  >
+                    Ã—
+                  </button>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">
+                        Kelengkapan
+                      </p>
+                      <p className="mt-1 text-lg font-black text-[#071a3d]">
+                        {completedWorkflowCriteria} / {totalWorkflowCriteria} materi
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                        Status
+                      </p>
+                      <p className="mt-0.5 text-xs font-black text-emerald-600">
+                        {completedWorkflowCriteria === totalWorkflowCriteria ? "SIAP SUBMIT" : "BELUM LENGKAP"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  {workflowCriteria.map((group) => (
+                    <div key={group.categoryId}>
+                      <div className="mb-2 rounded-xl bg-[#071a3d] px-4 py-3">
+                        <p className="text-xs font-black uppercase tracking-wider text-white">
+                          {group.categoryName}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        {group.criteria.map((criterion, index) => {
+                          const key = `${currentParticipant.id}:${criterion.id}`;
+                          const value = selectedValues[key];
+
+                          return (
+                            <div
+                              key={criterion.id}
+                              className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3"
+                            >
+                              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#071a3d] text-xs font-black text-white">
+                                {index + 1}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words text-xs font-black leading-5 text-[#071a3d] sm:text-sm">
+                                  {criterion.name}
+                                </p>
+                                {criterion.section ? (
+                                  <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                    {criterion.section}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-base font-black text-[#071a3d]">
+                                  {value ? formatNumber(value.score) : "â€”"}
+                                </p>
+                                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                  {value?.label || "Belum"}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowReview(false)}
+                    disabled={submitting}
+                    className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    Kembali Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitCurrentParticipant}
+                    disabled={
+                      submitting ||
+                      completedCriteria !== allCriteria.length ||
+                      currentParticipantSubmitted
+                    }
+                    className="rounded-xl bg-[#1769e0] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {submitting ? "Menyimpan Submit..." : "Submit Nilai"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* =================================================
+            PARTICIPANT PICKER MODAL
+        ================================================= */}
+
+        {showParticipantPicker ? (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-[#071a3d]/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-lg sm:rounded-3xl">
+
+              <div className="border-b border-slate-200 p-5 md:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-blue-600">
+                      Navigasi Peserta
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-[#071a3d]">
+                      Pindah Peserta
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Pilih pasukan yang ingin Anda nilai. Nilai yang sudah tersimpan tetap aman.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowParticipantPicker(false)}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-500 transition hover:bg-slate-200"
+                    aria-label="Tutup"
+                  >
+                    Ã—
+                  </button>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:max-h-[60vh] sm:p-4">
+                {participants.map((participant, index) => {
+                  const active = index === participantIndex;
+
+                  return (
+                    <button
+                      key={participant.id}
+                      type="button"
+                      onClick={() => selectParticipant(index)}
+                      disabled={participantActionLoading}
+                      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
+                        active
+                          ? "border-blue-200 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-sm font-black ${
+                        active
+                          ? "bg-[#1769e0] text-white"
+                          : "bg-[#071a3d] text-white"
+                      }`}>
+                        {participant.number}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-[#071a3d]">
+                          {participant.name}
+                        </p>
+                        <p className="truncate text-xs font-medium text-slate-400">
+                          {participant.school || "-"}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          Peserta
+                        </p>
+                        <p className="text-xs font-black text-[#071a3d]">
+                          {index + 1} / {participants.length}
+                        </p>
+                        {active ? (
+                          <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700">
+                            Aktif
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end border-t border-slate-200 bg-slate-50 p-4">
+                <button
+                  type="button"
+                  onClick={() => setShowParticipantPicker(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-600 hover:bg-slate-100"
+                >
+                  Batal
+                </button>
+              </div>
+
+            </div>
+          </div>
+        ) : null}
+
+        {/* =================================================
+            CRITERION PICKER MODAL
+        ================================================= */}
+
+        {showCriterionPicker ? (
+          <div
+            className="fixed inset-0 z-[55] flex items-end justify-center bg-[#071a3d]/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-2xl sm:rounded-3xl">
+
+              {/* HEADER */}
+              <div className="shrink-0 border-b border-slate-200 p-4 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[.18em] text-blue-600 sm:text-[10px]">
+                      Navigasi Materi
+                    </p>
+                    <h2 className="mt-1 text-lg font-black text-[#071a3d] sm:text-xl">
+                      Pindah Materi
+                    </h2>
+                    <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+                      Pilih materi yang ingin dibuka. Nilai yang sudah tersimpan tetap aman.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCriterionPicker(false)}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-500 transition hover:bg-slate-200"
+                    aria-label="Tutup"
+                  >
+                    Ã—
+                  </button>
+                </div>
+              </div>
+
+              {/* LIST */}
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:p-4">
+                {allCriteria.map((criterion, index) => {
+                  const key = currentParticipant
+                    ? `${currentParticipant.id}:${criterion.id}`
+                    : "";
+
+                  const savedValue = key
+                    ? selectedValues[key]
+                    : undefined;
+
+                  const active = index === criterionIndex;
+                  const completed = Boolean(savedValue);
+
+                  return (
+                    <button
+                      key={criterion.id}
+                      type="button"
+                      onClick={() => selectCriterion(index)}
+                      disabled={participantActionLoading || saving}
+                      className={[
+                        "flex min-h-[64px] w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[0.99]",
+                        active
+                          ? "border-blue-200 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      <div
+                        className={[
+                          "grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-black sm:h-11 sm:w-11 sm:text-sm",
+                          active
+                            ? "bg-[#1769e0] text-white"
+                            : "bg-[#071a3d] text-white",
+                        ].join(" ")}
+                      >
+                        {index + 1}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-xs font-black leading-5 text-[#071a3d] sm:text-sm">
+                          {criterion.name}
+                        </p>
+                        {criterion.section ? (
+                          <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400 sm:text-xs">
+                            {criterion.section}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        {active ? (
+                          <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-[8px] font-black uppercase text-blue-700 sm:text-[9px]">
+                            Aktif
+                          </span>
+                        ) : completed ? (
+                          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-black uppercase text-emerald-700 sm:text-[9px]">
+                            âœ“ Dinilai
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black uppercase text-slate-500 sm:text-[9px]">
+                            Belum
+                          </span>
+                        )}
+
+                        {completed && !active && savedValue ? (
+                          <p className="mt-1 text-[10px] font-black text-[#071a3d] sm:text-xs">
+                            {formatNumber(savedValue.score)}
+                          </p>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* FOOTER */}
+              <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCriterionPicker(false)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-600 hover:bg-slate-100 sm:w-auto"
+                >
+                  Batal
+                </button>
+              </div>
+
+            </div>
+          </div>
+        ) : null}
+
+        {/* =================================================
+            WITHDRAW CONFIRMATION MODAL
+        ================================================= */}
+
+        {showWithdrawConfirm && currentParticipant ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-[#071a3d]/65 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-md sm:rounded-3xl">
+
+              <div className="border-b border-red-100 bg-red-50 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[.18em] text-red-500">
+                  Perubahan Status Peserta
+                </p>
+                <h2 className="mt-1 text-xl font-black text-[#071a3d]">
+                  Tandai Mengundurkan Diri?
+                </h2>
+              </div>
+
+              <div className="p-5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    Peserta
+                  </p>
+                  <p className="mt-1 text-lg font-black text-[#071a3d]">
+                    {currentParticipant.name}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Nomor {currentParticipant.number} Â· {currentParticipant.school || "-"}
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                  Data peserta dan nilai yang sudah tersimpan <b>tidak dihapus</b>. Peserta hanya dikeluarkan dari daftar penilaian aktif dan tidak akan masuk proses penilaian berikutnya.
+                </div>
+
+                <label className="mt-5 block">
+                  <span className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-400">
+                    Alasan â€” opsional
+                  </span>
+                  <textarea
+                    value={withdrawReason}
+                    onChange={(event) => setWithdrawReason(event.target.value)}
+                    rows={3}
+                    className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 outline-none transition focus:border-red-300 focus:ring-4 focus:ring-red-50"
+                    placeholder="Contoh: Pasukan menyatakan mengundurkan diri kepada panitia..."
+                    disabled={participantActionLoading}
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50 p-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowWithdrawConfirm(false)}
+                  disabled={participantActionLoading}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={withdrawCurrentParticipant}
+                  disabled={participantActionLoading}
+                  className="rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {participantActionLoading
+                    ? "Memproses..."
+                    : "Ya, Mengundurkan Diri"}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        ) : null}
+
+      </div>
+    </main>
+  );
+}
+
+/*
+ * =========================================================
+ * PROGRESS BOX
+ * =========================================================
+ */
+
+function ProgressBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/5 px-4 py-3">
+
+      <p className="text-[9px] font-black uppercase tracking-widest text-white/40">
+        {label}
+      </p>
+
+      <p className="mt-1 text-lg font-black text-white">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+

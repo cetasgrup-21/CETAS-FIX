@@ -21,12 +21,12 @@ export async function POST(req: NextRequest) {
 
     try {
       // Cari atau buat user EO jika DB online
-      let user = await prisma.user.findUnique({
+      let user = await (prisma as any).user.findUnique({
         where: { email: data.organizerEmail },
       });
 
       if (!user) {
-        user = await prisma.user.create({
+        user = await (prisma as any).user.create({
           data: {
             name: data.organizerName,
             email: data.organizerEmail,
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      await prisma.eventSubmission.create({
+      await (prisma as any).eventSubmission.create({
         data: {
           id: submissionId,
           userId: user.id,
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       });
 
       // Catat log
-      await prisma.auditLog.create({
+      await (prisma as any).auditLog.create({
         data: {
           userId: user.id,
           action: "EVENT_SUBMISSION_CREATED",
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const submissions = await prisma.eventSubmission.findMany({
+    const submissions = await (prisma as any).eventSubmission.findMany({
       include: {
         user: {
           select: { name: true, email: true, phone: true },

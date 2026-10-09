@@ -8,6 +8,16 @@
   --cetas-berry: #6d28d9;
   --cetas-ice-cyan: #06b6d4;
   --cetas-lavender: #f5f3ff;
+  --navy: #071a3d;
+  --blue: #1769e0;
+  --bg: #f4f7fb;
+}
+
+.card {
+  background: white;
+  border: 1px solid #dce5f0;
+  border-radius: 18px;
+  box-shadow: 0 3px 12px rgba(7, 26, 61, .06);
 }
 
 @theme inline {

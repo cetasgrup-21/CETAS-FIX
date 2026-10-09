@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
-import { MidtransSimulatorModal } from "@/components/midtrans-simulator-modal";
+import { DokuPaymentModal } from "@/components/doku-payment-modal";
 import { UnifiedEvent } from "@/lib/events-unified-data";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 
@@ -49,35 +49,7 @@ interface IssuedTicket {
   qrDataUrl: string;
 }
 
-const DEFAULT_EVENTS: EventItem[] = [
-  {
-    id: "ev-01",
-    title: "Cetas SoundFest 2026: Live Music & Creative Carnival",
-    date: "2026-11-20",
-    location: "Stadion Madya GBK, Senayan, Jakarta",
-    bannerUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80",
-    description:
-      "Konser musik spektakuler yang menampilkan 12 musisi papan atas Indonesia dengan tata panggung dan sound system dari Cetas Production.",
-    tiers: [
-      { id: "tier-01", name: "Festival Early Bird", price: 150000, quotaRemaining: 18, quotaTotal: 200 },
-      { id: "tier-02", name: "Festival Regular", price: 250000, quotaRemaining: 340, quotaTotal: 500 },
-      { id: "tier-03", name: "VIP Lounge (Front Row + Merch)", price: 650000, quotaRemaining: 42, quotaTotal: 100 },
-    ],
-  },
-  {
-    id: "ev-02",
-    title: "Seminar Nasional: Masa Depan Ekonomi Kreatif & AI",
-    date: "2026-12-05",
-    location: "Auditorium Graha Cakrawala & Hybrid Live Stream",
-    bannerUrl: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80",
-    description:
-      "Konferensi industri kreatif bersama para founder startup dan pelaku industri seni visual terkemuka.",
-    tiers: [
-      { id: "tier-04", name: "Online Streaming Pass", price: 50000, quotaRemaining: 210, quotaTotal: 500 },
-      { id: "tier-05", name: "Offline All Access + E-Sertifikat", price: 120000, quotaRemaining: 65, quotaTotal: 150 },
-    ],
-  },
-];
+const DEFAULT_EVENTS: EventItem[] = [];
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS);
@@ -86,7 +58,7 @@ export default function EventsPage() {
     fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.events && data.events.length > 0) {
+        if (data.success && data.events) {
           // Filter events that have ticketing enabled
           const ticketingEvents = data.events
             .filter((e: UnifiedEvent) => e.isOpenTicketing && e.tiers && e.tiers.length > 0)
@@ -100,9 +72,7 @@ export default function EventsPage() {
               themePreset: e.themePreset,
               tiers: e.tiers,
             }));
-          if (ticketingEvents.length > 0) {
-            setEvents(ticketingEvents);
-          }
+          setEvents(ticketingEvents);
         }
       })
       .catch(() => {});
@@ -182,35 +152,12 @@ export default function EventsPage() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      const isRealMidtransToken =
-        data.snapToken &&
-        !data.snapToken.startsWith("SNAP-SIMULATION") &&
-        !data.isSimulated;
-
-      if (typeof window !== "undefined" && window.snap && isRealMidtransToken) {
-        window.snap.pay(data.snapToken, {
-          onSuccess: async function (snapResult: unknown) {
-            console.log("Success:", snapResult);
-            await generateTicketPass(
-              selectedTier.event,
-              selectedTier.tier,
-              buyerName,
-              buyerEmail
-            );
-            setSelectedTier(null);
-          },
-          onClose: function () {
-            setIsBuying(false);
-          },
-        });
-      } else {
-        // Tampilkan Midtrans Simulator Modal bawaan Cetas
-        setSimulatorData({
-          orderNumber: data.orderNumber,
-          grossAmount: selectedTier.tier.price * ticketQty,
-          customerName: buyerName,
-        });
-      }
+      // Tampilkan DOKU Direct API Modal (QRIS & E-Wallet)
+      setSimulatorData({
+        orderNumber: data.orderNumber,
+        grossAmount: selectedTier.tier.price * ticketQty,
+        customerName: buyerName,
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
       alert(msg);
@@ -237,8 +184,27 @@ export default function EventsPage() {
       </div>
 
       {/* Events List */}
-      <div className="space-y-12">
-        {events.map((event) => {
+      {events.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 p-16 text-center space-y-3 bg-white dark:bg-slate-900">
+          <Calendar className="h-10 w-10 text-slate-300 mx-auto" />
+          <div className="text-base font-bold text-slate-700 dark:text-slate-300">
+            Belum ada tiket event yang tersedia saat ini
+          </div>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Event dan penjualan tiket dapat dibuat dan diaktifkan melalui Lingkup Kerja Admin.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-md transition"
+            >
+              Buka Lingkup Kerja Admin →
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-12">
+          {events.map((event) => {
           const theme = getEventTheme(event.themePreset);
           return (
             <div
@@ -333,6 +299,7 @@ export default function EventsPage() {
           );
         })}
       </div>
+      )}
 
       {/* Buy Ticket Form Modal */}
       {selectedTier && (
@@ -433,10 +400,10 @@ export default function EventsPage() {
                 <button
                   type="submit"
                   disabled={isBuying}
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-1.5"
+                  className="rounded-xl bg-[#E1251B] hover:bg-red-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-red-500/25 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  {isBuying ? "Memproses..." : "Bayar via Midtrans"}
+                  {isBuying ? "Memproses..." : "Bayar via DOKU (QRIS / E-Wallet)"}
                 </button>
               </div>
             </form>
@@ -546,13 +513,14 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Midtrans Sandbox Simulator Modal */}
+      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
       {simulatorData && selectedTier && (
-        <MidtransSimulatorModal
+        <DokuPaymentModal
           isOpen={!!simulatorData}
           orderNumber={simulatorData.orderNumber}
           grossAmount={simulatorData.grossAmount}
           customerName={simulatorData.customerName}
+          customerEmail={buyerEmail}
           onClose={() => setSimulatorData(null)}
           onSuccess={async () => {
             try {

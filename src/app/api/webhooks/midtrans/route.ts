@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Ambil data order dari database
-    const order = await prisma.order.findUnique({
+    const order = await (prisma as any).order.findUnique({
       where: { orderNumber: orderId },
       include: {
         items: true,
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Update status pembayaran di database
-    await prisma.$transaction(async (tx) => {
+    await (prisma as any).$transaction(async (tx: any) => {
       await tx.order.update({
         where: { id: order.id },
         data: { paymentStatus: newPaymentStatus },

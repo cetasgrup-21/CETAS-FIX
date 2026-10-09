@@ -1,298 +1,133 @@
 /**
- * CETAS SCORE ENGINE — 100% MATCH DENGAN REPO ASLI CETAS.SCORE
- * Sumber: C:\Users\Reza Aditya Arifin\Documents\Cetas.Score\scoring-engine.ts
- *
- * Aturan Utama:
- * 1. Event Scale: 5.000 Poin
- * 2. Kategori: (5.000 * percentage) / 100
- * 3. Nilai Maksimum Per Juri: categoryMaximum / judgeCount (integer bulat, tanpa desimal)
- * 4. Tepat 10 opsi per materi:
- *    - KURANG: 3 opsi
- *    - CUKUP: 3 opsi
- *    - BAIK: 3 opsi
- *    - SANGAT BAIK: 1 opsi (Peak / Nilai Maksimal Materi)
- * 5. Bergerak ke kiri dari peak berkurang persis sebesar interval [2, 3, 4, 5, 6].
- * 6. Jumlah peak seluruh materi dalam kategori = nilai target per juri.
+ * CETAS SCORE ENGINE — FINAL INTEGER
+ * Category maximum is divided by judge count.
+ * Peak is the rightmost value. Left values subtract interval.
+ * Exactly 10 integer options per criterion.
  */
-
 export const VALID_INTERVALS = [2, 3, 4, 5, 6] as const;
 export type ValidInterval = (typeof VALID_INTERVALS)[number];
-export type Difficulty = "MUDAH" | "SULIT";
-
-export type CriterionForScoring = {
-  id?: string;
-  name?: string;
-  section?: string | null;
-  interval?: number | null;
-  difficulty?: string;
-  sortOrder?: number;
-};
-
-export type ScoreOptionGenerated = {
-  id?: string;
-  label: string;
-  score: number;
-  sortOrder: number;
-};
 
 export function normalizeInterval(value: unknown): ValidInterval {
   const n = Number(value);
-  return VALID_INTERVALS.includes(n as ValidInterval)
-    ? (n as ValidInterval)
-    : 2;
+  return VALID_INTERVALS.includes(n as ValidInterval) ? (n as ValidInterval) : 2;
 }
 
-export function difficultyFromInterval(interval: number): Difficulty {
-  return interval >= 5 ? "SULIT" : "MUDAH";
+export function getCategoryMaximum(totalPoints: number, percentage: number): number {
+  return Math.round(Number(totalPoints || 0) * (Number(percentage || 0) / 100));
 }
 
-/**
- * Nilai kategori sebelum pembagian jumlah juri.
- * Contoh: 5.000 x 60% = 3.000
- */
-export function getCategoryMaximum(
-  totalPoints: number,
-  categoryPercentage: number
-): number {
-  return Math.floor(
-    Number(totalPoints || 0) * (Number(categoryPercentage || 0) / 100)
-  );
-}
-
-/**
- * Nilai maksimum yang tersedia untuk SATU JURI.
- * Tidak pernah menghasilkan desimal.
- *
- * Contoh:
- * 3.000 / 2 = 1.500
- * 500 / 3 = 166 (dibulatkan ke bawah)
- */
-export function getPerJudgeMaximum(
-  categoryMaximum: number,
-  judgeCount: number
-): number {
-  const count = Math.max(1, Math.floor(Number(judgeCount || 1)));
-  return Math.floor(Number(categoryMaximum || 0) / count);
-}
-
-/**
- * Cari peak per interval dengan aturan:
- * 1. Interval yang sama => peak yang sama.
- * 2. Interval lebih besar => peak lebih besar.
- * 3. Semua peak integer.
- * 4. Diusahakan jumlah seluruh peak = target per juri.
- * 5. Setiap peak minimal cukup untuk membuat 10 pilihan (peak - 9*interval ... peak).
- */
-export function calculatePeaksByInterval(
-  criteria: CriterionForScoring[],
-  targetMaximum: number
-): Map<number, number> {
-  const counts = new Map<number, number>();
-
-  for (const criterion of criteria) {
-    const interval = normalizeInterval(criterion.interval);
-    counts.set(interval, (counts.get(interval) || 0) + 1);
-  }
-
-  const intervals = Array.from(counts.keys()).sort((a, b) => a - b);
-  const target = Math.max(0, Math.floor(Number(targetMaximum || 0)));
-  const result = new Map<number, number>();
-
-  if (!intervals.length || target <= 0) return result;
-
-  // Minimum peak agar tersedia 10 nilai positif.
-  const minimumPeak = (interval: number) => 9 * interval + 1;
-
-  // Cari solusi integer terbaik dengan dynamic programming.
-  const weightedIntervals = intervals.reduce(
-    (sum, interval) => sum + interval * (counts.get(interval) || 0),
-    0
-  );
-  const factor = weightedIntervals > 0 ? target / weightedIntervals : 0;
-
-  type State = { cost: number; peaks: number[] };
-  let states = new Map<string, State>();
-  states.set("0|0", { cost: 0, peaks: [] });
-
-  for (const interval of intervals) {
-    const count = counts.get(interval) || 0;
-    const next = new Map<string, State>();
-
-    for (const [key, state] of states.entries()) {
-      const [sumText, lastText] = key.split("|");
-      const sum = Number(sumText);
-      const last = Number(lastText);
-
-      const low = Math.max(minimumPeak(interval), last + 1);
-      const maxPeak = Math.floor((target - sum) / count);
-
-      if (low > maxPeak) continue;
-
-      for (let peak = low; peak <= maxPeak; peak++) {
-        const nextSum = sum + peak * count;
-        if (nextSum > target) break;
-
-        const cost =
-          state.cost +
-          count * Math.pow(peak - factor * interval, 2);
-
-        const nextKey = `${nextSum}|${peak}`;
-        const previous = next.get(nextKey);
-
-        if (!previous || cost < previous.cost) {
-          next.set(nextKey, {
-            cost,
-            peaks: [...state.peaks, peak],
-          });
-        }
-      }
-    }
-
-    states = next;
-    if (!states.size) break;
-  }
-
-  const exact = Array.from(states.entries())
-    .filter(([key]) => Number(key.split("|")[0]) === target)
-    .sort((a, b) => a[1].cost - b[1].cost)[0]?.[1];
-
-  let chosen = exact;
-
-  // Kalau tidak ada solusi exact, ambil solusi terbesar yang <= target.
-  if (!chosen) {
-    const fallback = Array.from(states.entries())
-      .map(([key, state]) => ({
-        sum: Number(key.split("|")[0]),
-        state,
-      }))
-      .filter((item) => item.sum <= target)
-      .sort((a, b) => {
-        if (b.sum !== a.sum) return b.sum - a.sum;
-        return a.state.cost - b.state.cost;
-      })[0];
-
-    chosen = fallback?.state;
-  }
-
-  if (!chosen) return result;
-
-  intervals.forEach((interval, index) => {
-    result.set(interval, Math.floor(chosen!.peaks[index]));
-  });
-
-  return result;
-}
-
-/**
- * Buat tepat 10 pilihan.
- * Kolom paling kanan = peak.
- * Bergerak ke kiri selalu berkurang persis sebesar interval.
- */
-export function buildScoreOptions(
-  peak: number,
-  interval: number
-): ScoreOptionGenerated[] {
-  const step = normalizeInterval(interval);
-  const maximum = Math.max(0, Math.floor(Number(peak || 0)));
-
-  const labels = [
-    "KURANG",
-    "KURANG",
-    "KURANG",
-    "CUKUP",
-    "CUKUP",
-    "CUKUP",
-    "BAIK",
-    "BAIK",
-    "BAIK",
-    "SANGAT BAIK",
-  ];
-
-  const values = Array.from({ length: 10 }, (_, index) =>
-    maximum - (9 - index) * step
-  );
-
-  if (values.some((value) => value <= 0)) {
+export function getMaxScorePerJudge(categoryMaximum: number, judgeCount: number): number {
+  const count = Math.max(1, Math.trunc(Number(judgeCount) || 1));
+  if (categoryMaximum % count !== 0) {
     throw new Error(
-      `Peak ${maximum} terlalu kecil untuk interval ${step}. Minimal peak adalah ${9 * step + 1}.`
+      `Nilai maksimum kategori ${categoryMaximum} tidak habis dibagi ${count} juri. Nilai per juri wajib bilangan bulat.`
+    );
+  }
+  return categoryMaximum / count;
+}
+
+export type ScoreEngineCriterion = { id: string; interval?: number | null };
+export type ScoreEngineOption = { label: string; score: number; sortOrder: number };
+
+function solvePeaks(criteria: ScoreEngineCriterion[], target: number) {
+  const counts = new Map<ValidInterval, number>();
+  for (const c of criteria) {
+    const i = normalizeInterval(c.interval);
+    counts.set(i, (counts.get(i) || 0) + 1);
+  }
+
+  const intervals = Array.from(counts.keys()).sort((a, b) => a - b) as ValidInterval[];
+  if (!intervals.length) return new Map<ValidInterval, number>();
+
+  const minPeak = (i: number) => i * 9 + 1;
+  const minimumTotal = intervals.reduce(
+    (s, i) => s + minPeak(i) * (counts.get(i) || 0), 0
+  );
+  if (minimumTotal > target) {
+    throw new Error(
+      `Total ${target} terlalu kecil. Minimum untuk 10 pilihan adalah ${minimumTotal}.`
     );
   }
 
-  return values.map((score, index) => ({
-    id: `opt-${index}-${score}`,
-    label: labels[index] || String(score),
-    score: Math.floor(score),
-    sortOrder: index,
-  }));
-}
+  const weighted = intervals.reduce(
+    (s, i) => s + i * (counts.get(i) || 0), 0
+  );
+  const ideal = new Map<number, number>();
+  for (const i of intervals) ideal.set(i, (target * i) / weighted);
 
-/**
- * Pembagian 10 opsi ke dalam 4 Kolom:
- * 1. KURANG: 3 opsi
- * 2. CUKUP: 3 opsi
- * 3. BAIK: 3 opsi
- * 4. SANGAT BAIK: 1 opsi
- */
-export function getScoreGroups(options: ScoreOptionGenerated[]) {
-  const sorted = [...options].sort((a, b) => a.sortOrder - b.sortOrder);
-  const total = sorted.length;
+  type State = { cost: number; peaks: number[] };
+  let states = new Map<number, State>([[0, { cost: 0, peaks: [] }]]);
 
-  if (total === 0) {
-    return {
-      kurang: [],
-      cukup: [],
-      baik: [],
-      sangatBaik: [],
-    };
+  for (let idx = 0; idx < intervals.length; idx++) {
+    const i = intervals[idx];
+    const count = counts.get(i) || 0;
+    const next = new Map<number, State>();
+    const later = intervals.slice(idx + 1);
+    const laterMinimum = later.reduce(
+      (s, x) => s + minPeak(x) * (counts.get(x) || 0), 0
+    );
+
+    for (const [sum, state] of states) {
+      const previousPeak = state.peaks.length ? state.peaks[state.peaks.length - 1] : 0;
+      const low = Math.max(minPeak(i), previousPeak + 1);
+      const high = Math.floor((target - sum - laterMinimum) / Math.max(1, count));
+      if (high < low) continue;
+
+      for (let peak = low; peak <= high; peak++) {
+        const newSum = sum + peak * count;
+        const cost = state.cost + Math.pow(peak - (ideal.get(i) || peak), 2) * count;
+        const old = next.get(newSum);
+        if (!old || cost < old.cost) {
+          next.set(newSum, { cost, peaks: [...state.peaks, peak] });
+        }
+      }
+    }
+    states = next;
   }
 
-  const firstSize =
-    total >= 4 ? Math.ceil(total * 0.3) : Math.ceil(total / 3);
+  const best = states.get(target);
+  if (!best) throw new Error(`Tidak ditemukan pembagian peak INTEGER untuk total ${target}.`);
 
-  const secondSize =
-    total >= 4 ? Math.ceil(total * 0.3) : Math.ceil((total - firstSize) / 2);
+  for (let i = 1; i < best.peaks.length; i++) {
+    if (best.peaks[i] <= best.peaks[i - 1]) {
+      throw new Error("Peak harus naik saat interval naik.");
+    }
+  }
 
-  const thirdSize =
-    total >= 4
-      ? Math.ceil(total * 0.3)
-      : Math.max(0, total - firstSize - secondSize);
+  return new Map(intervals.map((i, idx) => [i, best.peaks[idx]]));
+}
 
-  const kurang = sorted.slice(0, firstSize);
-  const cukup = sorted.slice(firstSize, firstSize + secondSize);
-  const baik = sorted.slice(
-    firstSize + secondSize,
-    firstSize + secondSize + thirdSize
+export function buildScoreOptionsForCriteria(
+  criteria: ScoreEngineCriterion[],
+  categoryMaximum: number,
+  judgeCount: number
+) {
+  const target = getMaxScorePerJudge(categoryMaximum, judgeCount);
+  const peaks = solvePeaks(criteria, target);
+  const result = new Map<string, ScoreEngineOption[]>();
+
+  for (const c of criteria) {
+    const interval = normalizeInterval(c.interval);
+    const peak = peaks.get(interval);
+    if (!peak) throw new Error(`Peak interval ${interval} tidak ditemukan.`);
+
+    const options: ScoreEngineOption[] = [];
+    for (let index = 0; index < 10; index++) {
+      const score = peak - interval * (9 - index);
+      if (score <= 0 || !Number.isInteger(score)) {
+        throw new Error(`Nilai materi ${c.id} tidak valid.`);
+      }
+      options.push({ label: String(score), score, sortOrder: index });
+    }
+    result.set(c.id, options);
+  }
+
+  const totalPeak = criteria.reduce(
+    (s, c) => s + (result.get(c.id)?.[9]?.score || 0), 0
   );
-  const sangatBaik = sorted.slice(firstSize + secondSize + thirdSize);
+  if (totalPeak !== target) {
+    throw new Error(`TOTAL PEAK PER JURI ${totalPeak}, seharusnya ${target}.`);
+  }
 
-  return {
-    kurang,
-    cukup,
-    baik,
-    sangatBaik,
-  };
-}
-
-/**
- * Header grouping untuk tabel input rekap mode Kertas
- */
-export function getDisplayGroups(count: number) {
-  const formats: Record<number, { label: string; count: number }[]> = {
-    10: [
-      { label: "K", count: 3 },
-      { label: "C", count: 3 },
-      { label: "B", count: 3 },
-      { label: "SB", count: 1 },
-    ],
-  };
-  return formats[count] || formats[10];
-}
-
-/**
- * Format angka score standar Indonesia (titik ribuan, koma desimal)
- */
-export function formatScore(value: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 2,
-  }).format(value);
+  return result;
 }

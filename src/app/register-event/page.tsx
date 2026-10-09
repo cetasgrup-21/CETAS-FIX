@@ -80,7 +80,7 @@ export default function RegisterEventPage() {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!activeEvent.isOpenOnlineRegistration) {
+    if (!activeEvent || !activeEvent.isOpenOnlineRegistration) {
       setErrorMessage("Event ini tidak membuka pendaftaran online via web Cetas.");
       return;
     }
@@ -331,6 +331,14 @@ export default function RegisterEventPage() {
               </button>
             </div>
           </div>
+        </div>
+      ) : !activeEvent ? (
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+          <Building className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">Belum Ada Event Pendaftaran Terbuka</h3>
+          <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+            Saat ini belum ada event yang membuka jalur pendaftaran online. Silakan cek kembali secara berkala atau buat event baru di dashboard admin.
+          </p>
         </div>
       ) : (
         /* FORM PENDAFTARAN & SELECTOR EVENT */

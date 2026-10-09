@@ -1,0 +1,586 @@
+﻿"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+type Participant = {
+  id: string;
+  number: number | null;
+  name: string;
+  school: string | null;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  eventLevel: {
+    id: string;
+    name: string;
+  } | null;
+};
+
+type Judge = {
+  id: string;
+  name: string;
+  username: string;
+};
+
+type ScoreChangeRequest = {
+  id: string;
+  createdAt: string;
+  reason: string;
+  participant: Participant | null;
+  category: Category | null;
+  judge: Judge | null;
+};
+
+type ApiResponse = {
+  success: boolean;
+  requests?: ScoreChangeRequest[];
+  error?: string;
+};
+
+export default function ScoreChangesPage() {
+  const [requests, setRequests] = useState<ScoreChangeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const loadRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        "/api/admin/score-change",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const result =
+        (await response.json()) as ApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Gagal mengambil permintaan perubahan nilai."
+        );
+      }
+
+      setRequests(result.requests || []);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengambil permintaan perubahan nilai."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
+
+  async function processRequest(
+    requestId: string,
+    action: "APPROVE" | "REJECT"
+  ) {
+    if (processingId) return;
+
+    const request = requests.find(
+      (item) => item.id === requestId
+    );
+
+    if (!request) return;
+
+    if (action === "APPROVE") {
+      const confirmed = window.confirm(
+        [
+          "SETUJUI PERUBAHAN NILAI?",
+          "",
+          `Peserta: ${
+            request.participant?.name || "-"
+          }`,
+          `Kategori: ${
+            request.category?.name || "-"
+          }`,
+          "",
+          "Nilai SUBMITTED akan dibuka kembali menjadi DRAFT.",
+          "Juri kemudian dapat mengubah dan submit ulang.",
+        ].join("\n")
+      );
+
+      if (!confirmed) return;
+    }
+
+    if (action === "REJECT") {
+      const confirmed = window.confirm(
+        [
+          "TOLAK PERMINTAAN PERUBAHAN?",
+          "",
+          `Peserta: ${
+            request.participant?.name || "-"
+          }`,
+          `Kategori: ${
+            request.category?.name || "-"
+          }`,
+          "",
+          "Nilai akan tetap SUBMITTED.",
+        ].join("\n")
+      );
+
+      if (!confirmed) return;
+    }
+
+    try {
+      setProcessingId(requestId);
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(
+        "/api/admin/score-change",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requestId,
+            action,
+          }),
+        }
+      );
+
+      const result =
+        (await response.json()) as ApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            "Gagal memproses permintaan."
+        );
+      }
+
+      if (action === "APPROVE") {
+        setSuccess(
+          "Permintaan disetujui. Nilai peserta sekarang kembali ke DRAFT."
+        );
+      } else {
+        setSuccess(
+          "Permintaan ditolak. Nilai tetap SUBMITTED."
+        );
+      }
+
+      setRequests((current) =>
+        current.map((item) =>
+          item.id === requestId
+            ? {
+                ...item,
+                status:
+                  action === "APPROVE"
+                    ? "APPROVED"
+                    : "REJECTED",
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memproses permintaan."
+      );
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  function formatDate(value: string) {
+    try {
+      return new Intl.DateTimeFormat(
+        "id-ID",
+        {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }
+      ).format(new Date(value));
+    } catch {
+      return value;
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="mx-auto max-w-6xl">
+
+        {/* HEADER */}
+        <header className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.25em] text-blue-600">
+                CETAS SCORE · ADMIN
+              </p>
+
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-[#071a3d]">
+                Permintaan Perubahan Nilai
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                Kelola permintaan perubahan nilai dari Juri.
+                Nilai yang sudah disubmit tetap terkunci sampai
+                Admin memberikan persetujuan.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+
+              <button
+                type="button"
+                onClick={() => {
+                  void loadRequests();
+                }}
+                disabled={loading}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {loading ? "Memuat..." : "↻ Refresh"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/admin";
+                }}
+                className="rounded-xl bg-[#071a3d] px-4 py-3 text-sm font-black text-white transition hover:bg-[#102957]"
+              >
+                Kembali
+              </button>
+
+            </div>
+
+          </div>
+        </header>
+
+        {/* STATUS */}
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Menunggu Persetujuan
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-[#071a3d]">
+              {
+                requests.filter(
+                  (item) =>
+                    (
+                      item as typeof item & {
+                        status?: string;
+                      }
+                    ).status !== "APPROVED" &&
+                    (
+                      item as typeof item & {
+                        status?: string;
+                      }
+                    ).status !== "REJECTED"
+                ).length
+              }
+            </p>
+
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Permintaan perubahan nilai
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">
+              Status
+            </p>
+
+            <p className="mt-2 text-xl font-black text-amber-700">
+              REVIEW
+            </p>
+
+            <p className="mt-1 text-xs font-medium text-amber-600">
+              Menunggu keputusan Admin
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">
+              Keamanan
+            </p>
+
+            <p className="mt-2 text-xl font-black text-blue-700">
+              SUBMITTED
+            </p>
+
+            <p className="mt-1 text-xs font-medium text-blue-600">
+              Nilai tidak berubah sebelum approval
+            </p>
+          </div>
+
+        </div>
+
+        {/* SUCCESS */}
+        {success ? (
+          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700">
+            {success}
+          </div>
+        ) : null}
+
+        {/* ERROR */}
+        {error ? (
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {/* CONTENT */}
+        {loading ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+
+            <p className="text-sm font-bold text-slate-500">
+              Memuat permintaan perubahan nilai...
+            </p>
+          </section>
+        ) : requests.length === 0 ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-50 text-3xl">
+              ✓
+            </div>
+
+            <h2 className="mt-5 text-xl font-black text-[#071a3d]">
+              Tidak ada permintaan
+            </h2>
+
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+              Semua permintaan perubahan nilai sudah diproses,
+              atau belum ada Juri yang mengajukan perubahan.
+            </p>
+
+          </section>
+        ) : (
+          <section className="space-y-5">
+
+            {requests.map((request) => {
+
+              const processing =
+                processingId === request.id;
+
+              const requestStatus =
+                (
+                  request as typeof request & {
+                    status?:
+                      | "PENDING"
+                      | "APPROVED"
+                      | "REJECTED";
+                  }
+                ).status || "PENDING";
+
+              return (
+                <article
+                  key={request.id}
+                  className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                >
+
+                  {/* REQUEST HEADER */}
+                  <div className="border-b border-slate-200 bg-slate-50 p-5 md:p-6">
+
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+
+                      <div className="min-w-0">
+
+                        <div className="flex flex-wrap items-center gap-2">
+
+                          {requestStatus === "PENDING" ? (
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                              MENUNGGU APPROVAL
+                            </span>
+                          ) : requestStatus === "APPROVED" ? (
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                              DISETUJUI
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-red-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-red-700">
+                              DITOLAK
+                            </span>
+                          )}
+
+                          {request.category?.eventLevel?.name ? (
+                            <span className="rounded-full bg-blue-100 px-3 py-1 text-[10px] font-black text-blue-700">
+                              {request.category.eventLevel.name}
+                            </span>
+                          ) : null}
+
+                        </div>
+
+                        <h2 className="mt-3 text-xl font-black text-[#071a3d]">
+                          {request.participant?.name || "Peserta tidak ditemukan"}
+                        </h2>
+
+                        <p className="mt-1 text-sm font-medium text-slate-500">
+                          No. {request.participant?.number ?? "-"}
+                          {" · "}
+                          {request.participant?.school || "-"}
+                        </p>
+
+                      </div>
+
+                      <div className="shrink-0 text-left md:text-right">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          DIAJUKAN
+                        </p>
+
+                        <p className="mt-1 text-xs font-bold text-slate-600">
+                          {formatDate(request.createdAt)}
+                        </p>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* DETAIL */}
+                  <div className="grid gap-5 p-5 md:grid-cols-2 md:p-6">
+
+                    <div className="space-y-4">
+
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          KATEGORI
+                        </p>
+
+                        <p className="mt-1 text-base font-black text-[#071a3d]">
+                          {request.category?.name || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          JURI
+                        </p>
+
+                        <p className="mt-1 text-base font-black text-[#071a3d]">
+                          {request.judge?.name || "-"}
+                        </p>
+
+                        {request.judge?.username ? (
+                          <p className="mt-1 text-xs font-medium text-slate-400">
+                            @{request.judge.username}
+                          </p>
+                        ) : null}
+                      </div>
+
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        ALASAN PERUBAHAN
+                      </p>
+
+                      <div className="mt-2 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                        <p className="text-sm font-bold leading-6 text-amber-900">
+                          {request.reason}
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* DECISION */}
+                  {requestStatus === "PENDING" ? (
+                  <div className="flex flex-col gap-3 border-t border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between md:p-6">
+
+                    <div>
+                      <p className="text-xs font-black text-[#071a3d]">
+                        Keputusan Admin
+                      </p>
+
+                      <p className="mt-1 text-xs font-medium leading-5 text-slate-400">
+                        Setujui untuk membuka nilai kembali sebagai DRAFT.
+                        Tolak untuk mempertahankan nilai SUBMITTED.
+                      </p>
+                    </div>
+
+                    <div className="flex w-full gap-2 md:w-auto">
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void processRequest(
+                            request.id,
+                            "REJECT"
+                          );
+                        }}
+                        disabled={processing}
+                        className="flex-1 rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-black text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 md:flex-none"
+                      >
+                        {processing
+                          ? "Memproses..."
+                          : "Tolak"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void processRequest(
+                            request.id,
+                            "APPROVE"
+                          );
+                        }}
+                        disabled={processing}
+                        className="flex-1 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 md:flex-none"
+                      >
+                        {processing
+                          ? "Memproses..."
+                          : "Setujui"}
+                      </button>
+
+                    </div>
+
+                  </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 p-5 md:p-6">
+                      {requestStatus === "APPROVED" ? (
+                        <>
+                          <p className="text-sm font-black text-emerald-700">
+                            Permintaan disetujui
+                          </p>
+                          <p className="text-xs font-medium text-slate-500">
+                            Nilai peserta sudah dibuka kembali sebagai DRAFT.
+                            Juri dapat melakukan perubahan dan submit ulang.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-black text-red-700">
+                            Permintaan ditolak
+                          </p>
+                          <p className="text-xs font-medium text-slate-500">
+                            Nilai peserta tetap SUBMITTED dan tidak berubah.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                </article>
+              );
+            })}
+
+          </section>
+        )}
+
+      </div>
+    </main>
+  );
+}
+

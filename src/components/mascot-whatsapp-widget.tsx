@@ -77,7 +77,7 @@ export function MascotWhatsAppWidget() {
     if (pathname.startsWith("/admin")) {
       return {
         tag: "Helpdesk Admin",
-        speech: "Halo Rekan Cetas! Perlu bantuan teknis sistem atau sinkronisasi Midtrans?",
+        speech: "Halo Rekan Cetas! Perlu bantuan teknis sistem atau integrasi DOKU Direct API?",
         defaultPrompt: "Halo Lead Developer Cetas, saya membutuhkan asistensi teknis backoffice admin.",
       };
     }
@@ -341,9 +341,9 @@ export function MascotWhatsAppWidget() {
                   <div className="text-[10px] text-slate-500">Tiket Ber-QR</div>
                   <div className="text-xs font-bold text-blue-700">Anti-Duplikasi</div>
                 </div>
-                <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
+                <div className="p-2 rounded-lg bg-red-50/60 border border-red-100">
                   <div className="text-[10px] text-slate-500">Payment Gateway</div>
-                  <div className="text-xs font-bold text-blue-700">Midtrans QRIS</div>
+                  <div className="text-xs font-bold text-[#E1251B]">DOKU QRIS & E-Wallet</div>
                 </div>
                 <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
                   <div className="text-[10px] text-slate-500">Vendor Terpercaya</div>

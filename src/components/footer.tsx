@@ -31,9 +31,9 @@ export function Footer() {
             <p className="text-xs text-slate-500 leading-relaxed font-normal">
               Platform turnamen dan penghargaan elektronik terpusat untuk e-voting turnamen, tiket berkeamanan tinggi, registrasi peserta, dan Cetas Production.
             </p>
-            <div className="flex items-center gap-2 text-xs text-purple-700 font-semibold">
+            <div className="flex items-center gap-2 text-xs text-[#E1251B] font-bold">
               <Sparkles className="h-4 w-4" />
-              Didukung Pembayaran Otomatis Midtrans
+              Didukung Pembayaran Otomatis DOKU Direct API
             </div>
           </div>
 
@@ -135,7 +135,7 @@ export function Footer() {
 
         <div className="mt-8 pt-8 border-t border-purple-50 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
           <p>© {new Date().getFullYear()} CETAS (Centralized Electronic Tournament & Award System). Hak cipta dilindungi undang-undang.</p>
-          <p className="mt-2 sm:mt-0">Ditenagai oleh Midtrans Snap API & Next.js 15</p>
+          <p className="mt-2 sm:mt-0">Ditenagai oleh DOKU Direct API (QRIS & E-Wallet) & Next.js 15</p>
         </div>
       </div>
     </footer>

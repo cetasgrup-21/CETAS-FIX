@@ -360,17 +360,17 @@ export default function HomePage() {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-purple-50 text-purple-700 px-3.5 py-1 text-xs font-bold border border-purple-200">
                 <TrendingUp className="h-3.5 w-3.5" />
-                Scoreboard Turnamen • Rekapitulasi Real-Time Dewan Juri & E-Voting
+                {activeHomeEvent
+                  ? "Scoreboard Turnamen • Rekapitulasi Real-Time Dewan Juri & E-Voting"
+                  : "Pusat Turnamen & Kompetisi Resmi • Cetas Ecosystem"}
               </div>
               <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                {activeHomeEvent
-                  ? activeHomeEvent.title
-                  : "Peringkat & Nilai Lomba Terkini (Live)"}
+                {activeHomeEvent ? activeHomeEvent.title : "Event Aktif"}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
                 {activeHomeEvent
                   ? "Menampilkan daftar Peringkat LKBB (Cetas.Score), Peringkat Vote Publik (Cetas Vote), serta tautan langsung menuju bilik Cetas Vote dan pembelian tiket Cetas Ticketing untuk event ini."
-                  : "Pilih salah satu event turnamen di bawah ini untuk membuka daftar Peringkat LKBB, Peringkat Vote, serta link akses menuju Cetas Vote dan Cetas Ticketing."}
+                  : "Pilih salah satu event aktif di bawah ini untuk melihat daftar Peringkat LKBB, Peringkat Vote, serta link akses menuju Cetas Vote dan Cetas Ticketing."}
               </p>
             </div>
 

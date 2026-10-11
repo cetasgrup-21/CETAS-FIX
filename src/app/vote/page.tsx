@@ -150,23 +150,40 @@ function VotePageContent() {
     if (localEvents && localEvents.length > 0) setUnifiedEvents(localEvents);
 
     // 1. Fetch Voting Configs
-    fetch("/api/vote")
+    fetch("/api/vote", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
+        if (data.success && Array.isArray(data.eventVotings)) {
+          if (data.eventVotings.length > 0) {
+            setEventVotings(data.eventVotings);
+            saveStoredEventVotings(data.eventVotings);
+          } else if (localVotes && localVotes.length > 0) {
+            setEventVotings(localVotes);
+          }
         }
       })
       .catch(() => {});
 
     // 2. Fetch Unified Events (Ticketing & Registration)
-    fetch("/api/events")
+    fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          setUnifiedEvents(data.events);
-          saveStoredEvents(data.events);
+      .then(async (data) => {
+        if (data.success && Array.isArray(data.events)) {
+          if (data.events.length > 0) {
+            setUnifiedEvents(data.events);
+            saveStoredEvents(data.events);
+          } else if (localEvents && localEvents.length > 0) {
+            setUnifiedEvents(localEvents);
+            for (const ev of localEvents) {
+              try {
+                await fetch("/api/events", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(ev),
+                });
+              } catch {}
+            }
+          }
         }
       })
       .catch(() => {});
@@ -232,6 +249,19 @@ function VotePageContent() {
 
   // Seed dari Unified Events
   unifiedEvents.forEach((ue) => {
+    const safeTiers: UnifiedTicketTier[] =
+      Array.isArray(ue.tiers) && ue.tiers.length > 0
+        ? ue.tiers
+        : [
+            {
+              id: `tier-${ue.id}-1`,
+              name: "Tiket Reguler",
+              price: Number(ue.price) || 50000,
+              quotaTotal: Number(ue.quotaTotal) || 200,
+              quotaRemaining: Number(ue.quotaRemaining) || 200,
+              benefits: ue.facilities || ["E-Ticket QR Code Resmi"],
+            },
+          ];
     allEventsMap.set(ue.id, {
       id: ue.id,
       title: ue.title,
@@ -243,10 +273,10 @@ function VotePageContent() {
       organizer: ue.organizer || "Cetas Official",
       description: ue.description || "Acara resmi di platform Cetas Ecosystem.",
       categories: [],
-      tiers: ue.tiers || [],
-      isOpenTicketing: Boolean(ue.isOpenTicketing && ue.tiers && ue.tiers.length > 0),
+      tiers: safeTiers,
+      isOpenTicketing: ue.isOpenTicketing !== false,
       isOpenOnlineRegistration: Boolean(ue.isOpenOnlineRegistration),
-      quotaRemaining: ue.quotaRemaining || 0,
+      quotaRemaining: ue.quotaRemaining || 200,
       facilities: ue.facilities || [],
     });
   });
@@ -423,9 +453,9 @@ function VotePageContent() {
       setLiveVoteAlert(null);
     }, 7000);
 
-    // Update in-memory / state
-    setEventVotings((prev) =>
-      prev.map((ev) => {
+    // Update in-memory / state & localStorage
+    setEventVotings((prev) => {
+      const next = prev.map((ev) => {
         if (ev.eventId !== activeEvent.id) return ev;
         return {
           ...ev,
@@ -441,8 +471,10 @@ function VotePageContent() {
             };
           }),
         };
-      })
-    );
+      });
+      saveStoredEventVotings(next);
+      return next;
+    });
 
     // Call API update with secure RECORD_VOTE
     fetch("/api/vote", {
@@ -457,7 +489,15 @@ function VotePageContent() {
         orderNumber: simulatorData?.orderNumber || `VOTE-${Date.now()}`,
         voterName: simulatorData?.customerName || voterName || "Voter Publik Cetas",
       }),
-    }).catch(() => {});
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.eventVotings)) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+        }
+      })
+      .catch(() => {});
 
     setVoteStatus(`Terima kasih! ${addedVotes} Vote telah berhasil ditambahkan untuk #${targetCandidate.candidateNumber} ${targetCandidate.name}.`);
     setSimulatorData(null);
@@ -477,10 +517,47 @@ function VotePageContent() {
     });
     const qrDataUrl = await generateQRCodeDataUrl(qrString);
 
+    try {
+      const evRes = await fetch("/api/events", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "REDUCE_TICKET_QUOTA",
+          id: activeEvent.id,
+          tierId: tier.id,
+          quantity: ticketQty,
+        }),
+      });
+      const evData = await evRes.json();
+      if (evData.success && Array.isArray(evData.events)) {
+        setUnifiedEvents(evData.events);
+        saveStoredEvents(evData.events);
+      }
+    } catch {}
+
+    try {
+      await fetch("/api/attendees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: buyerName,
+          email: buyerEmail,
+          phone: buyerPhone || "-",
+          institution: `Pemegang Tiket (${tier.name} x${ticketQty})`,
+          category: tier.name,
+          eventId: activeEvent.id,
+          eventName: activeEvent.title,
+          eventDate: activeEvent.date,
+          eventLocation: activeEvent.location,
+          notes: `Kode Tiket: ${ticketCode}`,
+        }),
+      });
+    } catch {}
+
     setIssuedTicket({
       ticketCode,
       eventName: activeEvent.title,
-      tierName: tier.name,
+      tierName: `${tier.name} (${ticketQty} Tiket)`,
       holderName: buyerName,
       holderEmail: buyerEmail,
       date: activeEvent.date,

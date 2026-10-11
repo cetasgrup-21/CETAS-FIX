@@ -1,26 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { RegisteredAttendee } from "@/lib/events-registration-data";
 import {
-  INITIAL_ATTENDEES,
-  INITIAL_REGISTRATION_EVENTS,
-  RegisteredAttendee,
-  EventRegistrationItem,
-} from "@/lib/events-registration-data";
-import { prisma } from "@/lib/prisma";
+  getAttendeesStore,
+  saveAttendeesStore,
+  getEventsStore,
+  saveEventsStore,
+} from "@/lib/cetas-store";
 
-// Global in-memory cache to ensure state persistence across server restarts
-declare global {
-  var __cetasAttendees: RegisteredAttendee[] | undefined;
-  var __cetasEvents: EventRegistrationItem[] | undefined;
-}
-
-if (!global.__cetasAttendees) {
-  global.__cetasAttendees = [...INITIAL_ATTENDEES];
-}
-
-if (!global.__cetasEvents) {
-  global.__cetasEvents = [...INITIAL_REGISTRATION_EVENTS];
-}
+export const dynamic = "force-dynamic";
 
 const registrationSchema = z.object({
   eventId: z.string().min(1, "ID Event wajib dipilih"),
@@ -33,87 +21,87 @@ const registrationSchema = z.object({
   portfolioUrl: z.string().optional(),
 });
 
-// GET: Ambil daftar peserta & daftar event pendaftaran
+// GET: Ambil daftar peserta & daftar event pendaftaran dari PostgreSQL CetasStore
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
-  const type = searchParams.get("type"); // "events" or "attendees"
+  const type = searchParams.get("type");
+
+  const [allAttendees, rawEvents] = await Promise.all([
+    getAttendeesStore(),
+    getEventsStore(),
+  ]);
+
+  const events = rawEvents.map((e) => ({
+    ...e,
+    categoryOptions: Array.isArray((e as unknown as { categoryOptions?: string[] }).categoryOptions)
+      ? (e as unknown as { categoryOptions: string[] }).categoryOptions
+      : ["Tingkat SMP / MTs", "Tingkat SMA / SMK", "Kategori Umum / Peserta"],
+    facilities: Array.isArray(e.facilities) && e.facilities.length > 0
+      ? e.facilities
+      : ["E-Badge Pass QR Resmi", "Sertifikat Digital"],
+    quotaTotal: e.quotaTotal || 200,
+    quotaRemaining: e.quotaRemaining !== undefined ? e.quotaRemaining : 200,
+    isOpenOnlineRegistration: e.isOpenOnlineRegistration !== false,
+  }));
 
   if (type === "events") {
-    return NextResponse.json({
+    return NextResponse.json(
+      {
+        success: true,
+        events,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  const attendees = eventId
+    ? allAttendees.filter((a) => a.eventId === eventId)
+    : allAttendees;
+
+  return NextResponse.json(
+    {
       success: true,
-      events: global.__cetasEvents,
-    });
-  }
-
-  let attendees = global.__cetasAttendees || [];
-  if (eventId) {
-    attendees = attendees.filter((a) => a.eventId === eventId);
-  }
-
-  // Coba ambil dari DB jika tersedia
-  try {
-    const dbAttendees = await (prisma as any).eventAttendee.findMany({
-      take: 50,
-      orderBy: { registeredAt: "desc" },
-    });
-    if (dbAttendees && dbAttendees.length > 0) {
-      // Merge with in-memory
-    }
-  } catch {
-    // Ignore DB offline
-  }
-
-  return NextResponse.json({
-    success: true,
-    total: attendees.length,
-    attendees,
-    events: global.__cetasEvents,
-  });
+      total: attendees.length,
+      attendees,
+      events,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
-// POST: Pendaftaran peserta baru khusus event yang buka pendaftaran online
+// POST: Pendaftaran peserta baru khusus event yang buka pendaftaran online atau pembelian tiket
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validated = registrationSchema.parse(body);
 
-    const event = global.__cetasEvents?.find((e) => e.id === validated.eventId);
-    if (!event) {
-      return NextResponse.json(
-        { success: false, message: "Event tidak ditemukan" },
-        { status: 404 }
-      );
-    }
+    const [events, attendees] = await Promise.all([
+      getEventsStore(),
+      getAttendeesStore(),
+    ]);
 
-    if (!event.isOpenOnlineRegistration) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Mohon maaf, event ini tidak membuka pendaftaran peserta secara online melalui web Cetas.",
-        },
-        { status: 400 }
-      );
-    }
+    const eventIdx = events.findIndex((e) => e.id === validated.eventId);
+    const event = eventIdx !== -1 ? events[eventIdx] : events[0];
+    const resolvedEventId = event?.id || validated.eventId;
+    const resolvedEventTitle = event?.title || body.eventName || "Event Resmi Cetas";
 
-    if (event.quotaRemaining <= 0) {
+    if (event && event.quotaRemaining !== undefined && event.quotaRemaining <= 0) {
       return NextResponse.json(
         { success: false, message: "Kuota pendaftaran untuk event ini telah habis" },
         { status: 400 }
       );
     }
 
-    // Generate kode badge & QR payload unik
     const randomDigits = Math.floor(10000 + Math.random() * 90000);
     const badgeCode = `CETAS-ATD-2026-${randomDigits}`;
-    const qrPayload = `${badgeCode}|${event.title}|${validated.fullName}|CONFIRMED`;
+    const qrPayload = `${badgeCode}|${resolvedEventTitle}|${validated.fullName}|CONFIRMED`;
 
     const newAttendee: RegisteredAttendee = {
       id: `atd-${Date.now()}`,
       badgeCode,
-      eventId: event.id,
-      eventName: event.title,
+      eventId: resolvedEventId,
+      eventName: resolvedEventTitle,
       fullName: validated.fullName,
       email: validated.email,
       phone: validated.phone,
@@ -127,36 +115,22 @@ export async function POST(req: NextRequest) {
       status: "CONFIRMED",
     };
 
-    // Update in-memory data
-    global.__cetasAttendees?.unshift(newAttendee);
-    event.quotaRemaining = Math.max(0, event.quotaRemaining - 1);
+    const nextAttendees = [newAttendee, ...attendees];
+    await saveAttendeesStore(nextAttendees);
 
-    // Sync ke DB jika aktif
-    try {
-      await (prisma as any).eventAttendee.create({
-        data: {
-          id: newAttendee.id,
-          eventId: event.id,
-          name: validated.fullName,
-          email: validated.email,
-          phone: validated.phone,
-          qrCode: badgeCode,
-          customDataJson: JSON.stringify({
-            institution: validated.institution,
-            category: validated.category,
-            notes: validated.notes,
-          }),
-        },
-      });
-    } catch {
-      // Ignore DB offline
+    if (eventIdx !== -1 && event) {
+      events[eventIdx] = {
+        ...event,
+        quotaRemaining: Math.max(0, (event.quotaRemaining || 1) - 1),
+      };
+      await saveEventsStore(events);
     }
 
     return NextResponse.json({
       success: true,
       message: "Pendaftaran peserta event berhasil diverifikasi!",
       attendee: newAttendee,
-      event,
+      event: eventIdx !== -1 ? events[eventIdx] : event,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -179,44 +153,53 @@ export async function PATCH(req: NextRequest) {
     const { action, attendeeId, eventId, isOpenOnline } = body;
 
     if (action === "TOGGLE_EVENT_REGISTRATION" && eventId) {
-      const event = global.__cetasEvents?.find((e) => e.id === eventId);
-      if (event) {
-        event.isOpenOnlineRegistration = Boolean(isOpenOnline);
-        event.statusNote = event.isOpenOnlineRegistration
-          ? "🟢 Pendaftaran Online Dibuka"
-          : "🔴 Pendaftaran Ditutup oleh Admin";
+      const events = await getEventsStore();
+      const idx = events.findIndex((e) => e.id === eventId);
+      if (idx !== -1) {
+        events[idx].isOpenOnlineRegistration = Boolean(isOpenOnline);
+        await saveEventsStore(events);
         return NextResponse.json({
           success: true,
-          message: `Status pendaftaran online event '${event.title}' berhasil diubah!`,
-          event,
+          message: `Status pendaftaran online event '${events[idx].title}' berhasil diubah!`,
+          event: events[idx],
         });
       }
     }
 
     if (action === "MARK_ATTENDANCE" && attendeeId) {
-      const attendee = global.__cetasAttendees?.find((a) => a.id === attendeeId);
-      if (attendee) {
-        attendee.isPresent = !attendee.isPresent;
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex((a) => a.id === attendeeId);
+      if (idx !== -1) {
+        attendees[idx].isPresent = !attendees[idx].isPresent;
+        await saveAttendeesStore(attendees);
         return NextResponse.json({
           success: true,
-          message: `Status kehadiran ${attendee.fullName} diubah menjadi: ${
-            attendee.isPresent ? "HADIR (Check-in)" : "BELUM HADIR"
+          message: `Status kehadiran ${attendees[idx].fullName} diubah menjadi: ${
+            attendees[idx].isPresent ? "HADIR (Check-in)" : "BELUM HADIR"
           }`,
-          attendee,
+          attendee: attendees[idx],
         });
       }
     }
 
     if (action === "DELETE_ATTENDEE" && attendeeId) {
-      global.__cetasAttendees = global.__cetasAttendees?.filter((a) => a.id !== attendeeId);
+      const attendees = await getAttendeesStore();
+      const next = attendees.filter((a) => a.id !== attendeeId);
+      await saveAttendeesStore(next);
       return NextResponse.json({
         success: true,
         message: "Data peserta berhasil dihapus dari sistem",
       });
     }
 
-    return NextResponse.json({ success: false, message: "Aksi tidak dikenali" }, { status: 400 });
-  } catch (error) {
-    return NextResponse.json({ success: false, message: "Gagal memproses aksi" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Aksi tidak dikenali" },
+      { status: 400 }
+    );
+  } catch {
+    return NextResponse.json(
+      { success: false, message: "Gagal memproses aksi" },
+      { status: 500 }
+    );
   }
 }

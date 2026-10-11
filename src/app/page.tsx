@@ -65,22 +65,39 @@ export default function HomePage() {
     const localVotes = getStoredEventVotings();
     if (localVotes && localVotes.length > 0) setEventVotings(localVotes);
 
-    fetch("/api/events")
+    fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          setEventsList(data.events);
-          saveStoredEvents(data.events);
+      .then(async (data) => {
+        if (data.success && Array.isArray(data.events)) {
+          if (data.events.length > 0) {
+            setEventsList(data.events);
+            saveStoredEvents(data.events);
+          } else if (localEv && localEv.length > 0) {
+            setEventsList(localEv);
+            for (const ev of localEv) {
+              try {
+                await fetch("/api/events", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(ev),
+                });
+              } catch {}
+            }
+          }
         }
       })
       .catch(() => {});
 
-    fetch("/api/vote")
+    fetch("/api/vote", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
+        if (data.success && Array.isArray(data.eventVotings)) {
+          if (data.eventVotings.length > 0) {
+            setEventVotings(data.eventVotings);
+            saveStoredEventVotings(data.eventVotings);
+          } else if (localVotes && localVotes.length > 0) {
+            setEventVotings(localVotes);
+          }
         }
       })
       .catch(() => {});

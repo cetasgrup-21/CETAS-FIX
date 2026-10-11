@@ -2,6 +2,7 @@ import { EventThemePreset } from "./event-theme";
 
 export interface VoteCandidate {
   id: string;
+  eventId?: string;
   categoryId: string;
   candidateNumber: string; // e.g. "01", "02"
   name: string;

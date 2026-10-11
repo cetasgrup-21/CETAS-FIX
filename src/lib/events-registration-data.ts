@@ -3,7 +3,7 @@ export interface EventRegistrationItem {
   slug: string;
   title: string;
   organizer: string;
-  category: "WORKSHOP" | "HACKATHON" | "VOLUNTEER" | "SEMINAR" | "CONCERT";
+  category: string;
   isOpenOnlineRegistration: boolean; // Khusus event yang membuka fitur pendaftaran online di Cetas
   statusNote: string;
   date: string;
@@ -19,6 +19,7 @@ export interface EventRegistrationItem {
   description: string;
   facilities: string[];
   requirements: string[];
+  requiresPortfolio?: boolean;
 }
 
 export interface RegisteredAttendee {

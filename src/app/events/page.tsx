@@ -55,31 +55,70 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS);
 
   useEffect(() => {
-    const mapToTicketingEvents = (list: UnifiedEvent[]) =>
+    const mapToTicketingEvents = (list: UnifiedEvent[]): EventItem[] =>
       list
-        .filter((e: UnifiedEvent) => e.isOpenTicketing && e.tiers && e.tiers.length > 0)
-        .map((e: UnifiedEvent) => ({
-          id: e.id,
-          title: e.title,
-          date: e.date,
-          location: e.location,
-          bannerUrl: e.bannerUrl,
-          description: e.description,
-          themePreset: e.themePreset,
-          tiers: e.tiers,
-        }));
+        .filter((e: UnifiedEvent) => e.status !== "FINISHED" && e.isOpenTicketing !== false)
+        .map((e: UnifiedEvent) => {
+          const tiers: TicketTier[] =
+            Array.isArray(e.tiers) && e.tiers.length > 0
+              ? e.tiers.map((t) => ({
+                  id: t.id || `tier-${e.id}`,
+                  name: t.name || "Tiket Reguler",
+                  price: Number(t.price) || Number(e.price) || 50000,
+                  quotaTotal: Number(t.quotaTotal) || Number(e.quotaTotal) || 200,
+                  quotaRemaining:
+                    t.quotaRemaining !== undefined
+                      ? Number(t.quotaRemaining)
+                      : Number(e.quotaRemaining) || 200,
+                }))
+              : [
+                  {
+                    id: `tier-${e.id}-1`,
+                    name: "Tiket Reguler",
+                    price: Number(e.price) || 50000,
+                    quotaTotal: Number(e.quotaTotal) || 200,
+                    quotaRemaining: Number(e.quotaRemaining) || 200,
+                  },
+                ];
+          return {
+            id: e.id,
+            title: e.title,
+            date: e.date,
+            location: e.location,
+            bannerUrl: e.bannerUrl,
+            description: e.description,
+            themePreset: e.themePreset,
+            tiers,
+          };
+        });
 
     const stored = getStoredEvents();
     if (stored && stored.length > 0) {
       setEvents(mapToTicketingEvents(stored));
     }
 
-    fetch("/api/events")
+    fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          saveStoredEvents(data.events);
-          setEvents(mapToTicketingEvents(data.events));
+      .then(async (data) => {
+        if (data.success && Array.isArray(data.events)) {
+          if (data.events.length > 0) {
+            saveStoredEvents(data.events);
+            setEvents(mapToTicketingEvents(data.events));
+          } else if (stored && stored.length > 0) {
+            // Auto-migrate existing browser Admin events to PostgreSQL backend so public is immediately in sync
+            setEvents(mapToTicketingEvents(stored));
+            for (const ev of stored) {
+              try {
+                await fetch("/api/events", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(ev),
+                });
+              } catch {}
+            }
+          } else {
+            setEvents([]);
+          }
         }
       })
       .catch(() => {});
@@ -104,7 +143,9 @@ export default function EventsPage() {
     event: EventItem,
     tier: TicketTier,
     holderName: string,
-    holderEmail: string
+    holderEmail: string,
+    holderPhone: string,
+    qty: number
   ) => {
     const ticketCode = `CETAS-TCK-${Math.floor(100000 + Math.random() * 900000)}`;
     const qrString = createTicketQRString({
@@ -115,10 +156,61 @@ export default function EventsPage() {
     });
     const qrDataUrl = await generateQRCodeDataUrl(qrString);
 
+    // Sync ticket purchase to PostgreSQL /api/events (reduce quota) and /api/attendees
+    try {
+      const evRes = await fetch("/api/events", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "REDUCE_TICKET_QUOTA",
+          id: event.id,
+          tierId: tier.id,
+          quantity: qty,
+        }),
+      });
+      const evData = await evRes.json();
+      if (evData.success && Array.isArray(evData.events)) {
+        saveStoredEvents(evData.events);
+        setEvents(
+          evData.events
+            .filter((e: UnifiedEvent) => e.status !== "FINISHED" && e.isOpenTicketing !== false)
+            .map((e: UnifiedEvent) => ({
+              id: e.id,
+              title: e.title,
+              date: e.date,
+              location: e.location,
+              bannerUrl: e.bannerUrl,
+              description: e.description,
+              themePreset: e.themePreset,
+              tiers: e.tiers || [],
+            }))
+        );
+      }
+    } catch {}
+
+    try {
+      await fetch("/api/attendees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: holderName,
+          email: holderEmail,
+          phone: holderPhone || "-",
+          institution: `Pemegang Tiket (${tier.name} x${qty})`,
+          category: tier.name,
+          eventId: event.id,
+          eventName: event.title,
+          eventDate: event.date,
+          eventLocation: event.location,
+          notes: `Kode Tiket: ${ticketCode}`,
+        }),
+      });
+    } catch {}
+
     setIssuedTicket({
       ticketCode,
       eventName: event.title,
-      tierName: tier.name,
+      tierName: `${tier.name} (${qty} Tiket)`,
       holderName,
       holderEmail,
       date: event.date,
@@ -535,7 +627,9 @@ export default function EventsPage() {
                 selectedTier.event,
                 selectedTier.tier,
                 buyerName,
-                buyerEmail
+                buyerEmail,
+                buyerPhone,
+                ticketQty
               );
             } catch (err) {
               console.error("Error generating ticket pass:", err);

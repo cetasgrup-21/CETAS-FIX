@@ -6,6 +6,7 @@ export interface UnifiedTicketTier {
   price: number;
   quotaRemaining: number;
   quotaTotal: number;
+  benefits?: string[];
 }
 
 export interface LKBBTeamScore {

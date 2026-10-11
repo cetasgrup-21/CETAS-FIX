@@ -24,12 +24,13 @@ import {
   EventRegistrationItem,
   RegisteredAttendee,
 } from "@/lib/events-registration-data";
+import { getStoredEvents, UnifiedEvent } from "@/lib/events-unified-data";
 import { generateQRCodeDataUrl } from "@/lib/ticket-security";
 import { FileUpload } from "@/components/ui/file-upload";
 
 export default function RegisterEventPage() {
   const [events, setEvents] = useState<EventRegistrationItem[]>(INITIAL_REGISTRATION_EVENTS);
-  const [selectedEventId, setSelectedEventId] = useState<string>("ev-workshop-ai");
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [badgeResult, setBadgeResult] = useState<{
@@ -50,25 +51,60 @@ export default function RegisterEventPage() {
     portfolioUrl: "",
   });
 
-  // Fetch updated events list from API if available
+  // Fetch updated events list from API & localStorage
   useEffect(() => {
-    fetch("/api/attendees?type=events")
+    const mapUnifiedToReg = (list: UnifiedEvent[]): EventRegistrationItem[] =>
+      list.map((e) => ({
+        id: e.id,
+        slug: e.slug || e.id,
+        title: e.title,
+        organizer: e.organizer || "Cetas Official",
+        category: e.category || "Kompetisi & Event",
+        date: e.date,
+        time: e.time || "08:00 - 17:00 WIB",
+        location: e.location,
+        locationType: e.locationType || "OFFLINE",
+        bannerUrl: e.bannerUrl,
+        description: e.description,
+        isOpenOnlineRegistration: e.isOpenOnlineRegistration !== false,
+        statusNote: "Pendaftaran Online Resmi Cetas",
+        price: e.price || 0,
+        priceLabel: e.priceLabel || (e.price ? `Rp ${e.price.toLocaleString("id-ID")}` : "GRATIS (Free Pass)"),
+        quotaTotal: e.quotaTotal || 200,
+        quotaRemaining: e.quotaRemaining !== undefined ? e.quotaRemaining : 200,
+        categoryOptions: ["Tingkat SMP / MTs", "Tingkat SMA / SMK", "Kategori Umum / Peserta"],
+        facilities:
+          Array.isArray(e.facilities) && e.facilities.length > 0
+            ? e.facilities
+            : ["E-Badge Pass QR Resmi", "Sertifikat Digital"],
+        requirements: ["Identitas Diri / Kartu Pelajar Aktif"],
+        requiresPortfolio: false,
+      }));
+
+    const localEv = getStoredEvents();
+    if (localEv && localEv.length > 0) {
+      const mapped = mapUnifiedToReg(localEv);
+      setEvents(mapped);
+      setSelectedEventId(mapped[0].id);
+    }
+
+    fetch("/api/attendees?type=events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.events && data.events.length > 0) {
-          setEvents(data.events);
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          const mapped = mapUnifiedToReg(data.events);
+          setEvents(mapped);
+          setSelectedEventId((prev) => prev || mapped[0].id);
         }
       })
-      .catch(() => {
-        // Fallback to static initial data
-      });
+      .catch(() => {});
   }, []);
 
   const activeEvent = events.find((e) => e.id === selectedEventId) || events[0];
 
   // Set default category when selected event changes
   useEffect(() => {
-    if (activeEvent && activeEvent.categoryOptions.length > 0) {
+    if (activeEvent && Array.isArray(activeEvent.categoryOptions) && activeEvent.categoryOptions.length > 0) {
       setForm((prev) => ({
         ...prev,
         category: activeEvent.categoryOptions[0],

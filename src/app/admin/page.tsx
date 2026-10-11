@@ -58,6 +58,7 @@ import {
 import {
   INITIAL_UNIFIED_EVENTS,
   UnifiedEvent,
+  UnifiedTicketTier,
   getStoredEvents,
   saveStoredEvents,
 } from "@/lib/events-unified-data";
@@ -165,6 +166,23 @@ export default function AdminDashboardPage() {
     registrationQuota: 100,
     facilitiesText: "Sertifikat Digital, E-Badge Gate Pass, Snack",
   });
+  const [eventTiers, setEventTiers] = useState<UnifiedTicketTier[]>([
+    {
+      id: "tier-default-1",
+      name: "Tiket Reguler",
+      price: 25000,
+      quotaRemaining: 300,
+      quotaTotal: 300,
+    },
+  ]);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  const showSyncToast = (msg: string) => {
+    setSyncNotice(msg);
+    setTimeout(() => {
+      setSyncNotice((prev) => (prev === msg ? null : prev));
+    }, 4000);
+  };
 
   // Unified Products State (CRUD)
   const [productsList, setProductsList] = useState<UnifiedProduct[]>(INITIAL_UNIFIED_PRODUCTS);
@@ -254,19 +272,32 @@ export default function AdminDashboardPage() {
     const storedStaff = getStoredStaffList();
     if (storedStaff && storedStaff.length > 0) setStaffList(storedStaff);
 
-    // Fetch Events & Sync LocalStorage
+    // Fetch Events & Sync LocalStorage + PostgreSQL
     const localEv = getStoredEvents();
     if (localEv && localEv.length > 0) {
       setEventsList(localEv);
       setSelectedEventToConnect(localEv[0].id);
     }
-    fetch("/api/events")
+    fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          setEventsList(data.events);
-          saveStoredEvents(data.events);
-          setSelectedEventToConnect(data.events[0].id);
+      .then(async (data) => {
+        if (data.success && Array.isArray(data.events)) {
+          if (data.events.length > 0) {
+            setEventsList(data.events);
+            saveStoredEvents(data.events);
+            setSelectedEventToConnect(data.events[0].id);
+          } else if (localEv && localEv.length > 0) {
+            // Auto-sync any events already created in this browser to PostgreSQL backend
+            for (const ev of localEv) {
+              try {
+                await fetch("/api/events", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(ev),
+                });
+              } catch {}
+            }
+          }
         }
       })
       .catch(() => {});
@@ -276,7 +307,7 @@ export default function AdminDashboardPage() {
     if (localProds && localProds.length > 0) {
       setProductsList(localProds);
     }
-    fetch("/api/products")
+    fetch("/api/products", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.products) {
@@ -286,7 +317,7 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {});
 
-    // Fetch Hierarchical Vote Config & Sync LocalStorage
+    // Fetch Hierarchical Vote Config & Sync LocalStorage + PostgreSQL
     const localVotes = getStoredEventVotings();
     if (localVotes && localVotes.length > 0) {
       setEventVotings(localVotes);
@@ -295,22 +326,35 @@ export default function AdminDashboardPage() {
         setSelectedVoteCategoryId(localVotes[0].categories[0].id);
       }
     }
-    fetch("/api/vote")
+    fetch("/api/vote", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.eventVotings && data.eventVotings.length > 0) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
-          setSelectedVoteEventId(data.eventVotings[0].eventId);
-          if (data.eventVotings[0].categories.length > 0) {
-            setSelectedVoteCategoryId(data.eventVotings[0].categories[0].id);
+      .then(async (data) => {
+        if (data.success && Array.isArray(data.eventVotings)) {
+          if (data.eventVotings.length > 0) {
+            setEventVotings(data.eventVotings);
+            saveStoredEventVotings(data.eventVotings);
+            setSelectedVoteEventId(data.eventVotings[0].eventId);
+            if (data.eventVotings[0].categories.length > 0) {
+              setSelectedVoteCategoryId(data.eventVotings[0].categories[0].id);
+            }
+          } else if (localVotes && localVotes.length > 0) {
+            try {
+              await fetch("/api/vote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "SYNC_VOTINGS",
+                  eventVotings: localVotes,
+                }),
+              });
+            } catch {}
           }
         }
       })
       .catch(() => {});
 
     // Fetch Attendees
-    fetch("/api/attendees")
+    fetch("/api/attendees", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.attendees) setAttendees(data.attendees);
@@ -396,13 +440,22 @@ export default function AdminDashboardPage() {
       description: "Deskripsi acara spektakuler Cetas.",
       status: "PUBLISHED",
       isOpenTicketing: true,
-      ticketTierName: "Regular Pass",
-      ticketPrice: 150000,
-      ticketQuota: 250,
-      isOpenOnlineRegistration: false,
+      ticketTierName: "Tiket Reguler",
+      ticketPrice: 25000,
+      ticketQuota: 300,
+      isOpenOnlineRegistration: true,
       registrationQuota: 100,
       facilitiesText: "Sertifikat Digital Resmi, E-Badge Pass QR, Snack",
     });
+    setEventTiers([
+      {
+        id: `tier-${Date.now()}-1`,
+        name: "Tiket Reguler",
+        price: 25000,
+        quotaRemaining: 300,
+        quotaTotal: 300,
+      },
+    ]);
     setIsEventModalOpen(true);
   };
 
@@ -416,6 +469,19 @@ export default function AdminDashboardPage() {
       setIsCustomCategory(false);
       setCustomCategoryText("");
     }
+    const initialTiers: UnifiedTicketTier[] =
+      ev.tiers && ev.tiers.length > 0
+        ? ev.tiers
+        : [
+            {
+              id: `tier-${Date.now()}-1`,
+              name: "Tiket Reguler",
+              price: 25000,
+              quotaRemaining: 300,
+              quotaTotal: 300,
+            },
+          ];
+    setEventTiers(initialTiers);
     setEventForm({
       title: ev.title,
       organizer: ev.organizer,
@@ -429,9 +495,9 @@ export default function AdminDashboardPage() {
       description: ev.description,
       status: ev.status,
       isOpenTicketing: ev.isOpenTicketing,
-      ticketTierName: ev.tiers && ev.tiers[0] ? ev.tiers[0].name : "Regular Pass",
-      ticketPrice: ev.tiers && ev.tiers[0] ? ev.tiers[0].price : 150000,
-      ticketQuota: ev.tiers && ev.tiers[0] ? ev.tiers[0].quotaTotal : 200,
+      ticketTierName: initialTiers[0].name,
+      ticketPrice: initialTiers[0].price,
+      ticketQuota: initialTiers[0].quotaTotal,
       isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
       registrationQuota: ev.quotaTotal || 100,
       facilitiesText: (ev.facilities || []).join(", "),
@@ -448,9 +514,39 @@ export default function AdminDashboardPage() {
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const finalCategory = (isCustomCategory && customCategoryText.trim())
-      ? customCategoryText.trim()
-      : eventForm.category;
+    const finalCategory =
+      isCustomCategory && customCategoryText.trim()
+        ? customCategoryText.trim()
+        : eventForm.category;
+
+    // Sinkronkan tier pertama dengan form cepat, dan pertahankan seluruh tier tambahan
+    const normalizedTiers: UnifiedTicketTier[] =
+      eventTiers && eventTiers.length > 0
+        ? eventTiers.map((t, idx) =>
+            idx === 0
+              ? {
+                  ...t,
+                  name: eventForm.ticketTierName || t.name || "Tiket Reguler",
+                  price: Number(eventForm.ticketPrice ?? t.price ?? 0),
+                  quotaTotal: Number(eventForm.ticketQuota ?? t.quotaTotal ?? 100),
+                  quotaRemaining: Number(eventForm.ticketQuota ?? t.quotaRemaining ?? 100),
+                }
+              : {
+                  ...t,
+                  price: Number(t.price) || 0,
+                  quotaTotal: Number(t.quotaTotal) || 100,
+                  quotaRemaining: Number(t.quotaRemaining ?? t.quotaTotal) || 100,
+                }
+          )
+        : [
+            {
+              id: `tier-${Date.now()}-1`,
+              name: eventForm.ticketTierName || "Tiket Reguler",
+              price: Number(eventForm.ticketPrice) || 0,
+              quotaRemaining: Number(eventForm.ticketQuota) || 100,
+              quotaTotal: Number(eventForm.ticketQuota) || 100,
+            },
+          ];
 
     const payload = {
       title: eventForm.title,
@@ -465,17 +561,7 @@ export default function AdminDashboardPage() {
       description: eventForm.description,
       status: eventForm.status,
       isOpenTicketing: eventForm.isOpenTicketing,
-      tiers: eventForm.isOpenTicketing
-        ? [
-            {
-              id: `tier-${Date.now()}-1`,
-              name: eventForm.ticketTierName,
-              price: Number(eventForm.ticketPrice),
-              quotaRemaining: Number(eventForm.ticketQuota),
-              quotaTotal: Number(eventForm.ticketQuota),
-            },
-          ]
-        : [],
+      tiers: eventForm.isOpenTicketing ? normalizedTiers : [],
       isOpenOnlineRegistration: eventForm.isOpenOnlineRegistration,
       quotaTotal: Number(eventForm.registrationQuota),
       quotaRemaining: Number(eventForm.registrationQuota),
@@ -484,20 +570,46 @@ export default function AdminDashboardPage() {
       facilities: facilitiesArray,
     };
 
-    if (editingEventId) {
+    const targetEventId = isEventModalOpen
+      ? editingEventId
+      : selectedEventId || editingEventId;
+
+    if (targetEventId) {
       try {
         const res = await fetch("/api/events", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingEventId, ...payload }),
+          body: JSON.stringify({ id: targetEventId, ...payload }),
         });
         const data = await res.json();
         if (data.success && data.event) {
-          setEventsList((prev) =>
-            prev.map((ev) => (ev.id === editingEventId ? data.event : ev))
-          );
+          setEventsList((prev) => {
+            const next = prev.map((ev) => (ev.id === targetEventId ? data.event : ev));
+            saveStoredEvents(next);
+            return next;
+          });
+          if (data.event.tiers) setEventTiers(data.event.tiers);
+          showSyncToast(`✓ Event & Tiket '${data.event.title}' berhasil disimpan & disinkronkan ke publik!`);
+        } else {
+          setEventsList((prev) => {
+            const next = prev.map((ev) =>
+              ev.id === targetEventId ? ({ ...ev, ...payload, id: targetEventId } as UnifiedEvent) : ev
+            );
+            saveStoredEvents(next);
+            return next;
+          });
+          showSyncToast(`✓ Perubahan Event & Tiket berhasil disimpan!`);
         }
-      } catch {}
+      } catch {
+        setEventsList((prev) => {
+          const next = prev.map((ev) =>
+            ev.id === targetEventId ? ({ ...ev, ...payload, id: targetEventId } as UnifiedEvent) : ev
+          );
+          saveStoredEvents(next);
+          return next;
+        });
+        showSyncToast(`✓ Perubahan Event & Tiket tersimpan!`);
+      }
     } else {
       try {
         const res = await fetch("/api/events", {
@@ -507,9 +619,37 @@ export default function AdminDashboardPage() {
         });
         const data = await res.json();
         if (data.success && data.event) {
-          setEventsList((prev) => [data.event, ...prev]);
+          setEventsList((prev) => {
+            const next = [data.event, ...prev.filter((e) => e.id !== data.event.id)];
+            saveStoredEvents(next);
+            return next;
+          });
+          // Refresh votings agar bilik vote event baru langsung tampil
+          fetch("/api/vote")
+            .then((r) => r.json())
+            .then((vData) => {
+              if (vData.success && Array.isArray(vData.eventVotings)) {
+                setEventVotings(vData.eventVotings);
+                saveStoredEventVotings(vData.eventVotings);
+              }
+            })
+            .catch(() => {});
+          showSyncToast(`✓ Event baru '${data.event.title}' berhasil diterbitkan ke publik!`);
         }
-      } catch {}
+      } catch {
+        const fallbackEv: UnifiedEvent = {
+          id: `ev-${Date.now().toString().slice(-6)}`,
+          slug: payload.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          categoryOptions: ["Tingkat SMP/MTs", "Tingkat SMA/SMK/MA", "Umum"],
+          ...payload,
+        };
+        setEventsList((prev) => {
+          const next = [fallbackEv, ...prev];
+          saveStoredEvents(next);
+          return next;
+        });
+        showSyncToast(`✓ Event baru '${fallbackEv.title}' berhasil dibuat!`);
+      }
     }
 
     setIsEventModalOpen(false);
@@ -517,10 +657,17 @@ export default function AdminDashboardPage() {
 
   const handleDeleteEvent = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus event ini beserta bilik votingnya?")) {
-      setEventsList((prev) => prev.filter((ev) => ev.id !== id));
-      // Sinkronkan juga hapus bilik voting untuk event ini
+      setEventsList((prev) => {
+        const next = prev.filter((ev) => ev.id !== id);
+        saveStoredEvents(next);
+        return next;
+      });
+      if (selectedEventId === id) {
+        setSelectedEventId(null);
+      }
       setEventVotings((prev) => {
         const remaining = prev.filter((ev) => ev.eventId !== id);
+        saveStoredEventVotings(remaining);
         if (selectedVoteEventId === id && remaining.length > 0) {
           setSelectedVoteEventId(remaining[0].eventId);
           if (remaining[0].categories.length > 0) {
@@ -535,6 +682,7 @@ export default function AdminDashboardPage() {
       try {
         await fetch(`/api/vote?eventId=${id}`, { method: "DELETE" });
       } catch {}
+      showSyncToast("✓ Event berhasil dihapus dari sistem.");
     }
   };
 
@@ -732,13 +880,26 @@ export default function AdminDashboardPage() {
   // ---------------- HIERARCHICAL VOTE & EVENT WORKSPACE HANDLERS ----------------
   const selectedEvent = eventsList.find((ev) => ev.id === selectedEventId) || null;
 
-  const handleToggleAttendeePresence = (id: string) => {
+  const handleToggleAttendeePresence = async (id: string) => {
     setAttendees((prev) =>
       prev.map((a) => (a.id === id ? { ...a, isPresent: !a.isPresent } : a))
     );
+    try {
+      const target = attendees.find((a) => a.id === id);
+      if (target) {
+        await fetch("/api/attendees", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            badgeCode: target.badgeCode,
+            action: "CHECK_IN",
+          }),
+        });
+      }
+    } catch {}
   };
 
-  const handleSelectEventWorkspace = (eventId: string) => {
+  const handleSelectEventWorkspace = async (eventId: string) => {
     setSelectedEventId(eventId);
     setSelectedVoteEventId(eventId);
     setEventSubTab("DETAILS");
@@ -754,6 +915,20 @@ export default function AdminDashboardPage() {
         setIsCustomCategory(false);
         setCustomCategoryText("");
       }
+      const initialTiers: UnifiedTicketTier[] =
+        ev.tiers && ev.tiers.length > 0
+          ? ev.tiers
+          : [
+              {
+                id: `tier-${ev.id}-1`,
+                name: "Tiket Reguler",
+                price: ev.price || 50000,
+                quotaTotal: ev.quotaTotal || 200,
+                quotaRemaining: ev.quotaRemaining || 200,
+                benefits: ev.facilities || ["E-Ticket QR Code Resmi"],
+              },
+            ];
+      setEventTiers(initialTiers);
       setEventForm({
         title: ev.title,
         organizer: ev.organizer,
@@ -767,19 +942,43 @@ export default function AdminDashboardPage() {
         description: ev.description,
         status: ev.status,
         isOpenTicketing: ev.isOpenTicketing,
-        ticketTierName: ev.tiers && ev.tiers[0] ? ev.tiers[0].name : "Regular Pass",
-        ticketPrice: ev.tiers && ev.tiers[0] ? ev.tiers[0].price : 150000,
-        ticketQuota: ev.tiers && ev.tiers[0] ? ev.tiers[0].quotaTotal : 200,
+        ticketTierName: initialTiers[0].name,
+        ticketPrice: initialTiers[0].price,
+        ticketQuota: initialTiers[0].quotaTotal,
         isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
         registrationQuota: ev.quotaTotal || 100,
         facilitiesText: (ev.facilities || []).join(", "),
       });
 
-      // Ensure voting config exists for this event
-      const exists = eventVotings.some((v) => v.eventId === eventId);
-      if (!exists) {
-        setEventVotings((prev) => [
-          {
+      // Ensure voting config exists for this event and is synced to backend
+      const existingVote = eventVotings.find((v) => v.eventId === eventId);
+      if (!existingVote) {
+        try {
+          const res = await fetch("/api/vote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "ADD_EVENT_VOTING",
+              eventId: ev.id,
+              eventTitle: ev.title,
+              bannerUrl: ev.bannerUrl,
+              themePreset: ev.themePreset || "FLAME",
+              eventDate: ev.date,
+            }),
+          });
+          const data = await res.json();
+          if (data.success && Array.isArray(data.eventVotings)) {
+            setEventVotings(data.eventVotings);
+            saveStoredEventVotings(data.eventVotings);
+            const created = data.eventVotings.find(
+              (v: EventVotingConfig) => v.eventId === ev.id
+            );
+            if (created?.categories?.[0]) {
+              setSelectedVoteCategoryId(created.categories[0].id);
+            }
+          }
+        } catch {
+          const fallbackVote: EventVotingConfig = {
             eventId: ev.id,
             eventTitle: ev.title,
             bannerUrl: ev.bannerUrl,
@@ -787,7 +986,7 @@ export default function AdminDashboardPage() {
             eventDate: ev.date,
             categories: [
               {
-                id: `cat-${Date.now()}-1`,
+                id: `cat-${ev.id}-smp`,
                 eventId: ev.id,
                 title: "Favorit SMP / MTs Sederajat",
                 description: "Kategori pemilihan regu terfavorit tingkat SMP",
@@ -795,7 +994,7 @@ export default function AdminDashboardPage() {
                 candidates: [],
               },
               {
-                id: `cat-${Date.now()}-2`,
+                id: `cat-${ev.id}-sma`,
                 eventId: ev.id,
                 title: "Favorit SMA / SMK Sederajat",
                 description: "Kategori pemilihan regu terfavorit tingkat SMA",
@@ -803,15 +1002,33 @@ export default function AdminDashboardPage() {
                 candidates: [],
               },
             ],
-          },
-          ...prev,
-        ]);
+          };
+          setEventVotings((prev) => {
+            const next = [fallbackVote, ...prev.filter((v) => v.eventId !== ev.id)];
+            saveStoredEventVotings(next);
+            return next;
+          });
+          setSelectedVoteCategoryId(fallbackVote.categories[0].id);
+        }
+      } else if (existingVote.categories.length > 0) {
+        setSelectedVoteCategoryId(existingVote.categories[0].id);
       }
     }
   };
 
   const activeVoteEvent =
-    eventVotings.find((ev) => ev.eventId === (selectedEventId || selectedVoteEventId)) || eventVotings[0];
+    eventVotings.find((ev) => ev.eventId === (selectedEventId || selectedVoteEventId)) ||
+    eventVotings[0] ||
+    (selectedEvent
+      ? {
+          eventId: selectedEvent.id,
+          eventTitle: selectedEvent.title,
+          bannerUrl: selectedEvent.bannerUrl,
+          themePreset: selectedEvent.themePreset || "FLAME",
+          eventDate: selectedEvent.date,
+          categories: [],
+        }
+      : undefined);
 
   const activeVoteCategory =
     activeVoteEvent?.categories.find((c) => c.id === selectedVoteCategoryId) ||
@@ -856,15 +1073,14 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    // Jika bilik voting event sudah aktif, arahkan langsung tanpa membuat duplikat
     const existing = eventVotings.find((v) => v.eventId === eventObj.id);
     if (existing) {
-      alert(`Bilik voting untuk event '${eventObj.title}' sudah aktif! Mengalihkan ke bilik tersebut.`);
       setSelectedVoteEventId(existing.eventId);
       if (existing.categories.length > 0) {
         setSelectedVoteCategoryId(existing.categories[0].id);
       }
       setIsAddEventVoteModalOpen(false);
+      showSyncToast(`Bilik voting "${eventObj.title}" siap dikelola.`);
       return;
     }
 
@@ -878,16 +1094,22 @@ export default function AdminDashboardPage() {
           eventTitle: eventObj.title,
           bannerUrl: eventObj.bannerUrl,
           themePreset: eventObj.themePreset,
+          eventDate: eventObj.date,
         }),
       });
       const data = await res.json();
       if (data.success && data.eventVoting) {
-        setEventVotings((prev) => [
-          data.eventVoting,
-          ...prev.filter((v) => v.eventId !== data.eventVoting.eventId),
-        ]);
+        const nextVotings = Array.isArray(data.eventVotings)
+          ? data.eventVotings
+          : [
+              data.eventVoting,
+              ...eventVotings.filter((v) => v.eventId !== data.eventVoting.eventId),
+            ];
+        setEventVotings(nextVotings);
+        saveStoredEventVotings(nextVotings);
         setSelectedVoteEventId(data.eventVoting.eventId);
         setSelectedVoteCategoryId(data.eventVoting.categories[0]?.id || "");
+        showSyncToast(`Bilik voting "${eventObj.title}" berhasil diaktifkan & disinkronkan!`);
       } else {
         alert(data.message || "Gagal membuka bilik voting.");
       }
@@ -922,74 +1144,169 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!categoryForm.title.trim()) return;
 
+    const targetEventId =
+      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId || eventsList[0]?.id;
+    if (!targetEventId) {
+      alert("Silakan buat atau pilih Event terlebih dahulu sebelum menambah kategori vote.");
+      return;
+    }
+    const targetEventObj = eventsList.find((ev) => ev.id === targetEventId);
+
     if (editingCategoryId) {
       // EDIT KATEGORI
+      const applyLocalEdit = () => {
+        setEventVotings((prev) => {
+          const next = prev.map((ev) => {
+            if (ev.eventId !== targetEventId) return ev;
+            return {
+              ...ev,
+              categories: ev.categories.map((c) =>
+                c.id === editingCategoryId
+                  ? {
+                      ...c,
+                      title: categoryForm.title,
+                      description: categoryForm.description,
+                      pricePerVote: Number(categoryForm.pricePerVote) || 2000,
+                    }
+                  : c
+              ),
+            };
+          });
+          saveStoredEventVotings(next);
+          return next;
+        });
+      };
+
       try {
-        await fetch("/api/vote", {
+        const res = await fetch("/api/vote", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "EDIT_CATEGORY",
-            eventId: activeVoteEvent.eventId,
+            eventId: targetEventId,
             categoryId: editingCategoryId,
-            updates: categoryForm,
+            updates: {
+              title: categoryForm.title,
+              description: categoryForm.description,
+              pricePerVote: Number(categoryForm.pricePerVote) || 2000,
+            },
           }),
         });
-        setEventVotings((prev) =>
-          prev.map((ev) => {
-            if (ev.eventId !== activeVoteEvent.eventId) return ev;
-            return {
-              ...ev,
-              categories: ev.categories.map((c) =>
-                c.id === editingCategoryId ? { ...c, ...categoryForm } : c
-              ),
-            };
-          })
-        );
-      } catch {}
+        const data = await res.json();
+        if (data.success && Array.isArray(data.eventVotings)) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+        } else {
+          applyLocalEdit();
+        }
+        showSyncToast(`Kategori "${categoryForm.title}" berhasil diperbarui!`);
+      } catch {
+        applyLocalEdit();
+        showSyncToast(`Kategori "${categoryForm.title}" diperbarui.`);
+      }
     } else {
       // TAMBAH KATEGORI BARU
+      const fallbackCat: VoteCategory = {
+        id: `cat-${Date.now()}`,
+        eventId: targetEventId,
+        title: categoryForm.title.trim(),
+        description: categoryForm.description.trim() || "Kategori pemilihan favorit",
+        pricePerVote: Number(categoryForm.pricePerVote) || 2000,
+        candidates: [],
+      };
+
+      const applyLocalAdd = (newCat: VoteCategory) => {
+        setEventVotings((prev) => {
+          const exists = prev.some((ev) => ev.eventId === targetEventId);
+          let next: EventVotingConfig[];
+          if (exists) {
+            next = prev.map((ev) => {
+              if (ev.eventId !== targetEventId) return ev;
+              return { ...ev, categories: [...ev.categories, newCat] };
+            });
+          } else {
+            next = [
+              {
+                eventId: targetEventId,
+                eventTitle: targetEventObj?.title || activeVoteEvent?.eventTitle || "Event Cetas",
+                bannerUrl: targetEventObj?.bannerUrl || activeVoteEvent?.bannerUrl || "",
+                themePreset: targetEventObj?.themePreset || activeVoteEvent?.themePreset || "FLAME",
+                eventDate: targetEventObj?.date || activeVoteEvent?.eventDate || "",
+                categories: [newCat],
+              },
+              ...prev,
+            ];
+          }
+          saveStoredEventVotings(next);
+          return next;
+        });
+        setSelectedVoteCategoryId(newCat.id);
+      };
+
       try {
         const res = await fetch("/api/vote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "ADD_CATEGORY",
-            eventId: activeVoteEvent.eventId,
-            title: categoryForm.title,
-            description: categoryForm.description,
-            pricePerVote: categoryForm.pricePerVote,
+            eventId: targetEventId,
+            eventTitle: targetEventObj?.title || activeVoteEvent?.eventTitle,
+            bannerUrl: targetEventObj?.bannerUrl || activeVoteEvent?.bannerUrl,
+            themePreset: targetEventObj?.themePreset || activeVoteEvent?.themePreset,
+            eventDate: targetEventObj?.date || activeVoteEvent?.eventDate,
+            title: categoryForm.title.trim(),
+            description: categoryForm.description.trim(),
+            pricePerVote: Number(categoryForm.pricePerVote) || 2000,
           }),
         });
         const data = await res.json();
         if (data.success && data.category) {
-          setEventVotings((prev) =>
-            prev.map((ev) => {
-              if (ev.eventId !== activeVoteEvent.eventId) return ev;
-              return { ...ev, categories: [...ev.categories, data.category] };
-            })
-          );
+          if (Array.isArray(data.eventVotings)) {
+            setEventVotings(data.eventVotings);
+            saveStoredEventVotings(data.eventVotings);
+          } else {
+            applyLocalAdd(data.category);
+          }
           setSelectedVoteCategoryId(data.category.id);
+          showSyncToast(`Kategori "${data.category.title}" berhasil ditambahkan & disinkronkan ke Cetas Vote!`);
+        } else {
+          applyLocalAdd(fallbackCat);
+          showSyncToast(`Kategori "${fallbackCat.title}" berhasil ditambahkan!`);
         }
-      } catch {}
+      } catch {
+        applyLocalAdd(fallbackCat);
+        showSyncToast(`Kategori "${fallbackCat.title}" berhasil ditambahkan!`);
+      }
     }
     setIsCategoryModalOpen(false);
   };
 
   const handleDeleteCategory = async (catId: string) => {
+    const targetEventId =
+      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId;
+    if (!targetEventId) return;
+
     if (confirm("Hapus kategori ini beserta seluruh peserta di dalamnya?")) {
+      setEventVotings((prev) => {
+        const next = prev.map((ev) => {
+          if (ev.eventId !== targetEventId) return ev;
+          const nextCats = ev.categories.filter((c) => c.id !== catId);
+          return { ...ev, categories: nextCats };
+        });
+        saveStoredEventVotings(next);
+        return next;
+      });
       try {
-        await fetch(
-          `/api/vote?eventId=${activeVoteEvent.eventId}&categoryId=${catId}`,
+        const res = await fetch(
+          `/api/vote?eventId=${targetEventId}&categoryId=${catId}`,
           { method: "DELETE" }
         );
-        setEventVotings((prev) =>
-          prev.map((ev) => {
-            if (ev.eventId !== activeVoteEvent.eventId) return ev;
-            const nextCats = ev.categories.filter((c) => c.id !== catId);
-            return { ...ev, categories: nextCats };
-          })
-        );
+        const data = await res.json();
+        if (data.success && Array.isArray(data.eventVotings)) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+        }
+        showSyncToast("Kategori berhasil dihapus.");
       } catch {}
     }
   };
@@ -1002,7 +1319,7 @@ export default function AdminDashboardPage() {
       ? "SMP Negeri 1 Jakarta"
       : activeVoteCategory?.title.toLowerCase().includes("sma")
       ? "SMA Negeri 3 Bandung"
-      : "Universitas / Purna 2024";
+      : "Instansi / Sekolah Peserta";
 
     setCandidateForm({
       candidateNumber: nextNum,
@@ -1032,33 +1349,27 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!candidateForm.name.trim()) return;
 
+    const targetEventId =
+      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId || eventsList[0]?.id;
+    if (!targetEventId) {
+      alert("Silakan pilih atau buat Event terlebih dahulu.");
+      return;
+    }
+    const targetEventObj = eventsList.find((ev) => ev.id === targetEventId);
+    const targetCategoryId =
+      activeVoteCategory?.id || selectedVoteCategoryId || `cat-${targetEventId}-umum`;
+    const targetCategoryTitle = activeVoteCategory?.title || "Kategori Umum";
+
     if (editingCandidateId) {
-      // EDIT PESERTA (Hanya profil yang diubah, suara terkunci demi integritas)
-      try {
-        await fetch("/api/vote", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "EDIT_CANDIDATE",
-            eventId: activeVoteEvent.eventId,
-            categoryId: activeVoteCategory.id,
-            candidateId: editingCandidateId,
-            updates: {
-              candidateNumber: candidateForm.candidateNumber,
-              name: candidateForm.name,
-              institution: candidateForm.institution,
-              photoUrl: candidateForm.photoUrl,
-              tagline: candidateForm.tagline,
-            },
-          }),
-        });
-        setEventVotings((prev) =>
-          prev.map((ev) => {
-            if (ev.eventId !== activeVoteEvent.eventId) return ev;
+      // EDIT PESERTA
+      const applyLocalEditCandidate = () => {
+        setEventVotings((prev) => {
+          const next = prev.map((ev) => {
+            if (ev.eventId !== targetEventId) return ev;
             return {
               ...ev,
               categories: ev.categories.map((c) => {
-                if (c.id !== activeVoteCategory.id) return c;
+                if (c.id !== targetCategoryId) return c;
                 return {
                   ...c,
                   candidates: c.candidates.map((cand) =>
@@ -1076,22 +1387,133 @@ export default function AdminDashboardPage() {
                 };
               }),
             };
-          })
-        );
-      } catch {}
+          });
+          saveStoredEventVotings(next);
+          return next;
+        });
+      };
+
+      try {
+        const res = await fetch("/api/vote", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "EDIT_CANDIDATE",
+            eventId: targetEventId,
+            categoryId: targetCategoryId,
+            candidateId: editingCandidateId,
+            updates: {
+              candidateNumber: candidateForm.candidateNumber,
+              name: candidateForm.name,
+              institution: candidateForm.institution,
+              photoUrl: candidateForm.photoUrl,
+              tagline: candidateForm.tagline,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.eventVotings)) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+        } else {
+          applyLocalEditCandidate();
+        }
+        showSyncToast(`Profil peserta "${candidateForm.name}" berhasil diperbarui!`);
+      } catch {
+        applyLocalEditCandidate();
+        showSyncToast(`Profil peserta "${candidateForm.name}" diperbarui.`);
+      }
     } else {
       // TAMBAH PESERTA BARU (Suara otomatis 0)
+      const fallbackCand: VoteCandidate = {
+        id: `cand-${Date.now()}`,
+        eventId: targetEventId,
+        categoryId: targetCategoryId,
+        candidateNumber: candidateForm.candidateNumber,
+        name: candidateForm.name.trim(),
+        institution: candidateForm.institution.trim(),
+        photoUrl: candidateForm.photoUrl,
+        tagline: candidateForm.tagline,
+        totalVotes: 0,
+      };
+
+      const applyLocalAddCandidate = (newCand: VoteCandidate) => {
+        setEventVotings((prev) => {
+          const eventExists = prev.some((ev) => ev.eventId === targetEventId);
+          let next: EventVotingConfig[];
+          if (eventExists) {
+            next = prev.map((ev) => {
+              if (ev.eventId !== targetEventId) return ev;
+              const catExists = ev.categories.some((c) => c.id === targetCategoryId);
+              if (catExists) {
+                return {
+                  ...ev,
+                  categories: ev.categories.map((c) => {
+                    if (c.id !== targetCategoryId) return c;
+                    return { ...c, candidates: [...c.candidates, newCand] };
+                  }),
+                };
+              } else {
+                return {
+                  ...ev,
+                  categories: [
+                    ...ev.categories,
+                    {
+                      id: targetCategoryId,
+                      eventId: targetEventId,
+                      title: targetCategoryTitle,
+                      description: "Kategori pemilihan favorit",
+                      pricePerVote: 2000,
+                      candidates: [newCand],
+                    },
+                  ],
+                };
+              }
+            });
+          } else {
+            next = [
+              {
+                eventId: targetEventId,
+                eventTitle: targetEventObj?.title || "Event Cetas",
+                bannerUrl: targetEventObj?.bannerUrl || "",
+                themePreset: targetEventObj?.themePreset || "FLAME",
+                eventDate: targetEventObj?.date || "",
+                categories: [
+                  {
+                    id: targetCategoryId,
+                    eventId: targetEventId,
+                    title: targetCategoryTitle,
+                    description: "Kategori pemilihan favorit",
+                    pricePerVote: 2000,
+                    candidates: [newCand],
+                  },
+                ],
+              },
+              ...prev,
+            ];
+          }
+          saveStoredEventVotings(next);
+          return next;
+        });
+      };
+
       try {
         const res = await fetch("/api/vote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "ADD_CANDIDATE",
-            eventId: activeVoteEvent.eventId,
-            categoryId: activeVoteCategory.id,
+            eventId: targetEventId,
+            eventTitle: targetEventObj?.title || activeVoteEvent?.eventTitle,
+            bannerUrl: targetEventObj?.bannerUrl || activeVoteEvent?.bannerUrl,
+            themePreset: targetEventObj?.themePreset || activeVoteEvent?.themePreset,
+            eventDate: targetEventObj?.date || activeVoteEvent?.eventDate,
+            categoryId: targetCategoryId,
+            categoryTitle: targetCategoryTitle,
+            pricePerVote: activeVoteCategory?.pricePerVote || 2000,
             candidateNumber: candidateForm.candidateNumber,
-            name: candidateForm.name,
-            institution: candidateForm.institution,
+            name: candidateForm.name.trim(),
+            institution: candidateForm.institution.trim(),
             photoUrl: candidateForm.photoUrl,
             tagline: candidateForm.tagline,
             totalVotes: 0,
@@ -1099,46 +1521,65 @@ export default function AdminDashboardPage() {
         });
         const data = await res.json();
         if (data.success && data.candidate) {
-          setEventVotings((prev) =>
-            prev.map((ev) => {
-              if (ev.eventId !== activeVoteEvent.eventId) return ev;
-              return {
-                ...ev,
-                categories: ev.categories.map((c) => {
-                  if (c.id !== activeVoteCategory.id) return c;
-                  return { ...c, candidates: [...c.candidates, data.candidate] };
-                }),
-              };
-            })
+          if (Array.isArray(data.eventVotings)) {
+            setEventVotings(data.eventVotings);
+            saveStoredEventVotings(data.eventVotings);
+          } else {
+            applyLocalAddCandidate(data.candidate);
+          }
+          if (data.categoryId) {
+            setSelectedVoteCategoryId(data.categoryId);
+          }
+          showSyncToast(
+            `Peserta "${data.candidate.name}" berhasil ditambahkan & disinkronkan ke Cetas Vote!`
           );
+        } else {
+          applyLocalAddCandidate(fallbackCand);
+          showSyncToast(`Peserta "${fallbackCand.name}" berhasil ditambahkan!`);
         }
-      } catch {}
+      } catch {
+        applyLocalAddCandidate(fallbackCand);
+        showSyncToast(`Peserta "${fallbackCand.name}" berhasil ditambahkan!`);
+      }
     }
     setIsCandidateModalOpen(false);
   };
 
   const handleDeleteCandidate = async (candId: string) => {
+    const targetEventId =
+      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId;
+    const targetCategoryId = activeVoteCategory?.id || selectedVoteCategoryId;
+    if (!targetEventId || !targetCategoryId) return;
+
     if (confirm("Hapus peserta ini dari voting?")) {
+      setEventVotings((prev) => {
+        const next = prev.map((ev) => {
+          if (ev.eventId !== targetEventId) return ev;
+          return {
+            ...ev,
+            categories: ev.categories.map((c) => {
+              if (c.id !== targetCategoryId) return c;
+              return {
+                ...c,
+                candidates: c.candidates.filter((cand) => cand.id !== candId),
+              };
+            }),
+          };
+        });
+        saveStoredEventVotings(next);
+        return next;
+      });
       try {
-        await fetch(
-          `/api/vote?eventId=${activeVoteEvent.eventId}&categoryId=${activeVoteCategory.id}&candidateId=${candId}`,
+        const res = await fetch(
+          `/api/vote?eventId=${targetEventId}&categoryId=${targetCategoryId}&candidateId=${candId}`,
           { method: "DELETE" }
         );
-        setEventVotings((prev) =>
-          prev.map((ev) => {
-            if (ev.eventId !== activeVoteEvent.eventId) return ev;
-            return {
-              ...ev,
-              categories: ev.categories.map((c) => {
-                if (c.id !== activeVoteCategory.id) return c;
-                return {
-                  ...c,
-                  candidates: c.candidates.filter((cand) => cand.id !== candId),
-                };
-              }),
-            };
-          })
-        );
+        const data = await res.json();
+        if (data.success && Array.isArray(data.eventVotings)) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+        }
+        showSyncToast("Peserta berhasil dihapus dari voting.");
       } catch {}
     }
   };
@@ -1330,6 +1771,23 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Floating Sync Notification Toast */}
+      {syncNotice && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md rounded-2xl border border-emerald-400/50 bg-emerald-950/95 text-white px-4 py-3.5 shadow-2xl shadow-emerald-500/20 flex items-center gap-3 backdrop-blur-md">
+          <div className="h-8 w-8 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0 font-black">
+            ✓
+          </div>
+          <div className="text-xs font-bold leading-snug flex-1">{syncNotice}</div>
+          <button
+            type="button"
+            onClick={() => setSyncNotice(null)}
+            className="text-emerald-300 hover:text-white text-xs font-black px-1.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Super Admin Quick Controls */}
       {isSuperAdmin && (
@@ -2080,18 +2538,39 @@ export default function AdminDashboardPage() {
                             />
                             Buka Penjualan Tiket Cetas
                           </label>
-                          <span className="text-[10px] font-bold text-blue-600">DOKU Direct API</span>
+                          <button
+                            type="button"
+                            onClick={() => setEventSubTab("TICKETS")}
+                            className="text-[10px] font-black text-blue-600 hover:underline"
+                          >
+                            Kelola Multi-Tier Tiket &rarr;
+                          </button>
                         </div>
                         {eventForm.isOpenTicketing && (
                           <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
                             <div>
-                              <span className="text-[10px] text-slate-500 font-bold block mb-1">Nama Tier:</span>
+                              <span className="text-[10px] text-slate-500 font-bold block mb-1">Nama Tier Utama:</span>
                               <input
                                 type="text"
                                 value={eventForm.ticketTierName}
-                                onChange={(e) =>
-                                  setEventForm({ ...eventForm, ticketTierName: e.target.value })
-                                }
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setEventForm({ ...eventForm, ticketTierName: val });
+                                  setEventTiers((prev) =>
+                                    prev.length > 0
+                                      ? prev.map((t, idx) => (idx === 0 ? { ...t, name: val } : t))
+                                      : [
+                                          {
+                                            id: `tier-${Date.now()}`,
+                                            name: val,
+                                            price: eventForm.ticketPrice,
+                                            quotaTotal: eventForm.ticketQuota,
+                                            quotaRemaining: eventForm.ticketQuota,
+                                            benefits: ["E-Ticket QR Code Resmi"],
+                                          },
+                                        ]
+                                  );
+                                }}
                                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold"
                               />
                             </div>
@@ -2100,9 +2579,24 @@ export default function AdminDashboardPage() {
                               <input
                                 type="number"
                                 value={eventForm.ticketPrice}
-                                onChange={(e) =>
-                                  setEventForm({ ...eventForm, ticketPrice: Number(e.target.value) })
-                                }
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setEventForm({ ...eventForm, ticketPrice: val });
+                                  setEventTiers((prev) =>
+                                    prev.length > 0
+                                      ? prev.map((t, idx) => (idx === 0 ? { ...t, price: val } : t))
+                                      : [
+                                          {
+                                            id: `tier-${Date.now()}`,
+                                            name: eventForm.ticketTierName,
+                                            price: val,
+                                            quotaTotal: eventForm.ticketQuota,
+                                            quotaRemaining: eventForm.ticketQuota,
+                                            benefits: ["E-Ticket QR Code Resmi"],
+                                          },
+                                        ]
+                                  );
+                                }}
                                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold"
                               />
                             </div>
@@ -2111,9 +2605,28 @@ export default function AdminDashboardPage() {
                               <input
                                 type="number"
                                 value={eventForm.ticketQuota}
-                                onChange={(e) =>
-                                  setEventForm({ ...eventForm, ticketQuota: Number(e.target.value) })
-                                }
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setEventForm({ ...eventForm, ticketQuota: val });
+                                  setEventTiers((prev) =>
+                                    prev.length > 0
+                                      ? prev.map((t, idx) =>
+                                          idx === 0
+                                            ? { ...t, quotaTotal: val, quotaRemaining: val }
+                                            : t
+                                        )
+                                      : [
+                                          {
+                                            id: `tier-${Date.now()}`,
+                                            name: eventForm.ticketTierName,
+                                            price: eventForm.ticketPrice,
+                                            quotaTotal: val,
+                                            quotaRemaining: val,
+                                            benefits: ["E-Ticket QR Code Resmi"],
+                                          },
+                                        ]
+                                  );
+                                }}
                                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold"
                               />
                             </div>
@@ -2534,7 +3047,7 @@ export default function AdminDashboardPage() {
                   </div>
 
                   {/* Daftar Peserta di Kategori Terpilih */}
-                  {activeVoteCategory && (
+                  {activeVoteCategory ? (
                     <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4 shadow-sm">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                         <div>
@@ -2629,6 +3142,33 @@ export default function AdminDashboardPage() {
                         )}
                       </div>
                     </div>
+                  ) : (
+                    <div className="rounded-3xl border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 p-8 text-center space-y-3">
+                      <div className="text-sm font-black text-slate-900 dark:text-white">
+                        Siap Menambahkan Kategori &amp; Peserta Cetas Vote
+                      </div>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Buat kategori pemilihan terlebih dahulu (misal: SMP, SMA, Umum) atau langsung daftarkan peserta baru (kategori otomatis dibuatkan).
+                      </p>
+                      <div className="flex items-center justify-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleOpenCreateCategory}
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md transition"
+                        >
+                          <PlusCircle className="h-4 w-4" />
+                          + Buat Kategori Baru
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenCreateCandidate}
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          + Langsung Tambah Peserta
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -2642,14 +3182,22 @@ export default function AdminDashboardPage() {
                     <div>
                       <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <Ticket className="h-5 w-5 text-blue-500" />
-                        Tiket Masuk & Validasi Scanner Pintu
+                        Manajemen Tiket Masuk & Validasi Scanner Pintu
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Tier tiket resmi untuk <strong>{selectedEvent.title}</strong> yang terhubung dengan QR Scanner tiket panitia.
+                        Atur kategori/tier tiket, harga, dan kuota resmi untuk <strong>{selectedEvent.title}</strong>. Otomatis tersinkronisasi dengan halaman publik <strong>Cetas Ticketing (/events)</strong> &amp; Beranda.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href="/events"
+                        target="_blank"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs hover:bg-blue-100 transition"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Cetas Ticketing Publik
+                      </Link>
                       <Link
                         href={`/scanner?eventId=${selectedEvent.id}`}
                         target="_blank"
@@ -2661,68 +3209,207 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
 
+                  {/* Status & Quick Toggle */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50">
-                      <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase">
-                        Status Tiket
-                      </span>
+                    <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase">
+                          Status Penjualan Tiket Publik
+                        </span>
+                        <div className="text-base font-black text-slate-900 dark:text-white mt-1">
+                          {eventForm.isOpenTicketing ? "🟢 Tiket Aktif & Tayang" : "⚪ Penjualan Ditutup"}
+                        </div>
+                      </div>
+                      <label className="inline-flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 text-xs font-black">
+                        <input
+                          type="checkbox"
+                          checked={eventForm.isOpenTicketing}
+                          onChange={(e) =>
+                            setEventForm({ ...eventForm, isOpenTicketing: e.target.checked })
+                          }
+                          className="rounded h-4 w-4 text-blue-600"
+                        />
+                        <span>{eventForm.isOpenTicketing ? "Aktif" : "Buka"}</span>
+                      </label>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Jumlah Tier Tiket</span>
                       <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                        {selectedEvent.isOpenTicketing ? "🟢 Tiket Aktif & Tayang" : "⚪ Penjualan Tutup"}
+                        {eventTiers.length} Kategori Tiket
                       </div>
                     </div>
 
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Jumlah Tier</span>
-                      <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                        {selectedEvent.tiers?.length || 1} Kategori Tiket
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Metode Bayar</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Metode Bayar Otomatis</span>
                       <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                        DOKU QRIS & E-Wallet
+                        DOKU QRIS &amp; E-Wallet
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                      Daftar Tier Tiket Tersedia
-                    </h4>
-                    <div className="space-y-2">
-                      {(selectedEvent.tiers && selectedEvent.tiers.length > 0
-                        ? selectedEvent.tiers
-                        : [
+                  {/* Interactive Multi-Tier Ticket Editor */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                          Pengaturan Kategori / Tier Tiket &amp; Harga Resmi
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Ubah nama tiket, harga (Rp), dan kuota di bawah ini, lalu klik tombol <strong>Simpan &amp; Sinkronkan Tiket ke Publik</strong>.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEventTiers((prev) => [
+                            ...prev,
                             {
-                              id: "default-tier",
-                              name: eventForm.ticketTierName || "Festival Regular",
-                              price: eventForm.ticketPrice || 150000,
-                              quotaTotal: eventForm.ticketQuota || 200,
-                              quotaRemaining: eventForm.ticketQuota || 200,
+                              id: `tier-${Date.now()}-${prev.length + 1}`,
+                              name: `Tier Tiket #${prev.length + 1} (VIP / Presale)`,
+                              price: 75000,
+                              quotaTotal: 100,
+                              quotaRemaining: 100,
+                              benefits: ["E-Ticket QR Code Resmi"],
                             },
-                          ]
-                      ).map((tier, idx) => (
+                          ])
+                        }
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black transition shrink-0"
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        + Tambah Tier Tiket Baru
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {eventTiers.map((tier, idx) => (
                         <div
                           key={tier.id || idx}
-                          className="flex items-center justify-between p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50"
+                          className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end"
                         >
-                          <div>
-                            <div className="text-sm font-black text-slate-900 dark:text-white">
-                              {tier.name}
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              Sisa Kuota: <strong>{tier.quotaRemaining}</strong> dari {tier.quotaTotal} tiket
-                            </div>
+                          <div className="sm:col-span-4">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                              Nama Tier #{idx + 1}
+                            </label>
+                            <input
+                              type="text"
+                              value={tier.name}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEventTiers((prev) =>
+                                  prev.map((t, i) => (i === idx ? { ...t, name: val } : t))
+                                );
+                                if (idx === 0) {
+                                  setEventForm((f) => ({ ...f, ticketTierName: val }));
+                                }
+                              }}
+                              placeholder="Contoh: Tiket Reguler / VIP Pass"
+                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                            />
                           </div>
-                          <div className="text-right">
-                            <div className="text-base font-black text-blue-600">
-                              {formatRupiah(tier.price)}
-                            </div>
-                            <span className="text-[10px] text-emerald-600 font-bold">Auto Verification</span>
+
+                          <div className="sm:col-span-3">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                              Harga Tiket (Rp)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={tier.price}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEventTiers((prev) =>
+                                  prev.map((t, i) => (i === idx ? { ...t, price: val } : t))
+                                );
+                                if (idx === 0) {
+                                  setEventForm((f) => ({ ...f, ticketPrice: val }));
+                                }
+                              }}
+                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-blue-600 dark:text-blue-400"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                              Kuota Total
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={tier.quotaTotal}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEventTiers((prev) =>
+                                  prev.map((t, i) =>
+                                    i === idx
+                                      ? { ...t, quotaTotal: val, quotaRemaining: Math.min(t.quotaRemaining, val) || val }
+                                      : t
+                                  )
+                                );
+                                if (idx === 0) {
+                                  setEventForm((f) => ({ ...f, ticketQuota: val }));
+                                }
+                              }}
+                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                              Sisa Kuota
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={tier.quotaRemaining}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setEventTiers((prev) =>
+                                  prev.map((t, i) => (i === idx ? { ...t, quotaRemaining: val } : t))
+                                );
+                              }}
+                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400"
+                            />
+                          </div>
+
+                          <div className="sm:col-span-1 flex justify-end">
+                            {eventTiers.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEventTiers((prev) => prev.filter((_, i) => i !== idx))
+                                }
+                                title="Hapus Tier Ini"
+                                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-600 transition"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-xs text-slate-500">
+                        💡 Harga mulai otomatis tampil sebesar{" "}
+                        <strong className="text-blue-600 dark:text-blue-400">
+                          {formatRupiah(
+                            eventTiers.length > 0
+                              ? Math.min(...eventTiers.map((t) => Number(t.price) || 0))
+                              : eventForm.ticketPrice
+                          )}
+                        </strong>{" "}
+                        di katalog publik Cetas Ticketing.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEvent()}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-lg shadow-blue-600/25 transition active:scale-95"
+                      >
+                        <Check className="h-4 w-4" />
+                        Simpan &amp; Sinkronkan Tiket ke Publik ✓
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3869,6 +4556,122 @@ export default function AdminDashboardPage() {
                     aspectRatio="banner"
                     required
                   />
+                </div>
+
+                {/* KONFIGURASI TIKET CETAS TICKETING */}
+                <div className="sm:col-span-2 p-4 rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-blue-950 dark:text-blue-200 flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={eventForm.isOpenTicketing}
+                        onChange={(e) =>
+                          setEventForm({ ...eventForm, isOpenTicketing: e.target.checked })
+                        }
+                        className="rounded h-4 w-4 text-blue-600"
+                      />
+                      <span>Buka Penjualan Tiket Cetas Ticketing</span>
+                    </label>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                      Tampil di Publik /events &amp; Beranda
+                    </span>
+                  </div>
+
+                  {eventForm.isOpenTicketing && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                          Nama Tier Tiket *
+                        </label>
+                        <input
+                          type="text"
+                          value={eventForm.ticketTierName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEventForm({ ...eventForm, ticketTierName: val });
+                            setEventTiers((prev) =>
+                              prev.length > 0
+                                ? prev.map((t, i) => (i === 0 ? { ...t, name: val } : t))
+                                : [
+                                    {
+                                      id: `tier-${Date.now()}`,
+                                      name: val,
+                                      price: eventForm.ticketPrice,
+                                      quotaTotal: eventForm.ticketQuota,
+                                      quotaRemaining: eventForm.ticketQuota,
+                                      benefits: ["E-Ticket QR Code Resmi"],
+                                    },
+                                  ]
+                            );
+                          }}
+                          placeholder="Tiket Reguler / VIP"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                          Harga Tiket (Rp) *
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={eventForm.ticketPrice}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setEventForm({ ...eventForm, ticketPrice: val });
+                            setEventTiers((prev) =>
+                              prev.length > 0
+                                ? prev.map((t, i) => (i === 0 ? { ...t, price: val } : t))
+                                : [
+                                    {
+                                      id: `tier-${Date.now()}`,
+                                      name: eventForm.ticketTierName,
+                                      price: val,
+                                      quotaTotal: eventForm.ticketQuota,
+                                      quotaRemaining: eventForm.ticketQuota,
+                                      benefits: ["E-Ticket QR Code Resmi"],
+                                    },
+                                  ]
+                            );
+                          }}
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-black text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                          Kuota Tiket *
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={eventForm.ticketQuota}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setEventForm({ ...eventForm, ticketQuota: val });
+                            setEventTiers((prev) =>
+                              prev.length > 0
+                                ? prev.map((t, i) =>
+                                    i === 0 ? { ...t, quotaTotal: val, quotaRemaining: val } : t
+                                  )
+                                : [
+                                    {
+                                      id: `tier-${Date.now()}`,
+                                      name: eventForm.ticketTierName,
+                                      price: eventForm.ticketPrice,
+                                      quotaTotal: val,
+                                      quotaRemaining: val,
+                                      benefits: ["E-Ticket QR Code Resmi"],
+                                    },
+                                  ]
+                            );
+                          }}
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* PILIH TEMA TAMPILAN EVENT */}

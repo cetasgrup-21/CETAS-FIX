@@ -8,6 +8,11 @@ export default function robots(): MetadataRoute.Robots {
         allow: [
           "/",
           "/favicon.ico",
+          "/cetas-favicon-v2.png",
+          "/cetas-favicon-96-v2.png",
+          "/cetas-icon-192-v2.png",
+          "/cetas-icon-512-v2.png",
+          "/cetas-apple-icon-v2.png",
           "/favicon-48x48.png",
           "/favicon-96x96.png",
           "/icon-192.png",

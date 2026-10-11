@@ -12,22 +12,22 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#7C3AED",
     icons: [
       {
-        src: "/favicon-48x48.png",
+        src: "/cetas-favicon-v2.png",
         sizes: "48x48",
         type: "image/png",
       },
       {
-        src: "/favicon-96x96.png",
+        src: "/cetas-favicon-96-v2.png",
         sizes: "96x96",
         type: "image/png",
       },
       {
-        src: "/icon-192.png",
+        src: "/cetas-icon-192-v2.png",
         sizes: "192x192",
         type: "image/png",
       },
       {
-        src: "/icon-512.png",
+        src: "/cetas-icon-512-v2.png",
         sizes: "512x512",
         type: "image/png",
       },

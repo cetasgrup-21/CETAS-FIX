@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   TrendingUp,
   ArrowRight,
+  ArrowLeft,
   Sparkles,
   Zap,
   MessageCircle,
@@ -26,38 +27,90 @@ import {
   FileText,
   Volume2,
   Monitor,
+  Calendar,
+  MapPin,
+  Heart,
+  ExternalLink,
 } from "lucide-react";
 import { AntmanMascot } from "@/components/antman-mascot";
-
-interface ScoreboardRow {
-  rank: number;
-  school: string;
-  team: string;
-  category: string;
-  pbbMurni: number;
-  variasi: number;
-  danton: number;
-  kostum: number;
-  penalty: number;
-  totalScore: number;
-  votes: number;
-  status: "TERVERIFIKASI" | "SEDANG_DINILAI";
-}
+import {
+  INITIAL_UNIFIED_EVENTS,
+  UnifiedEvent,
+  getStoredEvents,
+  saveStoredEvents,
+} from "@/lib/events-unified-data";
+import {
+  INITIAL_EVENT_VOTINGS,
+  EventVotingConfig,
+  getStoredEventVotings,
+  saveStoredEventVotings,
+} from "@/lib/vote-unified-data";
+import { formatRupiah } from "@/lib/utils";
 
 export default function HomePage() {
+  const [eventsList, setEventsList] = useState<UnifiedEvent[]>(INITIAL_UNIFIED_EVENTS);
+  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>(INITIAL_EVENT_VOTINGS);
+  const [selectedHomeEventId, setSelectedHomeEventId] = useState<string | null>(null);
+
   const [selectedScoreTab, setSelectedScoreTab] = useState<
-    "umum" | "pbb" | "variasi" | "danton" | "favorit"
+    "umum" | "pbb" | "variasi" | "danton" | "kostum"
   >("umum");
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState<"ALL" | "SMP" | "SMA" | "PURNA">("ALL");
+  const [selectedVoteCatId, setSelectedVoteCatId] = useState<string>("");
 
-  const scoreboardData: ScoreboardRow[] = [];
+  useEffect(() => {
+    const localEv = getStoredEvents();
+    if (localEv && localEv.length > 0) setEventsList(localEv);
 
-  const sortedScoreboard = [...scoreboardData].sort((a, b) => {
+    const localVotes = getStoredEventVotings();
+    if (localVotes && localVotes.length > 0) setEventVotings(localVotes);
+
+    fetch("/api/events")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          setEventsList(data.events);
+          saveStoredEvents(data.events);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/vote")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const activeHomeEvent = eventsList.find((ev) => ev.id === selectedHomeEventId) || null;
+  const activeEventVoting =
+    eventVotings.find((v) => v.eventId === selectedHomeEventId) || null;
+
+  const activeLkbbTeams = (activeHomeEvent?.lkbbTeams || []).filter((t) =>
+    selectedLevelFilter === "ALL" ? true : t.level === selectedLevelFilter
+  );
+
+  const sortedLkbbTeams = [...activeLkbbTeams].sort((a, b) => {
     if (selectedScoreTab === "pbb") return b.pbbMurni - a.pbbMurni;
-    if (selectedScoreTab === "variasi") return b.variasi - a.variasi;
+    if (selectedScoreTab === "variasi") return b.variasiFormasi - a.variasiFormasi;
     if (selectedScoreTab === "danton") return b.danton - a.danton;
-    if (selectedScoreTab === "favorit") return b.votes - a.votes;
+    if (selectedScoreTab === "kostum") return b.kostum - a.kostum;
     return b.totalScore - a.totalScore;
   });
+
+  const activeVoteCategory =
+    activeEventVoting?.categories.find((c) => c.id === selectedVoteCatId) ||
+    activeEventVoting?.categories[0] ||
+    null;
+
+  const sortedVoteCandidates = [...(activeVoteCategory?.candidates || [])].sort(
+    (a, b) => b.totalVotes - a.totalVotes
+  );
+  const totalCategoryVotes = sortedVoteCandidates.reduce((acc, c) => acc + c.totalVotes, 0);
 
   const ecosystemPillars = [
     {
@@ -299,192 +352,664 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2. INTERACTIVE LIVE SCOREBOARD & REKAPITULASI JURI (KATHAREKAP KILLER FEATURE!) */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      {/* 2. PUSAT EVENT, PERINGKAT LKBB, PERINGKAT VOTE & AKSES TIKET (PILIH EVENT DULU -> DETAIL PERINGKAT & LINK) */}
+      <section id="pusat-peringkat-event" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-purple-100 bg-white p-6 sm:p-10 shadow-sm space-y-6">
+          {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-purple-50 text-purple-700 px-3.5 py-1 text-xs font-bold border border-purple-200">
                 <TrendingUp className="h-3.5 w-3.5" />
-                Scoreboard Turnamen • Rekapitulasi Real-Time Dewan Juri
+                Scoreboard Turnamen • Rekapitulasi Real-Time Dewan Juri & E-Voting
               </div>
               <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                Peringkat & Nilai Lomba Terkini (Live)
+                {activeHomeEvent
+                  ? activeHomeEvent.title
+                  : "Peringkat & Nilai Lomba Terkini (Live)"}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-                Setiap nilai langsung masuk dari perangkat tablet juri, dihitung otomatis oleh mesin rekapitulasi, dan disiarkan langsung ke videotron arena.
+                {activeHomeEvent
+                  ? "Menampilkan daftar Peringkat LKBB (Cetas.Score), Peringkat Vote Publik (Cetas Vote), serta tautan langsung menuju bilik Cetas Vote dan pembelian tiket Cetas Ticketing untuk event ini."
+                  : "Pilih salah satu event turnamen di bawah ini untuk membuka daftar Peringkat LKBB, Peringkat Vote, serta link akses menuju Cetas Vote dan Cetas Ticketing."}
               </p>
             </div>
 
-            <Link
-              href="/pelatih"
-              className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 shadow-md shadow-purple-600/30 transition shrink-0"
-            >
-              <UserCheck className="h-4 w-4" />
-              Buka Lembar Nilai di Portal Pelatih
-            </Link>
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              {activeHomeEvent && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedHomeEventId(null)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-4 py-3 shadow-sm transition"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Kembali ke Daftar Event
+                </button>
+              )}
+              <Link
+                href="/pelatih"
+                className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 shadow-md shadow-purple-600/30 transition"
+              >
+                <UserCheck className="h-4 w-4" />
+                Buka Lembar Nilai di Portal Pelatih
+              </Link>
+            </div>
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-purple-50 scrollbar-thin">
-            <button
-              type="button"
-              onClick={() => setSelectedScoreTab("umum")}
-              className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                selectedScoreTab === "umum"
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "bg-purple-50 text-slate-700 hover:bg-purple-100/70"
-              }`}
-            >
-              🏆 Juara Umum LKBB
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedScoreTab("pbb")}
-              className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                selectedScoreTab === "pbb"
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "bg-purple-50 text-slate-700 hover:bg-purple-100/70"
-              }`}
-            >
-              🎖️ PBB Murni
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedScoreTab("variasi")}
-              className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                selectedScoreTab === "variasi"
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "bg-purple-50 text-slate-700 hover:bg-purple-100/70"
-              }`}
-            >
-              ✨ Variasi & Formasi
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedScoreTab("danton")}
-              className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                selectedScoreTab === "danton"
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "bg-purple-50 text-slate-700 hover:bg-purple-100/70"
-              }`}
-            >
-              🗣️ Danton Terbaik
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedScoreTab("favorit")}
-              className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                selectedScoreTab === "favorit"
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "bg-purple-50 text-slate-700 hover:bg-purple-100/70"
-              }`}
-            >
-              ❤️ Juara Favorit (Vote Publik)
-            </button>
-          </div>
+          {/* ==================================================================== */}
+          {/* TAMPILAN 1 (AWAL): DAFTAR EVENT-EVENT (KLIK EVENT UNTUK BUKA DETAIL) */}
+          {/* ==================================================================== */}
+          {!activeHomeEvent ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide">
+                    Daftar Event Turnamen & Kompetisi Aktif ({eventsList.length} Event)
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+                  👆 Klik Event untuk Lihat Peringkat LKBB, Peringkat Vote & Link Tiket
+                </span>
+              </div>
 
-          {/* Scoreboard Cards Grid */}
-          {sortedScoreboard.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-purple-100 bg-purple-50/30 p-10 text-center space-y-3">
-              <div className="mx-auto h-12 w-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
-                <Award className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-black text-slate-900">
-                  Belum Ada Event atau Data Peringkat Aktif Saat Ini
-                </h3>
-                <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
-                  Papan peringkat dan rekapitulasi nilai dewan juri akan tampil secara real-time di halaman ini saat event turnamen berlangsung.
-                </p>
-              </div>
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
-                <Link
-                  href="/rekap"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2.5 shadow-sm transition"
-                >
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  Buka Rekapitulasi Cetas.Score
-                </Link>
-                <Link
-                  href="/display"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-800 font-bold text-xs px-4 py-2.5 border border-purple-200 transition"
-                >
-                  <Monitor className="h-3.5 w-3.5" />
-                  Layar Videotron Live
-                </Link>
-              </div>
+              {eventsList.length === 0 ? (
+                <div className="rounded-2xl border-2 border-dashed border-purple-100 bg-purple-50/30 p-10 text-center space-y-3">
+                  <div className="mx-auto h-12 w-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                    <Award className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Belum Ada Event Aktif Saat Ini
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-lg mx-auto">
+                    Tambahkan event baru melalui panel Admin Cetas untuk menampilkan kartu event, papan peringkat LKBB, dan bilik Cetas Vote.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {eventsList.map((ev) => {
+                    const evVote = eventVotings.find((v) => v.eventId === ev.id);
+                    const totalVoteCats = evVote?.categories.length || 0;
+                    const totalVoteCands =
+                      evVote?.categories.reduce((acc, c) => acc + c.candidates.length, 0) || 0;
+                    const totalLkbbCount = ev.lkbbTeams?.length || 0;
+                    const lowestTierPrice =
+                      ev.tiers && ev.tiers.length > 0
+                        ? Math.min(...ev.tiers.map((t) => t.price))
+                        : null;
+
+                    return (
+                      <div
+                        key={ev.id}
+                        onClick={() => {
+                          setSelectedHomeEventId(ev.id);
+                          setSelectedLevelFilter("ALL");
+                          setSelectedScoreTab("umum");
+                          if (evVote && evVote.categories.length > 0) {
+                            setSelectedVoteCatId(evVote.categories[0].id);
+                          }
+                        }}
+                        className="group cursor-pointer rounded-3xl border-2 border-purple-100 hover:border-purple-500 bg-white overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                      >
+                        <div>
+                          {/* Event Banner */}
+                          <div className="relative h-52 w-full bg-slate-900 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.bannerUrl}
+                              alt={ev.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
+
+                            <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-600/95 text-white shadow backdrop-blur-md">
+                                {ev.category}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/95 text-white shadow backdrop-blur-md">
+                                <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
+                                LIVE EVENT
+                              </span>
+                            </div>
+
+                            <div className="absolute bottom-3.5 left-3.5 right-3.5">
+                              <div className="text-[11px] font-bold text-purple-200 mb-0.5">
+                                {ev.organizer}
+                              </div>
+                              <h3 className="text-lg sm:text-xl font-black text-white leading-snug group-hover:text-amber-300 transition">
+                                {ev.title}
+                              </h3>
+                            </div>
+                          </div>
+
+                          {/* Event Info & Feature Badges */}
+                          <div className="p-5 space-y-4">
+                            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-semibold">
+                              <span className="inline-flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 text-purple-600" />
+                                {ev.date} • {ev.time}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-purple-600" />
+                                {ev.location}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                              {ev.description}
+                            </p>
+
+                            {/* Summary Feature Chips Inside Event */}
+                            <div className="grid grid-cols-3 gap-2 pt-1">
+                              <div className="rounded-xl bg-purple-50/80 border border-purple-100 p-2.5 text-center">
+                                <div className="text-[10px] font-bold text-purple-700">
+                                  🏆 Peringkat LKBB
+                                </div>
+                                <div className="text-xs font-black text-slate-900 mt-0.5">
+                                  {totalLkbbCount > 0 ? `${totalLkbbCount} Pasukan` : "Siap Live"}
+                                </div>
+                              </div>
+                              <div className="rounded-xl bg-pink-50/80 border border-pink-100 p-2.5 text-center">
+                                <div className="text-[10px] font-bold text-pink-700">
+                                  ❤️ Cetas Vote
+                                </div>
+                                <div className="text-xs font-black text-slate-900 mt-0.5">
+                                  {totalVoteCats > 0
+                                    ? `${totalVoteCats} Kategori (${totalVoteCands} Tim)`
+                                    : "Tersedia"}
+                                </div>
+                              </div>
+                              <div className="rounded-xl bg-blue-50/80 border border-blue-100 p-2.5 text-center">
+                                <div className="text-[10px] font-bold text-blue-700">
+                                  🎟️ Cetas Ticketing
+                                </div>
+                                <div className="text-xs font-black text-slate-900 mt-0.5">
+                                  {lowestTierPrice !== null
+                                    ? `Mulai ${formatRupiah(lowestTierPrice)}`
+                                    : "Tiket Online"}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Footer Actions */}
+                        <div className="px-5 pb-5 pt-2 space-y-2.5">
+                          <button
+                            type="button"
+                            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-800 hover:to-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-purple-600/20 transition"
+                          >
+                            <Award className="h-4 w-4" />
+                            <span>
+                              Klik Buka Peringkat LKBB, Peringkat Vote & Link Event
+                            </span>
+                            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          </button>
+
+                          {/* Direct Quick Links to Cetas Vote & Cetas Ticketing */}
+                          <div
+                            className="grid grid-cols-2 gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Link
+                              href={`/vote?eventId=${ev.id}&tab=VOTE`}
+                              className="py-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-800 border border-pink-200 font-bold text-[11px] flex items-center justify-center gap-1.5 transition"
+                            >
+                              <Heart className="h-3.5 w-3.5 text-pink-600" />
+                              Link ke Cetas Vote
+                            </Link>
+                            <Link
+                              href={`/vote?eventId=${ev.id}&tab=TICKETS`}
+                              className="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[11px] flex items-center justify-center gap-1.5 transition"
+                            >
+                              <Ticket className="h-3.5 w-3.5 text-blue-600" />
+                              Link ke Cetas Ticketing
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {sortedScoreboard.map((item, index) => (
-                <div
-                  key={item.school}
-                  className="relative rounded-2xl border border-purple-100 bg-white p-5 shadow-xs purple-glow-hover transition-all space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={`h-8 w-8 rounded-xl font-black text-xs flex items-center justify-center ${
-                        index === 0
-                          ? "bg-amber-400 text-amber-950 shadow-xs"
-                          : index === 1
-                          ? "bg-slate-200 text-slate-800"
-                          : index === 2
-                          ? "bg-amber-700/20 text-amber-900"
-                          : "bg-purple-50 text-purple-700"
-                      }`}
-                    >
-                      #{index + 1}
+            /* ==================================================================== */
+            /* TAMPILAN 2 (SETELAH EVENT DIPENCET):                                 */
+            /* 1. LINK KE CETAS VOTE & CETAS TICKETING                              */
+            /* 2. LIST PERINGKAT LKBB (JUARA UMUM, PBB, VARIASI, DANTON, KOSTUM)    */
+            /* 3. LIST PERINGKAT VOTE (JUARA FAVORIT CETAS VOTE)                    */
+            /* ==================================================================== */
+            <div className="space-y-8 animate-in fade-in duration-300">
+              {/* Banner Ringkas Event Terpilih + Link Pintas Utama */}
+              <div className="rounded-2xl border border-purple-200 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 p-5 sm:p-6 text-white space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-500 text-white">
+                        {activeHomeEvent.category}
+                      </span>
+                      <span className="text-xs text-purple-200 font-semibold">
+                        📅 {activeHomeEvent.date} ({activeHomeEvent.time}) • 📍{" "}
+                        {activeHomeEvent.location}
+                      </span>
                     </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        item.status === "TERVERIFIKASI"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
-                      }`}
-                    >
-                      {item.status === "TERVERIFIKASI" ? "✓ Sah Juri" : "Proses"}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 leading-snug line-clamp-1">
-                      {item.school}
+                    <h3 className="text-xl sm:text-2xl font-black text-white">
+                      {activeHomeEvent.title}
                     </h3>
-                    <p className="text-xs text-purple-700 font-bold mt-0.5 line-clamp-1">
-                      &ldquo;{item.team}&rdquo;
+                    <p className="text-xs text-slate-300 max-w-3xl">
+                      {activeHomeEvent.description}
                     </p>
                   </div>
 
-                  {/* Score Detail Breakdown */}
-                  <div className="space-y-1.5 pt-2 border-t border-purple-50 text-xs">
-                    <div className="flex justify-between text-slate-500">
-                      <span>PBB Murni:</span>
-                      <span className="font-bold text-slate-800">{item.pbbMurni}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>Variasi Formasi:</span>
-                      <span className="font-bold text-slate-800">{item.variasi}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>Komandan Peleton:</span>
-                      <span className="font-bold text-slate-800">{item.danton}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>Vote Publik:</span>
-                      <span className="font-bold text-purple-700">{item.votes} Suara</span>
-                    </div>
-                  </div>
-
-                  {/* Total Score Highlight */}
-                  <div className="pt-2 border-t border-purple-100 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600">Total Skor:</span>
-                    <span className="text-lg font-black text-purple-700">
-                      {item.totalScore.toFixed(1)}
-                    </span>
+                  {/* Quick Switch Event Dropdown / Button */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedHomeEventId(null)}
+                      className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition flex items-center gap-1.5"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      Ganti / Pilih Event Lain
+                    </button>
                   </div>
                 </div>
-              ))}
+
+                {/* BARIS LINK RESMI KE CETAS VOTE, CETAS TICKETING, PENDAFTARAN & CETAS.SCORE */}
+                <div className="pt-4 border-t border-white/15">
+                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 mb-2.5">
+                    🔗 Link Akses Cepat Event Ini (Cetas Vote, Cetas Ticketing & Rekap Nilai):
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Link
+                      href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-lg transition group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Heart className="h-4 w-4 fill-white" />
+                        <div>
+                          <div>Buka Cetas Vote</div>
+                          <div className="text-[10px] font-normal text-pink-100">
+                            Vote Pleton Favorit Event Ini
+                          </div>
+                        </div>
+                      </div>
+                      <ExternalLink className="h-4 w-4 opacity-80 group-hover:translate-x-0.5 transition" />
+                    </Link>
+
+                    <Link
+                      href={`/vote?eventId=${activeHomeEvent.id}&tab=TICKETS`}
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg transition group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Ticket className="h-4 w-4" />
+                        <div>
+                          <div>Buka Cetas Ticketing</div>
+                          <div className="text-[10px] font-normal text-blue-100">
+                            Beli E-Tiket Masuk Arena
+                          </div>
+                        </div>
+                      </div>
+                      <ExternalLink className="h-4 w-4 opacity-80 group-hover:translate-x-0.5 transition" />
+                    </Link>
+
+                    <Link
+                      href="/register-event"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-extrabold text-xs transition group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <div>
+                          <div>Pendaftaran Peserta</div>
+                          <div className="text-[10px] font-normal text-slate-300">
+                            Registrasi Kontingen Online
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+
+                    <Link
+                      href="/rekap"
+                      className="flex items-center justify-between p-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-extrabold text-xs transition group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Monitor className="h-4 w-4 text-amber-400" />
+                        <div>
+                          <div>Rekap Detail Cetas.Score</div>
+                          <div className="text-[10px] font-normal text-slate-300">
+                            Tabel Nilai Juri & Videotron
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* ==================================================================== */}
+              {/* BAGIAN A: LIST PERINGKAT LKBB (REKAPITULASI NILAI JURI CETAS.SCORE) */}
+              {/* ==================================================================== */}
+              <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-100">
+                  <div>
+                    <h4 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Award className="h-5 w-5 text-purple-600" />
+                      1. Daftar Peringkat LKBB (Rekap Nilai Dewan Juri)
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Peringkat peserta berdasarkan kategori penilaian juri PBB Murni, Variasi & Formasi, Danton, dan Kostum.
+                    </p>
+                  </div>
+
+                  {/* Filter Tingkat LKBB */}
+                  <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-purple-100">
+                    {(["ALL", "SMP", "SMA", "PURNA"] as const).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setSelectedLevelFilter(lvl)}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition ${
+                          selectedLevelFilter === lvl
+                            ? "bg-purple-700 text-white"
+                            : "text-slate-600 hover:bg-purple-50"
+                        }`}
+                      >
+                        {lvl === "ALL" ? "Semua Tingkat" : `Tingkat ${lvl}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sub-Tab Kategori Peringkat LKBB */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScoreTab("umum")}
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      selectedScoreTab === "umum"
+                        ? "bg-purple-700 text-white shadow-xs"
+                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
+                    }`}
+                  >
+                    🏆 Juara Umum LKBB
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScoreTab("pbb")}
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      selectedScoreTab === "pbb"
+                        ? "bg-purple-700 text-white shadow-xs"
+                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
+                    }`}
+                  >
+                    🎖️ PBB Murni
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScoreTab("variasi")}
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      selectedScoreTab === "variasi"
+                        ? "bg-purple-700 text-white shadow-xs"
+                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
+                    }`}
+                  >
+                    ✨ Variasi & Formasi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScoreTab("danton")}
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      selectedScoreTab === "danton"
+                        ? "bg-purple-700 text-white shadow-xs"
+                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
+                    }`}
+                  >
+                    🗣️ Danton Terbaik
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScoreTab("kostum")}
+                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      selectedScoreTab === "kostum"
+                        ? "bg-purple-700 text-white shadow-xs"
+                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
+                    }`}
+                  >
+                    👕 Kostum Terbaik
+                  </button>
+                </div>
+
+                {/* Tabel / Daftar Peringkat LKBB */}
+                {sortedLkbbTeams.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-purple-200 bg-white p-6 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-700">
+                      Belum ada peserta terdaftar pada tingkat ini.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-purple-100 bg-white">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-purple-50/70 text-[11px] font-black uppercase text-purple-900 border-b border-purple-100">
+                          <th className="py-3 px-4">Peringkat</th>
+                          <th className="py-3 px-4">No. Urut</th>
+                          <th className="py-3 px-4">Pasukan & Kontingen</th>
+                          <th className="py-3 px-4">Tingkat</th>
+                          <th className="py-3 px-4 text-right">PBB Murni</th>
+                          <th className="py-3 px-4 text-right">Variasi</th>
+                          <th className="py-3 px-4 text-right">Danton</th>
+                          <th className="py-3 px-4 text-right">Kostum</th>
+                          <th className="py-3 px-4 text-right">Total Nilai</th>
+                          <th className="py-3 px-4 text-center">Status Juri</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-purple-50 text-xs">
+                        {sortedLkbbTeams.map((team, idx) => (
+                          <tr key={team.id} className="hover:bg-purple-50/40 transition">
+                            <td className="py-3.5 px-4 font-black">
+                              <span
+                                className={`inline-flex items-center justify-center h-7 w-7 rounded-lg text-xs font-black ${
+                                  idx === 0
+                                    ? "bg-amber-400 text-amber-950"
+                                    : idx === 1
+                                    ? "bg-slate-200 text-slate-800"
+                                    : idx === 2
+                                    ? "bg-amber-700/20 text-amber-900"
+                                    : "bg-purple-50 text-purple-700"
+                                }`}
+                              >
+                                #{idx + 1}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
+                              {team.number}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-black text-slate-900">{team.teamName}</div>
+                              <div className="text-[11px] text-slate-500">{team.school}</div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800">
+                                {team.level}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                              {team.pbbMurni}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                              {team.variasiFormasi}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                              {team.danton}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                              {team.kostum}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-black text-purple-700 text-sm">
+                              {team.totalScore.toFixed(1)}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                                  team.status === "TERVERIFIKASI"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : team.status === "SEDANG_DINILAI"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {team.status === "TERVERIFIKASI"
+                                  ? "✓ Sah Juri"
+                                  : team.status === "SEDANG_DINILAI"
+                                  ? "Sedang Dinilai"
+                                  : "Menunggu Tampil"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ==================================================================== */}
+              {/* BAGIAN B: LIST PERINGKAT VOTE (JUARA FAVORIT CETAS VOTE LIVE)        */}
+              {/* ==================================================================== */}
+              <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-pink-100">
+                  <div>
+                    <h4 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Heart className="h-5 w-5 text-pink-600 fill-pink-600" />
+                      2. Daftar Peringkat Vote (Juara Favorit Cetas Vote)
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Klasemen perolehan dukungan suara publik secara real-time di Cetas Vote.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs shadow-sm transition"
+                    >
+                      <Heart className="h-3.5 w-3.5 fill-white" />
+                      Ke Halaman Cetas Vote
+                    </Link>
+                    <Link
+                      href={`/vote?eventId=${activeHomeEvent.id}&tab=TICKETS`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm transition"
+                    >
+                      <Ticket className="h-3.5 w-3.5" />
+                      Ke Halaman Cetas Ticketing
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Pilihan Kategori Vote */}
+                {activeEventVoting && activeEventVoting.categories.length > 0 && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {activeEventVoting.categories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedVoteCatId(cat.id)}
+                        className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                          activeVoteCategory?.id === cat.id
+                            ? "bg-pink-600 text-white shadow-xs"
+                            : "bg-white text-slate-700 border border-pink-200 hover:bg-pink-50"
+                        }`}
+                      >
+                        ❤️ {cat.title} ({cat.candidates.length} Peserta)
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Daftar Peringkat Kandidat Vote */}
+                {sortedVoteCandidates.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-pink-200 bg-white p-6 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-700">
+                      Belum ada kandidat pada kategori voting ini.
+                    </p>
+                    <Link
+                      href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
+                      className="inline-flex items-center gap-1.5 text-xs font-extrabold text-pink-600 hover:underline"
+                    >
+                      Buka Bilik Cetas Vote →
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sortedVoteCandidates.map((cand, idx) => {
+                      const pct =
+                        totalCategoryVotes > 0
+                          ? Math.round((cand.totalVotes / totalCategoryVotes) * 100)
+                          : 0;
+
+                      return (
+                        <div
+                          key={cand.id}
+                          className="rounded-2xl border border-pink-100 bg-white p-4 shadow-xs flex flex-col justify-between space-y-3"
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-slate-900 shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={cand.photoUrl}
+                                alt={cand.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-black text-[10px]">
+                                #{idx + 1}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-pink-50 text-pink-700 border border-pink-200">
+                                  No. {cand.candidateNumber}
+                                </span>
+                              </div>
+                              <h5 className="text-sm font-black text-slate-900 truncate mt-1">
+                                {cand.name}
+                              </h5>
+                              <p className="text-[11px] text-slate-500 truncate">
+                                {cand.institution}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-slate-500">Perolehan Suara:</span>
+                              <span className="font-black text-pink-600">
+                                {cand.totalVotes.toLocaleString("id-ID")} Suara ({pct}%)
+                              </span>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-pink-100 overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.max(pct, cand.totalVotes > 0 ? 6 : 0)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <Link
+                            href={`/vote?eventId=${activeHomeEvent.id}&category=${
+                              activeVoteCategory?.id || ""
+                            }&tab=VOTE`}
+                            className="w-full py-2.5 px-3 rounded-xl bg-pink-50 hover:bg-pink-600 text-pink-700 hover:text-white border border-pink-200 font-extrabold text-xs flex items-center justify-center gap-1.5 transition"
+                          >
+                            <Heart className="h-3.5 w-3.5" />
+                            Beri Dukungan Vote di Cetas Vote
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

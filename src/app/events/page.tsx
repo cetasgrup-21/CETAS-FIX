@@ -16,7 +16,7 @@ import {
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
 import { DokuPaymentModal } from "@/components/doku-payment-modal";
-import { UnifiedEvent } from "@/lib/events-unified-data";
+import { UnifiedEvent, getStoredEvents, saveStoredEvents } from "@/lib/events-unified-data";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 
 interface TicketTier {
@@ -55,24 +55,31 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS);
 
   useEffect(() => {
+    const mapToTicketingEvents = (list: UnifiedEvent[]) =>
+      list
+        .filter((e: UnifiedEvent) => e.isOpenTicketing && e.tiers && e.tiers.length > 0)
+        .map((e: UnifiedEvent) => ({
+          id: e.id,
+          title: e.title,
+          date: e.date,
+          location: e.location,
+          bannerUrl: e.bannerUrl,
+          description: e.description,
+          themePreset: e.themePreset,
+          tiers: e.tiers,
+        }));
+
+    const stored = getStoredEvents();
+    if (stored && stored.length > 0) {
+      setEvents(mapToTicketingEvents(stored));
+    }
+
     fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.events) {
-          // Filter events that have ticketing enabled
-          const ticketingEvents = data.events
-            .filter((e: UnifiedEvent) => e.isOpenTicketing && e.tiers && e.tiers.length > 0)
-            .map((e: UnifiedEvent) => ({
-              id: e.id,
-              title: e.title,
-              date: e.date,
-              location: e.location,
-              bannerUrl: e.bannerUrl,
-              description: e.description,
-              themePreset: e.themePreset,
-              tiers: e.tiers,
-            }));
-          setEvents(ticketingEvents);
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          saveStoredEvents(data.events);
+          setEvents(mapToTicketingEvents(data.events));
         }
       })
       .catch(() => {});

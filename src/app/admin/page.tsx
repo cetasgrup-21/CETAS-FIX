@@ -58,6 +58,8 @@ import {
 import {
   INITIAL_UNIFIED_EVENTS,
   UnifiedEvent,
+  getStoredEvents,
+  saveStoredEvents,
 } from "@/lib/events-unified-data";
 import {
   INITIAL_UNIFIED_PRODUCTS,
@@ -74,6 +76,8 @@ import {
   EventVotingConfig,
   VoteCategory,
   VoteCandidate,
+  getStoredEventVotings,
+  saveStoredEventVotings,
 } from "@/lib/vote-unified-data";
 
 interface Submission {
@@ -250,13 +254,19 @@ export default function AdminDashboardPage() {
     const storedStaff = getStoredStaffList();
     if (storedStaff && storedStaff.length > 0) setStaffList(storedStaff);
 
-    // Fetch Events
+    // Fetch Events & Sync LocalStorage
+    const localEv = getStoredEvents();
+    if (localEv && localEv.length > 0) {
+      setEventsList(localEv);
+      setSelectedEventToConnect(localEv[0].id);
+    }
     fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.events) {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
           setEventsList(data.events);
-          if (data.events.length > 0) setSelectedEventToConnect(data.events[0].id);
+          saveStoredEvents(data.events);
+          setSelectedEventToConnect(data.events[0].id);
         }
       })
       .catch(() => {});
@@ -276,12 +286,21 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {});
 
-    // Fetch Hierarchical Vote Config
+    // Fetch Hierarchical Vote Config & Sync LocalStorage
+    const localVotes = getStoredEventVotings();
+    if (localVotes && localVotes.length > 0) {
+      setEventVotings(localVotes);
+      setSelectedVoteEventId(localVotes[0].eventId);
+      if (localVotes[0].categories.length > 0) {
+        setSelectedVoteCategoryId(localVotes[0].categories[0].id);
+      }
+    }
     fetch("/api/vote")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.eventVotings && data.eventVotings.length > 0) {
           setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
           setSelectedVoteEventId(data.eventVotings[0].eventId);
           if (data.eventVotings[0].categories.length > 0) {
             setSelectedVoteCategoryId(data.eventVotings[0].categories[0].id);
@@ -298,6 +317,19 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Automatically persist eventsList and eventVotings changes to localStorage
+  useEffect(() => {
+    if (eventsList && eventsList.length > 0) {
+      saveStoredEvents(eventsList);
+    }
+  }, [eventsList]);
+
+  useEffect(() => {
+    if (eventVotings && eventVotings.length > 0) {
+      saveStoredEventVotings(eventVotings);
+    }
+  }, [eventVotings]);
 
   // ---------------- AUTH HANDLERS ----------------
   const handleLogin = (e?: React.FormEvent) => {

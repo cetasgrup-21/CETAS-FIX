@@ -43,11 +43,15 @@ import {
   EventVotingConfig,
   VoteCategory,
   VoteCandidate,
+  getStoredEventVotings,
+  saveStoredEventVotings,
 } from "@/lib/vote-unified-data";
 import {
   INITIAL_UNIFIED_EVENTS,
   UnifiedEvent,
   UnifiedTicketTier,
+  getStoredEvents,
+  saveStoredEvents,
 } from "@/lib/events-unified-data";
 
 declare global {
@@ -139,12 +143,19 @@ function VotePageContent() {
 
   // Fetch initial data
   useEffect(() => {
+    const localVotes = getStoredEventVotings();
+    if (localVotes && localVotes.length > 0) setEventVotings(localVotes);
+
+    const localEvents = getStoredEvents();
+    if (localEvents && localEvents.length > 0) setUnifiedEvents(localEvents);
+
     // 1. Fetch Voting Configs
     fetch("/api/vote")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.eventVotings)) {
+        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
           setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
         }
       })
       .catch(() => {});
@@ -153,8 +164,9 @@ function VotePageContent() {
     fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.events)) {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
           setUnifiedEvents(data.events);
+          saveStoredEvents(data.events);
         }
       })
       .catch(() => {});

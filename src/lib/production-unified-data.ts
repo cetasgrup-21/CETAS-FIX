@@ -20,8 +20,8 @@ export const INITIAL_UNIFIED_PRODUCTS: UnifiedProduct[] = [
     price: 65000,
     unit: "pcs (min. 24 pcs)",
     stock: 500,
-    imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
-    description: "Sablon DTF / Plastisol presisi tinggi, bahan dingin dan nyaman untuk panitia & peserta.",
+    imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=85",
+    description: "Sablon DTF / Plastisol presisi tinggi, bahan Cotton Combed 24s dingin dan nyaman untuk panitia, peserta, maupun merchandise resmi turnamen.",
     status: "TERSEDIA",
   },
   {
@@ -32,8 +32,8 @@ export const INITIAL_UNIFIED_PRODUCTS: UnifiedProduct[] = [
     price: 15000,
     unit: "set",
     stock: 1200,
-    imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
-    description: "Tali tisu 2cm cetak sublim 2 sisi + card holder plastik tebal anti-gores.",
+    imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=900&q=85",
+    description: "Tali tisu lembut lebar 2cm cetak sublimasi full-color 2 sisi + kait besi + ID card PVC tebal anti-gores.",
     status: "TERSEDIA",
   },
   {
@@ -44,8 +44,8 @@ export const INITIAL_UNIFIED_PRODUCTS: UnifiedProduct[] = [
     price: 4500000,
     unit: "hari (termasuk operator)",
     stock: 4,
-    imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
-    description: "Sistem audio panggung outdoor / indoor lengkap dengan digital mixer & wireless mic Shure.",
+    imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=900&q=85",
+    description: "Sistem audio panggung outdoor / indoor lengkap dengan speaker Line-Array, subwoofer ganda, digital mixer 32-channel, wireless mic Shure, & sound engineer.",
     status: "TERSEDIA",
   },
   {
@@ -56,8 +56,8 @@ export const INITIAL_UNIFIED_PRODUCTS: UnifiedProduct[] = [
     price: 3200000,
     unit: "hari",
     stock: 3,
-    imageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=400&q=80",
-    description: "8 Moving Beam 230W, 12 Par LED RGBW, Smoke Gun / Haze Machine, dan lighting programmer.",
+    imageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=900&q=85",
+    description: "8 unit Moving Head Beam 230W, 12 unit Par LED RGBW 54x3W, Smoke Gun / Haze Machine, gawang rigging, dan operator lighting DMX.",
     status: "TERSEDIA",
   },
   {
@@ -68,8 +68,8 @@ export const INITIAL_UNIFIED_PRODUCTS: UnifiedProduct[] = [
     price: 6000000,
     unit: "hari",
     stock: 2,
-    imageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80",
-    description: "Layar visual tajam anti-silau siang hari lengkap dengan rigging truss dan video switcher processor.",
+    imageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=900&q=85",
+    description: "Layar visual LED Videotron P3.9 high-brightness anti-silau siang hari untuk live scoreboard Cetas.Score, bumper panggung, dan multicam.",
     status: "TERSEDIA",
   },
   {
@@ -80,8 +80,31 @@ export const INITIAL_UNIFIED_PRODUCTS: UnifiedProduct[] = [
     price: 2800000,
     unit: "event",
     stock: 5,
-    imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=400&q=80",
-    description: "Broadcast YouTube / Zoom profesional dengan ATEM Mini switcher, audio interface, & grafis lower-third.",
+    imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=900&q=85",
+    description: "Broadcast YouTube / Zoom profesional dengan 3 kamera Sony Full HD, ATEM Mini Extreme switcher, capture audio mixer, & grafis lower-third live.",
     status: "TERSEDIA",
   },
 ];
+
+const STORAGE_PRODUCTS_KEY = "cetas_unified_products_v2";
+
+export function getStoredProducts(): UnifiedProduct[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_PRODUCTS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredProducts(list: UnifiedProduct[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_PRODUCTS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.error("Gagal menyimpan katalog produk:", e);
+  }
+}

@@ -62,6 +62,8 @@ import {
 import {
   INITIAL_UNIFIED_PRODUCTS,
   UnifiedProduct,
+  getStoredProducts,
+  saveStoredProducts,
 } from "@/lib/production-unified-data";
 import {
   INITIAL_ATTENDEES,
@@ -164,6 +166,8 @@ export default function AdminDashboardPage() {
   const [productsList, setProductsList] = useState<UnifiedProduct[]>(INITIAL_UNIFIED_PRODUCTS);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [previewProductModal, setPreviewProductModal] = useState<UnifiedProduct | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(false);
   const [productForm, setProductForm] = useState({
     name: "",
     category: "EQUIPMENT" as UnifiedProduct["category"],
@@ -257,11 +261,18 @@ export default function AdminDashboardPage() {
       })
       .catch(() => {});
 
-    // Fetch Products
+    // Fetch Products & Sync LocalStorage
+    const localProds = getStoredProducts();
+    if (localProds && localProds.length > 0) {
+      setProductsList(localProds);
+    }
     fetch("/api/products")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.products) setProductsList(data.products);
+        if (data.success && data.products) {
+          setProductsList(data.products);
+          saveStoredProducts(data.products);
+        }
       })
       .catch(() => {});
 
@@ -552,16 +563,24 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!productForm.name.trim()) return;
 
+    const computedStock = Math.max(0, Number(productForm.stock) || 0);
+    const computedStatus: UnifiedProduct["status"] =
+      computedStock === 0
+        ? "HABIS"
+        : productForm.status === "HABIS" && computedStock > 0
+        ? "TERSEDIA"
+        : productForm.status;
+
     const payload = {
       name: productForm.name,
       category: productForm.category,
       subCategory: productForm.subCategory,
       price: Number(productForm.price),
-      unit: productForm.unit,
-      stock: Number(productForm.stock),
+      unit: productForm.unit || "hari",
+      stock: computedStock,
       imageUrl: productForm.imageUrl,
       description: productForm.description,
-      status: productForm.status,
+      status: computedStatus,
     };
 
     if (editingProductId) {
@@ -573,11 +592,29 @@ export default function AdminDashboardPage() {
         });
         const data = await res.json();
         if (data.success && data.product) {
-          setProductsList((prev) =>
-            prev.map((p) => (p.id === editingProductId ? data.product : p))
-          );
+          setProductsList((prev) => {
+            const next = prev.map((p) => (p.id === editingProductId ? data.product : p));
+            saveStoredProducts(next);
+            return next;
+          });
+        } else {
+          setProductsList((prev) => {
+            const next = prev.map((p) =>
+              p.id === editingProductId ? { ...p, ...payload, id: editingProductId } : p
+            );
+            saveStoredProducts(next);
+            return next;
+          });
         }
-      } catch {}
+      } catch {
+        setProductsList((prev) => {
+          const next = prev.map((p) =>
+            p.id === editingProductId ? { ...p, ...payload, id: editingProductId } : p
+          );
+          saveStoredProducts(next);
+          return next;
+        });
+      }
     } else {
       try {
         const res = await fetch("/api/products", {
@@ -587,17 +624,73 @@ export default function AdminDashboardPage() {
         });
         const data = await res.json();
         if (data.success && data.product) {
-          setProductsList((prev) => [data.product, ...prev]);
+          setProductsList((prev) => {
+            const next = [data.product, ...prev];
+            saveStoredProducts(next);
+            return next;
+          });
         }
-      } catch {}
+      } catch {
+        const fallbackProd: UnifiedProduct = {
+          id: `prod-${Date.now().toString().slice(-6)}`,
+          ...payload,
+        };
+        setProductsList((prev) => {
+          const next = [fallbackProd, ...prev];
+          saveStoredProducts(next);
+          return next;
+        });
+      }
     }
 
     setIsProductModalOpen(false);
   };
 
+  const handleQuickAdjustStock = async (prod: UnifiedProduct, delta: number) => {
+    const newStock = Math.max(0, prod.stock + delta);
+    const newStatus: UnifiedProduct["status"] =
+      newStock === 0
+        ? "HABIS"
+        : prod.status === "HABIS" && newStock > 0
+        ? "TERSEDIA"
+        : prod.status;
+
+    const updatedProd: UnifiedProduct = {
+      ...prod,
+      stock: newStock,
+      status: newStatus,
+    };
+
+    setProductsList((prev) => {
+      const next = prev.map((p) => (p.id === prod.id ? updatedProd : p));
+      saveStoredProducts(next);
+      return next;
+    });
+
+    if (previewProductModal && previewProductModal.id === prod.id) {
+      setPreviewProductModal(updatedProd);
+    }
+
+    try {
+      await fetch("/api/products", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: prod.id,
+          stock: newStock,
+          status: newStatus,
+        }),
+      });
+    } catch {}
+  };
+
   const handleDeleteProduct = async (id: string) => {
     if (confirm("Hapus produk ini dari katalog Cetas Production?")) {
-      setProductsList((prev) => prev.filter((p) => p.id !== id));
+      setProductsList((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        saveStoredProducts(next);
+        return next;
+      });
       try {
         await fetch(`/api/products?id=${id}`, { method: "DELETE" });
       } catch {}
@@ -2734,10 +2827,10 @@ export default function AdminDashboardPage() {
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Package className="h-5 w-5 text-purple-500" />
-                Manajemen Produk & Alat Rental Cetas Production
+                Manajemen Produk, Stok & Alat Rental Cetas Production
               </h3>
               <p className="text-xs text-slate-500">
-                Kelola katalog merchandise, sound system, lighting, videotron, dan paket live streaming.
+                Kelola katalog merchandise, sound system, lighting, videotron, stok unit tersedia, dan foto produk (klik gambar untuk memperbesar).
               </p>
             </div>
             {canManageProd && (
@@ -2751,46 +2844,119 @@ export default function AdminDashboardPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {productsList.map((prod) => (
               <div
                 key={prod.id}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3 flex flex-col justify-between"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 overflow-hidden flex flex-col justify-between group hover:border-purple-500/50 transition"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
-                      {prod.category}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                        prod.status === "TERSEDIA"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                      }`}
+                  {/* Clickable Product Image Thumbnail -> Opens Lightbox Popup */}
+                  <div
+                    onClick={() => {
+                      setPreviewProductModal(prod);
+                      setPreviewZoom(false);
+                    }}
+                    className="relative h-44 w-full bg-slate-900 overflow-hidden cursor-pointer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={prod.imageUrl}
+                      alt={prod.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-transparent" />
+
+                    <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-full bg-purple-600/90 text-white backdrop-blur-md">
+                        {prod.category}
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full backdrop-blur-md ${
+                          prod.status === "TERSEDIA" && prod.stock > 0
+                            ? "bg-emerald-500/90 text-white"
+                            : prod.status === "DISEWA"
+                            ? "bg-amber-500/90 text-white"
+                            : "bg-rose-600/90 text-white"
+                        }`}
+                      >
+                        {prod.stock <= 0 ? "STOK HABIS" : prod.status}
+                      </span>
+                    </div>
+
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-lg bg-slate-950/80 text-white border border-white/15 backdrop-blur-md">
+                        📦 Stok: <strong className={prod.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{prod.stock}</strong> {prod.unit === "hari" || prod.unit === "event" ? "unit" : prod.unit}
+                      </span>
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/90 text-slate-900 shadow">
+                        🔍 Perbesar Foto
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-2.5">
+                    <h4
+                      onClick={() => {
+                        setPreviewProductModal(prod);
+                        setPreviewZoom(false);
+                      }}
+                      className="text-sm font-black text-slate-900 dark:text-white leading-snug cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 transition"
                     >
-                      {prod.status}
-                    </span>
-                  </div>
+                      {prod.name}
+                    </h4>
+                    <div className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                      {formatRupiah(prod.price)}{" "}
+                      <span className="text-xs font-normal text-slate-500">/ {prod.unit}</span>
+                    </div>
 
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white leading-snug">
-                    {prod.name}
-                  </h4>
-                  <div className="text-base font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                    {formatRupiah(prod.price)}{" "}
-                    <span className="text-xs font-normal text-slate-500">/ {prod.unit}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Stok Tersedia: <strong>{prod.stock}</strong> unit
-                  </div>
+                    {/* Quick Stock Adjustment Control */}
+                    {canManageProd && (
+                      <div className="flex items-center justify-between rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                          Atur Stok Cepat:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickAdjustStock(prod, -1)}
+                            disabled={prod.stock <= 0}
+                            className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-700 dark:text-slate-200 font-black text-xs flex items-center justify-center disabled:opacity-40 transition"
+                            title="Kurangi 1 Stok"
+                          >
+                            -
+                          </button>
+                          <span className="text-xs font-black font-mono min-w-[28px] text-center text-slate-900 dark:text-white">
+                            {prod.stock}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickAdjustStock(prod, 1)}
+                            className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 text-slate-700 dark:text-slate-200 font-black text-xs flex items-center justify-center transition"
+                            title="Tambah 1 Stok"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
-                    {prod.description}
-                  </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                      {prod.description}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400 font-mono">ID: {prod.id}</span>
+                <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white/50 dark:bg-slate-900/40">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewProductModal(prod);
+                      setPreviewZoom(false);
+                    }}
+                    className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Lihat Popup Gambar
+                  </button>
 
                   {canManageProd && (
                     <div className="flex items-center gap-2">
@@ -2799,7 +2965,7 @@ export default function AdminDashboardPage() {
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 text-xs font-bold transition"
                       >
                         <Edit3 className="h-3 w-3" />
-                        Edit
+                        Edit & Stok
                       </button>
                       {isSuperAdmin && (
                         <button
@@ -3749,7 +3915,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Package className="h-5 w-5 text-purple-500" />
-                {editingProductId ? "Edit Produk / Alat Rental" : "Tambah Produk / Alat Baru"}
+                {editingProductId ? "Edit Produk, Stok & Alat Rental" : "Tambah Produk / Alat Baru"}
               </h3>
               <button
                 onClick={() => setIsProductModalOpen(false)}
@@ -3774,19 +3940,21 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Kategori Utama
                   </label>
                   <select
                     value={productForm.category}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const nextCat = e.target.value as UnifiedProduct["category"];
                       setProductForm({
                         ...productForm,
-                        category: e.target.value as UnifiedProduct["category"],
-                      })
-                    }
+                        category: nextCat,
+                        unit: nextCat === "EQUIPMENT" ? "hari" : "pcs",
+                      });
+                    }}
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
                   >
                     <option value="EQUIPMENT">EQUIPMENT (Sewa Alat)</option>
@@ -3796,11 +3964,40 @@ export default function AdminDashboardPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Status Ketersediaan
+                  </label>
+                  <select
+                    value={productForm.status}
+                    onChange={(e) =>
+                      setProductForm({
+                        ...productForm,
+                        status: e.target.value as UnifiedProduct["status"],
+                        stock:
+                          e.target.value === "HABIS"
+                            ? 0
+                            : productForm.stock === 0
+                            ? 1
+                            : productForm.stock,
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
+                  >
+                    <option value="TERSEDIA">TERSEDIA (Siap Dipesan)</option>
+                    <option value="DISEWA">DISEWA (Sedang Digunakan)</option>
+                    <option value="HABIS">HABIS (Stok Kosong)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Harga (Rp) *
                   </label>
                   <input
                     type="number"
                     required
+                    min={0}
                     value={productForm.price}
                     onChange={(e) =>
                       setProductForm({ ...productForm, price: Number(e.target.value) })
@@ -3808,6 +4005,90 @@ export default function AdminDashboardPage() {
                     className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Jumlah Stok Tersedia *
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextStock = Math.max(0, Number(productForm.stock) - 1);
+                        setProductForm({
+                          ...productForm,
+                          stock: nextStock,
+                          status: nextStock === 0 ? "HABIS" : productForm.status,
+                        });
+                      }}
+                      className="px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-black text-xs"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={productForm.stock}
+                      onChange={(e) => {
+                        const nextStock = Math.max(0, Number(e.target.value));
+                        setProductForm({
+                          ...productForm,
+                          stock: nextStock,
+                          status:
+                            nextStock === 0
+                              ? "HABIS"
+                              : productForm.status === "HABIS"
+                              ? "TERSEDIA"
+                              : productForm.status,
+                        });
+                      }}
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-2 text-xs font-black text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextStock = Number(productForm.stock) + 1;
+                        setProductForm({
+                          ...productForm,
+                          stock: nextStock,
+                          status:
+                            productForm.status === "HABIS" ? "TERSEDIA" : productForm.status,
+                        });
+                      }}
+                      className="px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 font-black text-xs"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Satuan Harga/Stok *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="hari / pcs / event / set"
+                    value={productForm.unit}
+                    onChange={(e) => setProductForm({ ...productForm, unit: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Deskripsi & Spesifikasi Lengkap Produk / Alat
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Tuliskan spesifikasi teknis alat atau detail bahan merchandise..."
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs"
+                />
               </div>
 
               <div>
@@ -3839,6 +4120,143 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: POP-UP GAMBAR & DETAIL PRODUK (ADMIN LIGHTBOX) */}
+      {/* ------------------------------------------------------------------ */}
+      {previewProductModal && (
+        <div
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+          onClick={() => {
+            setPreviewProductModal(null);
+            setPreviewZoom(false);
+          }}
+        >
+          <div
+            className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative bg-slate-950 h-80 sm:h-[420px] flex items-center justify-center overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewProductModal.imageUrl}
+                alt={previewProductModal.name}
+                onClick={() => setPreviewZoom(!previewZoom)}
+                className={`w-full h-full transition-transform duration-300 cursor-zoom-in ${
+                  previewZoom ? "scale-150 object-contain cursor-zoom-out" : "object-contain"
+                }`}
+              />
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewZoom(!previewZoom)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-purple-600 text-white text-xs font-bold border border-white/15 backdrop-blur-md transition"
+                >
+                  {previewZoom ? "🔍 Perkecil Foto" : "🔍 Perbesar Foto (Zoom)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewProductModal(null);
+                    setPreviewZoom(false);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-600 text-white text-xs font-bold border border-white/15 backdrop-blur-md transition"
+                >
+                  Tutup ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                    {previewProductModal.category}
+                  </span>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white mt-2">
+                    {previewProductModal.name}
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                    {formatRupiah(previewProductModal.price)}{" "}
+                    <span className="text-xs font-normal text-slate-500">
+                      / {previewProductModal.unit}
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mt-1">
+                    Stok Tersedia:{" "}
+                    <strong
+                      className={
+                        previewProductModal.stock > 0 ? "text-emerald-500" : "text-rose-500"
+                      }
+                    >
+                      {previewProductModal.stock}
+                    </strong>{" "}
+                    ({previewProductModal.status})
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                {previewProductModal.description}
+              </p>
+
+              <div className="flex items-center justify-between pt-2">
+                {canManageProd && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500">Ubah Stok:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickAdjustStock(previewProductModal, -1)}
+                      disabled={previewProductModal.stock <= 0}
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-black text-xs disabled:opacity-40"
+                    >
+                      -1
+                    </button>
+                    <span className="text-xs font-black font-mono px-2">
+                      {previewProductModal.stock}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickAdjustStock(previewProductModal, 1)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-black text-xs"
+                    >
+                      +1
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  {canManageProd && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = previewProductModal;
+                        setPreviewProductModal(null);
+                        handleOpenEditProduct(target);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold transition"
+                    >
+                      Edit Produk & Stok
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewProductModal(null);
+                      setPreviewZoom(false);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       subCategory: body.subCategory || "SOUND_SYSTEM",
       price: Number(body.price),
       unit: body.unit || "hari",
-      stock: Number(body.stock) || 1,
+      stock: body.stock !== undefined ? Number(body.stock) : 1,
       imageUrl:
         body.imageUrl ||
         "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",

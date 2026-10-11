@@ -1,97 +1,50 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingBag, Check, ShieldCheck, ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
+import {
+  ShoppingBag,
+  ShieldCheck,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Package,
+  ZoomIn,
+  ZoomOut,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+} from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
 import { DokuPaymentModal } from "@/components/doku-payment-modal";
-import { UnifiedProduct } from "@/lib/production-unified-data";
-
-interface Product {
-  id: string;
-  name: string;
-  category: "MERCHANDISE" | "EQUIPMENT";
-  price: number;
-  unit: string;
-  imageUrl: string;
-  description: string;
-}
-
-const DEFAULT_PRODUCTS: Product[] = [
-  {
-    id: "prod-01",
-    name: "Kaos Komunitas & Event Cotton Combed 24s",
-    category: "MERCHANDISE",
-    price: 65000,
-    unit: "pcs (min. 24 pcs)",
-    imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
-    description: "Sablon DTF / Plastisol presisi tinggi, bahan dingin dan nyaman untuk panitia & peserta.",
-  },
-  {
-    id: "prod-02",
-    name: "Lanyard & ID Card Panitia Hologram",
-    category: "MERCHANDISE",
-    price: 15000,
-    unit: "set",
-    imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80",
-    description: "Tali tisu 2cm cetak sublim 2 sisi + card holder plastik tebal anti-gores.",
-  },
-  {
-    id: "prod-03",
-    name: "Paket Sound System Konser Line-Array 10.000 Watt",
-    category: "EQUIPMENT",
-    price: 4500000,
-    unit: "hari (termasuk operator)",
-    imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80",
-    description: "Sistem audio panggung outdoor / indoor lengkap dengan digital mixer & wireless mic Shure.",
-  },
-  {
-    id: "prod-04",
-    name: "Lighting Stage Show (Moving Beam + Par LED)",
-    category: "EQUIPMENT",
-    price: 3200000,
-    unit: "hari",
-    imageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=400&q=80",
-    description: "8 Moving Beam 230W, 12 Par LED RGBW, Smoke Gun / Haze Machine, dan lighting programmer.",
-  },
-  {
-    id: "prod-05",
-    name: "LED Videotron P3.9 Outdoor (Ukuran 4x2 Meter)",
-    category: "EQUIPMENT",
-    price: 6000000,
-    unit: "hari",
-    imageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80",
-    description: "Layar visual tajam anti-silau siang hari lengkap dengan rigging truss dan video switcher processor.",
-  },
-  {
-    id: "prod-06",
-    name: "Jasa Live Streaming Multicam 3 Kamera Full HD",
-    category: "EQUIPMENT",
-    price: 2800000,
-    unit: "event",
-    imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=400&q=80",
-    description: "Broadcast YouTube / Zoom profesional dengan ATEM Mini switcher, audio interface, & grafis lower-third.",
-  },
-];
+import {
+  INITIAL_UNIFIED_PRODUCTS,
+  UnifiedProduct,
+  getStoredProducts,
+  saveStoredProducts,
+} from "@/lib/production-unified-data";
 
 export default function ProductionPage() {
-  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [products, setProducts] = useState<UnifiedProduct[]>(INITIAL_UNIFIED_PRODUCTS);
+  const [selectedProductModal, setSelectedProductModal] = useState<UnifiedProduct | null>(null);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   useEffect(() => {
+    const local = getStoredProducts();
+    if (local && local.length > 0) {
+      setProducts(local);
+    }
+
     fetch("/api/products")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.products && data.products.length > 0) {
-          setProducts(
-            data.products.map((p: UnifiedProduct) => ({
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              price: p.price,
-              unit: p.unit,
-              imageUrl: p.imageUrl,
-              description: p.description,
-            }))
-          );
+          const freshLocal = getStoredProducts();
+          if (!freshLocal) {
+            setProducts(data.products);
+            saveStoredProducts(data.products);
+          }
         }
       })
       .catch(() => {});
@@ -113,7 +66,17 @@ export default function ProductionPage() {
     activeTab === "ALL" ? products : products.filter((p) => p.category === activeTab);
 
   const addToCart = (id: string) => {
-    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+    const prod = products.find((p) => p.id === id);
+    if (!prod || prod.status !== "TERSEDIA" || prod.stock <= 0) return;
+
+    setCart((prev) => {
+      const currentQty = prev[id] || 0;
+      if (currentQty >= prod.stock) {
+        alert(`Maksimal pemesanan sesuai stok tersedia (${prod.stock} ${prod.unit}).`);
+        return prev;
+      }
+      return { ...prev, [id]: currentQty + 1 };
+    });
   };
 
   const removeFromCart = (id: string) => {
@@ -136,10 +99,12 @@ export default function ProductionPage() {
     });
   };
 
-  const cartItemsList = Object.entries(cart).map(([id, qty]) => {
-    const prod = products.find((p) => p.id === id)!;
-    return { ...prod, quantity: qty };
-  });
+  const cartItemsList = Object.entries(cart)
+    .map(([id, qty]) => {
+      const prod = products.find((p) => p.id === id);
+      return prod ? { ...prod, quantity: qty } : null;
+    })
+    .filter((item): item is UnifiedProduct & { quantity: number } => item !== null);
 
   const cartTotal = cartItemsList.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
@@ -173,7 +138,6 @@ export default function ProductionPage() {
         throw new Error(data.message || "Gagal membuat invoice pesanan");
       }
 
-      // Tampilkan DOKU Direct API Modal (QRIS & E-Wallet)
       setSimulatorData({
         orderNumber: data.orderNumber,
         grossAmount: cartTotal,
@@ -187,6 +151,10 @@ export default function ProductionPage() {
     }
   };
 
+  const openProductLightbox = (prod: UnifiedProduct) => {
+    setIsImageZoomed(false);
+    setSelectedProductModal(prod);
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -201,7 +169,7 @@ export default function ProductionPage() {
             Katalog Merchandise & Rental Peralatan Event
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-slate-600 max-w-2xl">
-            Solusi vendor terpercaya untuk seluruh kebutuhan perlengkapan panggung, sound system, lighting, videotron, serta cetak merchandise berkualitas tinggi.
+            Solusi vendor terpercaya untuk seluruh kebutuhan perlengkapan panggung, sound system, lighting, videotron, serta cetak merchandise berkualitas tinggi. Klik gambar produk untuk melihat foto ukuran penuh & ketersediaan stok.
           </p>
         </div>
 
@@ -227,7 +195,7 @@ export default function ProductionPage() {
       )}
 
       {/* Tabs Filter */}
-      <div className="flex items-center gap-2 mb-8">
+      <div className="flex flex-wrap items-center gap-2 mb-8">
         {[
           { key: "ALL", label: "Semua Katalog" },
           { key: "MERCHANDISE", label: "Merchandise Event" },
@@ -251,26 +219,93 @@ export default function ProductionPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProducts.map((prod) => {
           const qtyInCart = cart[prod.id] || 0;
+          const isAvailable = prod.status === "TERSEDIA" && prod.stock > 0;
+
           return (
             <div
               key={prod.id}
-              className="flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition"
+              className="flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-xl transition group"
             >
-              <div className="h-48 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+              {/* Clickable Image with Lightbox Trigger */}
+              <div
+                onClick={() => openProductLightbox(prod)}
+                className="relative h-52 w-full overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={prod.imageUrl}
                   alt={prod.name}
-                  className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                 />
+
+                {/* Top Badges: Category & Stock Status */}
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
+                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-slate-950/80 text-white backdrop-blur-md border border-white/15">
+                    {prod.category === "EQUIPMENT" ? "SEWA ALAT" : "MERCHANDISE"}
+                  </span>
+
+                  <span
+                    className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full backdrop-blur-md border flex items-center gap-1 ${
+                      !isAvailable
+                        ? "bg-rose-600/90 text-white border-rose-400"
+                        : prod.stock <= 5
+                        ? "bg-amber-500/90 text-white border-amber-300"
+                        : "bg-emerald-600/90 text-white border-emerald-400"
+                    }`}
+                  >
+                    <Package className="h-3 w-3" />
+                    {!isAvailable
+                      ? prod.status === "DISEWA"
+                        ? "Sedang Disewa"
+                        : "Stok Habis (0)"
+                      : `Stok: ${prod.stock}`}
+                  </span>
+                </div>
+
+                {/* Hover Overlay Hint to Click for Popup */}
+                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 text-slate-900 font-extrabold text-xs px-4 py-2 shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                    <ZoomIn className="h-4 w-4 text-purple-600" />
+                    Klik Perbesar Gambar & Detail
+                  </span>
+                </div>
               </div>
 
               <div className="p-6 flex-1 flex flex-col justify-between">
                 <div>
-                  <div className="inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-950/80 text-cyan-300 border border-blue-500/30 mb-2">
-                    {prod.category}
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                        isAvailable ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {isAvailable ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Tersedia ({prod.stock} unit)
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          {prod.status === "DISEWA" ? "Sedang Disewa Full" : "Stok Habis"}
+                        </>
+                      )}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => openProductLightbox(prod)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 hover:text-purple-800 hover:underline"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Lihat Foto
+                    </button>
                   </div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5 leading-snug">
+
+                  <h3
+                    onClick={() => openProductLightbox(prod)}
+                    className="text-base font-bold text-slate-900 dark:text-white mb-1.5 leading-snug cursor-pointer hover:text-purple-700 transition"
+                  >
                     {prod.name}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
@@ -278,7 +313,7 @@ export default function ProductionPage() {
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <div>
                     <div className="text-sm font-black text-slate-900 dark:text-white">
                       {formatRupiah(prod.price)}
@@ -286,7 +321,15 @@ export default function ProductionPage() {
                     <div className="text-[10px] text-slate-400">/ {prod.unit}</div>
                   </div>
 
-                  {qtyInCart > 0 ? (
+                  {!isAvailable ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-200 text-slate-500 font-bold px-3.5 py-2 text-xs cursor-not-allowed"
+                    >
+                      {prod.status === "DISEWA" ? "Sedang Disewa" : "Stok Habis"}
+                    </button>
+                  ) : qtyInCart > 0 ? (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => removeFromCart(prod.id)}
@@ -294,10 +337,11 @@ export default function ProductionPage() {
                       >
                         <Minus className="h-3 w-3" />
                       </button>
-                      <span className="text-xs font-bold w-4 text-center">{qtyInCart}</span>
+                      <span className="text-xs font-bold w-5 text-center">{qtyInCart}</span>
                       <button
                         onClick={() => addToCart(prod.id)}
-                        className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-500"
+                        disabled={qtyInCart >= prod.stock}
+                        className="h-8 w-8 rounded-lg bg-purple-600 text-white flex items-center justify-center hover:bg-purple-500 disabled:opacity-40"
                       >
                         <Plus className="h-3 w-3" />
                       </button>
@@ -305,7 +349,7 @@ export default function ProductionPage() {
                   ) : (
                     <button
                       onClick={() => addToCart(prod.id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-2 text-xs transition shadow-sm"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 text-xs transition shadow-sm"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Pesan
@@ -317,6 +361,160 @@ export default function ProductionPage() {
           );
         })}
       </div>
+
+      {/* ================================================================== */}
+      {/* POP-UP LIGHTBOX GAMBAR & DETAIL PRODUK                             */}
+      {/* ================================================================== */}
+      {selectedProductModal && (
+        <div
+          onClick={() => setSelectedProductModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-3xl rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-purple-100 text-purple-800">
+                  {selectedProductModal.category === "EQUIPMENT"
+                    ? "Sewa Alat Panggung"
+                    : "Merchandise Resmi"}
+                </span>
+                <span
+                  className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full ${
+                    selectedProductModal.status === "TERSEDIA" &&
+                    selectedProductModal.stock > 0
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-rose-100 text-rose-800"
+                  }`}
+                >
+                  {selectedProductModal.status === "TERSEDIA" &&
+                  selectedProductModal.stock > 0
+                    ? `Stok Tersedia: ${selectedProductModal.stock} Unit`
+                    : selectedProductModal.status === "DISEWA"
+                    ? "Sedang Disewa"
+                    : "Stok Habis"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsImageZoomed(!isImageZoomed)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300/80 text-slate-800 text-xs font-bold transition"
+                >
+                  {isImageZoomed ? (
+                    <>
+                      <ZoomOut className="h-3.5 w-3.5" />
+                      Perkecil
+                    </>
+                  ) : (
+                    <>
+                      <ZoomIn className="h-3.5 w-3.5" />
+                      Perbesar Foto
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProductModal(null)}
+                  className="h-8 w-8 rounded-xl bg-slate-200/80 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center text-slate-600 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Image Preview Container */}
+            <div className="overflow-auto bg-slate-950 flex items-center justify-center max-h-[52vh] min-h-[280px] relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedProductModal.imageUrl}
+                alt={selectedProductModal.name}
+                onClick={() => setIsImageZoomed(!isImageZoomed)}
+                className={`transition-transform duration-300 cursor-zoom-in ${
+                  isImageZoomed
+                    ? "scale-150 cursor-zoom-out my-12"
+                    : "max-h-[50vh] w-auto object-contain"
+                }`}
+              />
+            </div>
+
+            {/* Product Details & Order Action */}
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="space-y-1.5">
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                    {selectedProductModal.name}
+                  </h2>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {selectedProductModal.description}
+                  </p>
+                </div>
+
+                <div className="sm:text-right shrink-0 bg-purple-50 dark:bg-slate-800 p-3.5 rounded-2xl border border-purple-100 dark:border-slate-700">
+                  <div className="text-[10px] font-bold uppercase text-purple-600">
+                    Harga Resmi
+                  </div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white">
+                    {formatRupiah(selectedProductModal.price)}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    per {selectedProductModal.unit}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-xs">
+                  <Package className="h-4 w-4 text-purple-600" />
+                  <span className="text-slate-600 dark:text-slate-300">
+                    Ketersediaan Stok Gudang / Vendor:{" "}
+                    <strong className="text-slate-900 dark:text-white">
+                      {selectedProductModal.stock} {selectedProductModal.unit}
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProductModal(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    Tutup
+                  </button>
+
+                  {selectedProductModal.status === "TERSEDIA" &&
+                  selectedProductModal.stock > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart(selectedProductModal.id);
+                        setSelectedProductModal(null);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold px-5 py-2.5 text-xs shadow-md shadow-purple-600/25 transition active:scale-95"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      Masukkan ke Keranjang Pesanan
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center gap-2 rounded-xl bg-slate-200 text-slate-500 font-bold px-5 py-2.5 text-xs cursor-not-allowed"
+                    >
+                      Stok Sedang Kosong / Disewa
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout Slide-Over / Modal */}
       {isCheckoutOpen && (
@@ -346,7 +544,7 @@ export default function ProductionPage() {
                       {item.name}
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      {item.quantity} x {formatRupiah(item.price)}
+                      {item.quantity} x {formatRupiah(item.price)} (Stok maks: {item.stock})
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -413,7 +611,7 @@ export default function ProductionPage() {
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-500">Total Tagihan DOKU Direct</div>
-                  <div className="text-base font-black text-cyan-400">
+                  <div className="text-base font-black text-purple-700">
                     {formatRupiah(cartTotal)}
                   </div>
                 </div>
@@ -441,8 +639,30 @@ export default function ProductionPage() {
           customerPhone={customer.phone}
           onClose={() => setSimulatorData(null)}
           onSuccess={() => {
+            // Kurangi stok produk secara otomatis setelah pembayaran berhasil
+            const updatedProducts = products.map((prod) => {
+              const orderedQty = cart[prod.id] || 0;
+              if (orderedQty > 0) {
+                const newStock = Math.max(0, prod.stock - orderedQty);
+                const updated: UnifiedProduct = {
+                  ...prod,
+                  stock: newStock,
+                  status: newStock === 0 ? "HABIS" : prod.status,
+                };
+                fetch("/api/products", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(updated),
+                }).catch(() => {});
+                return updated;
+              }
+              return prod;
+            });
+            setProducts(updatedProducts);
+            saveStoredProducts(updatedProducts);
+
             setOrderDoneMsg(
-              `Pesanan Production ${simulatorData.orderNumber} berhasil dibayar! Tim logistik Cetas akan menghubungi WhatsApp Anda untuk koordinasi pengiriman/setup.`
+              `Pesanan Production ${simulatorData.orderNumber} berhasil dibayar! Stok telah diperbarui otomatis dan tim logistik Cetas akan menghubungi WhatsApp Anda.`
             );
             setCart({});
             setIsCheckoutOpen(false);
@@ -453,4 +673,3 @@ export default function ProductionPage() {
     </div>
   );
 }
-

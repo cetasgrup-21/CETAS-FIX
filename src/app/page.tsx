@@ -67,23 +67,10 @@ export default function HomePage() {
 
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then(async (data) => {
-        if (data.success && Array.isArray(data.events)) {
-          if (data.events.length > 0) {
-            setEventsList(data.events);
-            saveStoredEvents(data.events);
-          } else if (localEv && localEv.length > 0) {
-            setEventsList(localEv);
-            for (const ev of localEv) {
-              try {
-                await fetch("/api/events", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(ev),
-                });
-              } catch {}
-            }
-          }
+      .then((data) => {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          setEventsList(data.events);
+          saveStoredEvents(data.events);
         }
       })
       .catch(() => {});
@@ -91,13 +78,9 @@ export default function HomePage() {
     fetch("/api/vote", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.eventVotings)) {
-          if (data.eventVotings.length > 0) {
-            setEventVotings(data.eventVotings);
-            saveStoredEventVotings(data.eventVotings);
-          } else if (localVotes && localVotes.length > 0) {
-            setEventVotings(localVotes);
-          }
+        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
         }
       })
       .catch(() => {});
@@ -105,7 +88,12 @@ export default function HomePage() {
 
   const activeHomeEvent = eventsList.find((ev) => ev.id === selectedHomeEventId) || null;
   const activeEventVoting =
-    eventVotings.find((v) => v.eventId === selectedHomeEventId) || null;
+    eventVotings.find(
+      (v) =>
+        v.eventId === selectedHomeEventId ||
+        (activeHomeEvent &&
+          v.eventTitle.trim().toLowerCase() === activeHomeEvent.title.trim().toLowerCase())
+    ) || null;
 
   const activeLkbbTeams = (activeHomeEvent?.lkbbTeams || []).filter((t) =>
     selectedLevelFilter === "ALL" ? true : t.level === selectedLevelFilter

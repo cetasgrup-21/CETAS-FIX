@@ -167,23 +167,10 @@ function VotePageContent() {
     // 2. Fetch Unified Events (Ticketing & Registration)
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then(async (data) => {
-        if (data.success && Array.isArray(data.events)) {
-          if (data.events.length > 0) {
-            setUnifiedEvents(data.events);
-            saveStoredEvents(data.events);
-          } else if (localEvents && localEvents.length > 0) {
-            setUnifiedEvents(localEvents);
-            for (const ev of localEvents) {
-              try {
-                await fetch("/api/events", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(ev),
-                });
-              } catch {}
-            }
-          }
+      .then((data) => {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          setUnifiedEvents(data.events);
+          saveStoredEvents(data.events);
         }
       })
       .catch(() => {});
@@ -281,12 +268,16 @@ function VotePageContent() {
     });
   });
 
-  // Gabungkan dengan Event Voting Config
+  // Gabungkan dengan Event Voting Config (cocokkan berdasarkan eventId atau judul)
   eventVotings.forEach((ev) => {
-    const existing = allEventsMap.get(ev.eventId);
+    const existing =
+      allEventsMap.get(ev.eventId) ||
+      Array.from(allEventsMap.values()).find(
+        (item) => item.title.trim().toLowerCase() === ev.eventTitle.trim().toLowerCase()
+      );
     if (existing) {
       existing.categories = ev.categories || [];
-      if (ev.bannerUrl) existing.bannerUrl = ev.bannerUrl;
+      if (ev.bannerUrl && !existing.bannerUrl) existing.bannerUrl = ev.bannerUrl;
       if (ev.themePreset) existing.themePreset = ev.themePreset;
     } else {
       allEventsMap.set(ev.eventId, {

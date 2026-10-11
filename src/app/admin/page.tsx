@@ -280,24 +280,11 @@ export default function AdminDashboardPage() {
     }
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then(async (data) => {
-        if (data.success && Array.isArray(data.events)) {
-          if (data.events.length > 0) {
-            setEventsList(data.events);
-            saveStoredEvents(data.events);
-            setSelectedEventToConnect(data.events[0].id);
-          } else if (localEv && localEv.length > 0) {
-            // Auto-sync any events already created in this browser to PostgreSQL backend
-            for (const ev of localEv) {
-              try {
-                await fetch("/api/events", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(ev),
-                });
-              } catch {}
-            }
-          }
+      .then((data) => {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          setEventsList(data.events);
+          saveStoredEvents(data.events);
+          setSelectedEventToConnect(data.events[0].id);
         }
       })
       .catch(() => {});
@@ -328,26 +315,13 @@ export default function AdminDashboardPage() {
     }
     fetch("/api/vote", { cache: "no-store" })
       .then((res) => res.json())
-      .then(async (data) => {
-        if (data.success && Array.isArray(data.eventVotings)) {
-          if (data.eventVotings.length > 0) {
-            setEventVotings(data.eventVotings);
-            saveStoredEventVotings(data.eventVotings);
-            setSelectedVoteEventId(data.eventVotings[0].eventId);
-            if (data.eventVotings[0].categories.length > 0) {
-              setSelectedVoteCategoryId(data.eventVotings[0].categories[0].id);
-            }
-          } else if (localVotes && localVotes.length > 0) {
-            try {
-              await fetch("/api/vote", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  action: "SYNC_VOTINGS",
-                  eventVotings: localVotes,
-                }),
-              });
-            } catch {}
+      .then((data) => {
+        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
+          setSelectedVoteEventId(data.eventVotings[0].eventId);
+          if (data.eventVotings[0].categories.length > 0) {
+            setSelectedVoteCategoryId(data.eventVotings[0].categories[0].id);
           }
         }
       })
@@ -899,10 +873,34 @@ export default function AdminDashboardPage() {
     } catch {}
   };
 
-  const handleSelectEventWorkspace = async (eventId: string) => {
+  const syncVotingsToBackend = async (nextVotings: EventVotingConfig[]) => {
+    saveStoredEventVotings(nextVotings);
+    try {
+      const compactPayload = nextVotings.map((v) => ({
+        ...v,
+        bannerUrl:
+          v.bannerUrl && v.bannerUrl.length > 250000
+            ? "/lkbb-cemara-2026.jpg"
+            : v.bannerUrl || "/lkbb-cemara-2026.jpg",
+      }));
+      await fetch("/api/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SYNC_VOTINGS",
+          eventVotings: compactPayload,
+        }),
+      });
+    } catch {}
+  };
+
+  const handleSelectEventWorkspace = async (
+    eventId: string,
+    initialSubTab: "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" = "DETAILS"
+  ) => {
     setSelectedEventId(eventId);
     setSelectedVoteEventId(eventId);
-    setEventSubTab("DETAILS");
+    setEventSubTab(initialSubTab);
 
     const ev = eventsList.find((e) => e.id === eventId);
     if (ev) {
@@ -922,9 +920,9 @@ export default function AdminDashboardPage() {
               {
                 id: `tier-${ev.id}-1`,
                 name: "Tiket Reguler",
-                price: ev.price || 50000,
-                quotaTotal: ev.quotaTotal || 200,
-                quotaRemaining: ev.quotaRemaining || 200,
+                price: ev.price || 10000,
+                quotaTotal: ev.quotaTotal || 400,
+                quotaRemaining: ev.quotaRemaining || 400,
                 benefits: ev.facilities || ["E-Ticket QR Code Resmi"],
               },
             ];
@@ -933,7 +931,7 @@ export default function AdminDashboardPage() {
         title: ev.title,
         organizer: ev.organizer,
         category: ev.category,
-        themePreset: ev.themePreset || "FLAME",
+        themePreset: ev.themePreset || "EMERALD",
         date: ev.date,
         time: ev.time,
         location: ev.location,
@@ -950,85 +948,67 @@ export default function AdminDashboardPage() {
         facilitiesText: (ev.facilities || []).join(", "),
       });
 
-      // Ensure voting config exists for this event and is synced to backend
+      // Synchronously ensure voting config exists for this event right away
       const existingVote = eventVotings.find((v) => v.eventId === eventId);
       if (!existingVote) {
-        try {
-          const res = await fetch("/api/vote", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "ADD_EVENT_VOTING",
+        const defaultVote: EventVotingConfig = {
+          eventId: ev.id,
+          eventTitle: ev.title,
+          bannerUrl:
+            ev.bannerUrl && ev.bannerUrl.length > 250000
+              ? "/lkbb-cemara-2026.jpg"
+              : ev.bannerUrl || "/lkbb-cemara-2026.jpg",
+          themePreset: ev.themePreset || "EMERALD",
+          eventDate: ev.date,
+          categories: [
+            {
+              id: `cat-${ev.id}-smp`,
               eventId: ev.id,
-              eventTitle: ev.title,
-              bannerUrl: ev.bannerUrl,
-              themePreset: ev.themePreset || "FLAME",
-              eventDate: ev.date,
-            }),
-          });
-          const data = await res.json();
-          if (data.success && Array.isArray(data.eventVotings)) {
-            setEventVotings(data.eventVotings);
-            saveStoredEventVotings(data.eventVotings);
-            const created = data.eventVotings.find(
-              (v: EventVotingConfig) => v.eventId === ev.id
-            );
-            if (created?.categories?.[0]) {
-              setSelectedVoteCategoryId(created.categories[0].id);
-            }
-          }
-        } catch {
-          const fallbackVote: EventVotingConfig = {
-            eventId: ev.id,
-            eventTitle: ev.title,
-            bannerUrl: ev.bannerUrl,
-            themePreset: ev.themePreset || "FLAME",
-            eventDate: ev.date,
-            categories: [
-              {
-                id: `cat-${ev.id}-smp`,
-                eventId: ev.id,
-                title: "Favorit SMP / MTs Sederajat",
-                description: "Kategori pemilihan regu terfavorit tingkat SMP",
-                pricePerVote: 2000,
-                candidates: [],
-              },
-              {
-                id: `cat-${ev.id}-sma`,
-                eventId: ev.id,
-                title: "Favorit SMA / SMK Sederajat",
-                description: "Kategori pemilihan regu terfavorit tingkat SMA",
-                pricePerVote: 2000,
-                candidates: [],
-              },
-            ],
-          };
-          setEventVotings((prev) => {
-            const next = [fallbackVote, ...prev.filter((v) => v.eventId !== ev.id)];
-            saveStoredEventVotings(next);
-            return next;
-          });
-          setSelectedVoteCategoryId(fallbackVote.categories[0].id);
-        }
+              title: "Tingkat SMP/MTs",
+              description: "Pemilihan pleton terfavorit tingkat SMP/MTs",
+              pricePerVote: 2000,
+              candidates: [],
+            },
+            {
+              id: `cat-${ev.id}-sma`,
+              eventId: ev.id,
+              title: "Tingkat SMA/SMK/MA",
+              description: "Pemilihan pleton terfavorit tingkat SMA/SMK/MA",
+              pricePerVote: 2000,
+              candidates: [],
+            },
+          ],
+        };
+        const nextVotings = [
+          defaultVote,
+          ...eventVotings.filter((v) => v.eventId !== ev.id),
+        ];
+        setEventVotings(nextVotings);
+        setSelectedVoteCategoryId(defaultVote.categories[0].id);
+        await syncVotingsToBackend(nextVotings);
       } else if (existingVote.categories.length > 0) {
         setSelectedVoteCategoryId(existingVote.categories[0].id);
       }
     }
   };
 
-  const activeVoteEvent =
-    eventVotings.find((ev) => ev.eventId === (selectedEventId || selectedVoteEventId)) ||
-    eventVotings[0] ||
-    (selectedEvent
-      ? {
-          eventId: selectedEvent.id,
-          eventTitle: selectedEvent.title,
-          bannerUrl: selectedEvent.bannerUrl,
-          themePreset: selectedEvent.themePreset || "FLAME",
-          eventDate: selectedEvent.date,
-          categories: [],
-        }
-      : undefined);
+  // Prioritize selectedEventId FIRST so activeVoteEvent NEVER falls back to a different event when inside an Event Workspace
+  const activeVoteEvent: EventVotingConfig | undefined =
+    (selectedEventId
+      ? eventVotings.find((ev) => ev.eventId === selectedEventId) ||
+        (selectedEvent
+          ? {
+              eventId: selectedEvent.id,
+              eventTitle: selectedEvent.title,
+              bannerUrl: selectedEvent.bannerUrl,
+              themePreset: selectedEvent.themePreset || "EMERALD",
+              eventDate: selectedEvent.date,
+              categories: [],
+            }
+          : undefined)
+      : undefined) ||
+    eventVotings.find((ev) => ev.eventId === selectedVoteEventId) ||
+    eventVotings[0];
 
   const activeVoteCategory =
     activeVoteEvent?.categories.find((c) => c.id === selectedVoteCategoryId) ||
@@ -1084,39 +1064,45 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    try {
-      const res = await fetch("/api/vote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "ADD_EVENT_VOTING",
+    const newVoteCfg: EventVotingConfig = {
+      eventId: eventObj.id,
+      eventTitle: eventObj.title,
+      bannerUrl:
+        eventObj.bannerUrl && eventObj.bannerUrl.length > 250000
+          ? "/lkbb-cemara-2026.jpg"
+          : eventObj.bannerUrl || "/lkbb-cemara-2026.jpg",
+      themePreset: eventObj.themePreset || "EMERALD",
+      eventDate: eventObj.date,
+      categories: [
+        {
+          id: `cat-${eventObj.id}-smp`,
           eventId: eventObj.id,
-          eventTitle: eventObj.title,
-          bannerUrl: eventObj.bannerUrl,
-          themePreset: eventObj.themePreset,
-          eventDate: eventObj.date,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.eventVoting) {
-        const nextVotings = Array.isArray(data.eventVotings)
-          ? data.eventVotings
-          : [
-              data.eventVoting,
-              ...eventVotings.filter((v) => v.eventId !== data.eventVoting.eventId),
-            ];
-        setEventVotings(nextVotings);
-        saveStoredEventVotings(nextVotings);
-        setSelectedVoteEventId(data.eventVoting.eventId);
-        setSelectedVoteCategoryId(data.eventVoting.categories[0]?.id || "");
-        showSyncToast(`Bilik voting "${eventObj.title}" berhasil diaktifkan & disinkronkan!`);
-      } else {
-        alert(data.message || "Gagal membuka bilik voting.");
-      }
-    } catch {
-      alert("Terjadi kesalahan koneksi saat membuka bilik voting.");
-    }
+          title: "Tingkat SMP/MTs",
+          description: "Pemilihan pleton terfavorit tingkat SMP/MTs",
+          pricePerVote: 2000,
+          candidates: [],
+        },
+        {
+          id: `cat-${eventObj.id}-sma`,
+          eventId: eventObj.id,
+          title: "Tingkat SMA/SMK/MA",
+          description: "Pemilihan pleton terfavorit tingkat SMA/SMK/MA",
+          pricePerVote: 2000,
+          candidates: [],
+        },
+      ],
+    };
+
+    const nextVotings = [
+      newVoteCfg,
+      ...eventVotings.filter((v) => v.eventId !== eventObj.id),
+    ];
+    setEventVotings(nextVotings);
+    setSelectedVoteEventId(newVoteCfg.eventId);
+    setSelectedVoteCategoryId(newVoteCfg.categories[0].id);
     setIsAddEventVoteModalOpen(false);
+    showSyncToast(`Bilik voting "${eventObj.title}" berhasil diaktifkan & disinkronkan!`);
+    await syncVotingsToBackend(nextVotings);
   };
 
   // B. Tambah / Edit Kategori (SMP, SMA, Purna)
@@ -1142,172 +1128,104 @@ export default function AdminDashboardPage() {
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryForm.title.trim()) return;
+    const cleanTitle = categoryForm.title.trim();
+    if (!cleanTitle) return;
 
     const targetEventId =
-      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId || eventsList[0]?.id;
+      selectedEventId || activeVoteEvent?.eventId || selectedVoteEventId || eventsList[0]?.id;
     if (!targetEventId) {
       alert("Silakan buat atau pilih Event terlebih dahulu sebelum menambah kategori vote.");
       return;
     }
     const targetEventObj = eventsList.find((ev) => ev.id === targetEventId);
+    const cleanDesc = categoryForm.description.trim() || "Kategori pemilihan favorit";
+    const cleanPrice = Number(categoryForm.pricePerVote) || 2000;
 
     if (editingCategoryId) {
-      // EDIT KATEGORI
-      const applyLocalEdit = () => {
-        setEventVotings((prev) => {
-          const next = prev.map((ev) => {
-            if (ev.eventId !== targetEventId) return ev;
-            return {
-              ...ev,
-              categories: ev.categories.map((c) =>
-                c.id === editingCategoryId
-                  ? {
-                      ...c,
-                      title: categoryForm.title,
-                      description: categoryForm.description,
-                      pricePerVote: Number(categoryForm.pricePerVote) || 2000,
-                    }
-                  : c
-              ),
-            };
-          });
-          saveStoredEventVotings(next);
-          return next;
-        });
-      };
+      // EDIT KATEGORI (Optimistic 0ms + Backend Sync)
+      const nextVotings = eventVotings.map((ev) => {
+        if (ev.eventId !== targetEventId) return ev;
+        return {
+          ...ev,
+          categories: ev.categories.map((c) =>
+            c.id === editingCategoryId
+              ? {
+                  ...c,
+                  title: cleanTitle,
+                  description: cleanDesc,
+                  pricePerVote: cleanPrice,
+                }
+              : c
+          ),
+        };
+      });
 
-      try {
-        const res = await fetch("/api/vote", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "EDIT_CATEGORY",
-            eventId: targetEventId,
-            categoryId: editingCategoryId,
-            updates: {
-              title: categoryForm.title,
-              description: categoryForm.description,
-              pricePerVote: Number(categoryForm.pricePerVote) || 2000,
-            },
-          }),
-        });
-        const data = await res.json();
-        if (data.success && Array.isArray(data.eventVotings)) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
-        } else {
-          applyLocalEdit();
-        }
-        showSyncToast(`Kategori "${categoryForm.title}" berhasil diperbarui!`);
-      } catch {
-        applyLocalEdit();
-        showSyncToast(`Kategori "${categoryForm.title}" diperbarui.`);
-      }
+      setEventVotings(nextVotings);
+      setIsCategoryModalOpen(false);
+      showSyncToast(`✓ Kategori "${cleanTitle}" berhasil diperbarui & disinkronkan!`);
+      await syncVotingsToBackend(nextVotings);
     } else {
-      // TAMBAH KATEGORI BARU
-      const fallbackCat: VoteCategory = {
-        id: `cat-${Date.now()}`,
+      // TAMBAH KATEGORI BARU (Optimistic 0ms + Backend Sync)
+      const newCat: VoteCategory = {
+        id: `cat-${Date.now().toString().slice(-6)}`,
         eventId: targetEventId,
-        title: categoryForm.title.trim(),
-        description: categoryForm.description.trim() || "Kategori pemilihan favorit",
-        pricePerVote: Number(categoryForm.pricePerVote) || 2000,
+        title: cleanTitle,
+        description: cleanDesc,
+        pricePerVote: cleanPrice,
         candidates: [],
       };
 
-      const applyLocalAdd = (newCat: VoteCategory) => {
-        setEventVotings((prev) => {
-          const exists = prev.some((ev) => ev.eventId === targetEventId);
-          let next: EventVotingConfig[];
-          if (exists) {
-            next = prev.map((ev) => {
-              if (ev.eventId !== targetEventId) return ev;
-              return { ...ev, categories: [...ev.categories, newCat] };
-            });
-          } else {
-            next = [
-              {
-                eventId: targetEventId,
-                eventTitle: targetEventObj?.title || activeVoteEvent?.eventTitle || "Event Cetas",
-                bannerUrl: targetEventObj?.bannerUrl || activeVoteEvent?.bannerUrl || "",
-                themePreset: targetEventObj?.themePreset || activeVoteEvent?.themePreset || "FLAME",
-                eventDate: targetEventObj?.date || activeVoteEvent?.eventDate || "",
-                categories: [newCat],
-              },
-              ...prev,
-            ];
-          }
-          saveStoredEventVotings(next);
-          return next;
-        });
-        setSelectedVoteCategoryId(newCat.id);
-      };
+      const exists = eventVotings.some((ev) => ev.eventId === targetEventId);
+      const nextVotings: EventVotingConfig[] = exists
+        ? eventVotings.map((ev) => {
+            if (ev.eventId !== targetEventId) return ev;
+            return { ...ev, categories: [...ev.categories, newCat] };
+          })
+        : [
+            {
+              eventId: targetEventId,
+              eventTitle:
+                targetEventObj?.title || activeVoteEvent?.eventTitle || "LKBB CEMARA 2026",
+              bannerUrl:
+                targetEventObj?.bannerUrl && targetEventObj.bannerUrl.length <= 250000
+                  ? targetEventObj.bannerUrl
+                  : "/lkbb-cemara-2026.jpg",
+              themePreset:
+                targetEventObj?.themePreset || activeVoteEvent?.themePreset || "EMERALD",
+              eventDate: targetEventObj?.date || activeVoteEvent?.eventDate || "2026-11-28",
+              categories: [newCat],
+            },
+            ...eventVotings,
+          ];
 
-      try {
-        const res = await fetch("/api/vote", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "ADD_CATEGORY",
-            eventId: targetEventId,
-            eventTitle: targetEventObj?.title || activeVoteEvent?.eventTitle,
-            bannerUrl: targetEventObj?.bannerUrl || activeVoteEvent?.bannerUrl,
-            themePreset: targetEventObj?.themePreset || activeVoteEvent?.themePreset,
-            eventDate: targetEventObj?.date || activeVoteEvent?.eventDate,
-            title: categoryForm.title.trim(),
-            description: categoryForm.description.trim(),
-            pricePerVote: Number(categoryForm.pricePerVote) || 2000,
-          }),
-        });
-        const data = await res.json();
-        if (data.success && data.category) {
-          if (Array.isArray(data.eventVotings)) {
-            setEventVotings(data.eventVotings);
-            saveStoredEventVotings(data.eventVotings);
-          } else {
-            applyLocalAdd(data.category);
-          }
-          setSelectedVoteCategoryId(data.category.id);
-          showSyncToast(`Kategori "${data.category.title}" berhasil ditambahkan & disinkronkan ke Cetas Vote!`);
-        } else {
-          applyLocalAdd(fallbackCat);
-          showSyncToast(`Kategori "${fallbackCat.title}" berhasil ditambahkan!`);
-        }
-      } catch {
-        applyLocalAdd(fallbackCat);
-        showSyncToast(`Kategori "${fallbackCat.title}" berhasil ditambahkan!`);
-      }
+      setEventVotings(nextVotings);
+      setSelectedVoteCategoryId(newCat.id);
+      setIsCategoryModalOpen(false);
+      showSyncToast(`✓ Kategori "${newCat.title}" berhasil ditambahkan & disinkronkan ke Cetas Vote!`);
+      await syncVotingsToBackend(nextVotings);
     }
-    setIsCategoryModalOpen(false);
   };
 
   const handleDeleteCategory = async (catId: string) => {
     const targetEventId =
-      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId;
+      selectedEventId || activeVoteEvent?.eventId || selectedVoteEventId;
     if (!targetEventId) return;
 
     if (confirm("Hapus kategori ini beserta seluruh peserta di dalamnya?")) {
-      setEventVotings((prev) => {
-        const next = prev.map((ev) => {
-          if (ev.eventId !== targetEventId) return ev;
-          const nextCats = ev.categories.filter((c) => c.id !== catId);
-          return { ...ev, categories: nextCats };
-        });
-        saveStoredEventVotings(next);
-        return next;
+      const nextVotings = eventVotings.map((ev) => {
+        if (ev.eventId !== targetEventId) return ev;
+        const nextCats = ev.categories.filter((c) => c.id !== catId);
+        return { ...ev, categories: nextCats };
       });
-      try {
-        const res = await fetch(
-          `/api/vote?eventId=${targetEventId}&categoryId=${catId}`,
-          { method: "DELETE" }
-        );
-        const data = await res.json();
-        if (data.success && Array.isArray(data.eventVotings)) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
-        }
-        showSyncToast("Kategori berhasil dihapus.");
-      } catch {}
+      setEventVotings(nextVotings);
+      const updatedEv = nextVotings.find((ev) => ev.eventId === targetEventId);
+      if (updatedEv && updatedEv.categories.length > 0) {
+        setSelectedVoteCategoryId(updatedEv.categories[0].id);
+      } else {
+        setSelectedVoteCategoryId("");
+      }
+      showSyncToast("✓ Kategori berhasil dihapus.");
+      await syncVotingsToBackend(nextVotings);
     }
   };
 
@@ -1318,7 +1236,7 @@ export default function AdminDashboardPage() {
     const instansiPlaceholder = activeVoteCategory?.title.toLowerCase().includes("smp")
       ? "SMP Negeri 1 Jakarta"
       : activeVoteCategory?.title.toLowerCase().includes("sma")
-      ? "SMA Negeri 3 Bandung"
+      ? "SMA Negeri 3 Jakarta"
       : "Instansi / Sekolah Peserta";
 
     setCandidateForm({
@@ -1347,138 +1265,89 @@ export default function AdminDashboardPage() {
 
   const handleSaveCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!candidateForm.name.trim()) return;
+    const cleanName = candidateForm.name.trim();
+    if (!cleanName) return;
 
     const targetEventId =
-      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId || eventsList[0]?.id;
+      selectedEventId || activeVoteEvent?.eventId || selectedVoteEventId || eventsList[0]?.id;
     if (!targetEventId) {
       alert("Silakan pilih atau buat Event terlebih dahulu.");
       return;
     }
     const targetEventObj = eventsList.find((ev) => ev.id === targetEventId);
     const targetCategoryId =
-      activeVoteCategory?.id || selectedVoteCategoryId || `cat-${targetEventId}-umum`;
-    const targetCategoryTitle = activeVoteCategory?.title || "Kategori Umum";
+      activeVoteCategory?.id || selectedVoteCategoryId || `cat-${targetEventId}-smp`;
+    const targetCategoryTitle = activeVoteCategory?.title || "Tingkat SMP/MTs";
+    const safePhoto =
+      candidateForm.photoUrl && candidateForm.photoUrl.trim()
+        ? candidateForm.photoUrl
+        : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80";
 
     if (editingCandidateId) {
-      // EDIT PESERTA
-      const applyLocalEditCandidate = () => {
-        setEventVotings((prev) => {
-          const next = prev.map((ev) => {
-            if (ev.eventId !== targetEventId) return ev;
+      // EDIT PESERTA (Optimistic 0ms + Backend Sync)
+      const nextVotings = eventVotings.map((ev) => {
+        if (ev.eventId !== targetEventId) return ev;
+        return {
+          ...ev,
+          categories: ev.categories.map((c) => {
+            if (c.id !== targetCategoryId) return c;
             return {
-              ...ev,
-              categories: ev.categories.map((c) => {
-                if (c.id !== targetCategoryId) return c;
-                return {
-                  ...c,
-                  candidates: c.candidates.map((cand) =>
-                    cand.id === editingCandidateId
-                      ? {
-                          ...cand,
-                          candidateNumber: candidateForm.candidateNumber,
-                          name: candidateForm.name,
-                          institution: candidateForm.institution,
-                          photoUrl: candidateForm.photoUrl,
-                          tagline: candidateForm.tagline,
-                        }
-                      : cand
-                  ),
-                };
-              }),
+              ...c,
+              candidates: c.candidates.map((cand) =>
+                cand.id === editingCandidateId
+                  ? {
+                      ...cand,
+                      candidateNumber: candidateForm.candidateNumber || cand.candidateNumber,
+                      name: cleanName,
+                      institution: candidateForm.institution.trim() || "Instansi Peserta",
+                      photoUrl: safePhoto,
+                      tagline: candidateForm.tagline,
+                    }
+                  : cand
+              ),
             };
-          });
-          saveStoredEventVotings(next);
-          return next;
-        });
-      };
-
-      try {
-        const res = await fetch("/api/vote", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "EDIT_CANDIDATE",
-            eventId: targetEventId,
-            categoryId: targetCategoryId,
-            candidateId: editingCandidateId,
-            updates: {
-              candidateNumber: candidateForm.candidateNumber,
-              name: candidateForm.name,
-              institution: candidateForm.institution,
-              photoUrl: candidateForm.photoUrl,
-              tagline: candidateForm.tagline,
-            },
           }),
-        });
-        const data = await res.json();
-        if (data.success && Array.isArray(data.eventVotings)) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
-        } else {
-          applyLocalEditCandidate();
-        }
-        showSyncToast(`Profil peserta "${candidateForm.name}" berhasil diperbarui!`);
-      } catch {
-        applyLocalEditCandidate();
-        showSyncToast(`Profil peserta "${candidateForm.name}" diperbarui.`);
-      }
+        };
+      });
+
+      setEventVotings(nextVotings);
+      setIsCandidateModalOpen(false);
+      showSyncToast(`✓ Profil peserta "${cleanName}" berhasil diperbarui & disinkronkan!`);
+      await syncVotingsToBackend(nextVotings);
     } else {
-      // TAMBAH PESERTA BARU (Suara otomatis 0)
-      const fallbackCand: VoteCandidate = {
-        id: `cand-${Date.now()}`,
+      // TAMBAH PESERTA BARU (Suara otomatis 0, Optimistic 0ms + Backend Sync)
+      const newCand: VoteCandidate = {
+        id: `cand-${Date.now().toString().slice(-6)}`,
         eventId: targetEventId,
         categoryId: targetCategoryId,
-        candidateNumber: candidateForm.candidateNumber,
-        name: candidateForm.name.trim(),
-        institution: candidateForm.institution.trim(),
-        photoUrl: candidateForm.photoUrl,
-        tagline: candidateForm.tagline,
+        candidateNumber:
+          candidateForm.candidateNumber ||
+          String(activeCategoryCandidates.length + 1).padStart(2, "0"),
+        name: cleanName,
+        institution: candidateForm.institution.trim() || "Instansi / Sekolah Peserta",
+        photoUrl: safePhoto,
+        tagline: candidateForm.tagline || "Visi misi peserta untuk kemajuan dan prestasi.",
         totalVotes: 0,
       };
 
-      const applyLocalAddCandidate = (newCand: VoteCandidate) => {
-        setEventVotings((prev) => {
-          const eventExists = prev.some((ev) => ev.eventId === targetEventId);
-          let next: EventVotingConfig[];
-          if (eventExists) {
-            next = prev.map((ev) => {
-              if (ev.eventId !== targetEventId) return ev;
-              const catExists = ev.categories.some((c) => c.id === targetCategoryId);
-              if (catExists) {
-                return {
-                  ...ev,
-                  categories: ev.categories.map((c) => {
-                    if (c.id !== targetCategoryId) return c;
-                    return { ...c, candidates: [...c.candidates, newCand] };
-                  }),
-                };
-              } else {
-                return {
-                  ...ev,
-                  categories: [
-                    ...ev.categories,
-                    {
-                      id: targetCategoryId,
-                      eventId: targetEventId,
-                      title: targetCategoryTitle,
-                      description: "Kategori pemilihan favorit",
-                      pricePerVote: 2000,
-                      candidates: [newCand],
-                    },
-                  ],
-                };
-              }
-            });
-          } else {
-            next = [
-              {
-                eventId: targetEventId,
-                eventTitle: targetEventObj?.title || "Event Cetas",
-                bannerUrl: targetEventObj?.bannerUrl || "",
-                themePreset: targetEventObj?.themePreset || "FLAME",
-                eventDate: targetEventObj?.date || "",
+      const eventExists = eventVotings.some((ev) => ev.eventId === targetEventId);
+      const nextVotings: EventVotingConfig[] = eventExists
+        ? eventVotings.map((ev) => {
+            if (ev.eventId !== targetEventId) return ev;
+            const catExists = ev.categories.some((c) => c.id === targetCategoryId);
+            if (catExists) {
+              return {
+                ...ev,
+                categories: ev.categories.map((c) => {
+                  if (c.id !== targetCategoryId) return c;
+                  return { ...c, candidates: [...c.candidates, newCand] };
+                }),
+              };
+            } else {
+              return {
+                ...ev,
                 categories: [
+                  ...ev.categories,
                   {
                     id: targetCategoryId,
                     eventId: targetEventId,
@@ -1488,99 +1357,64 @@ export default function AdminDashboardPage() {
                     candidates: [newCand],
                   },
                 ],
-              },
-              ...prev,
-            ];
-          }
-          saveStoredEventVotings(next);
-          return next;
-        });
-      };
+              };
+            }
+          })
+        : [
+            {
+              eventId: targetEventId,
+              eventTitle: targetEventObj?.title || "LKBB CEMARA 2026",
+              bannerUrl:
+                targetEventObj?.bannerUrl && targetEventObj.bannerUrl.length <= 250000
+                  ? targetEventObj.bannerUrl
+                  : "/lkbb-cemara-2026.jpg",
+              themePreset: targetEventObj?.themePreset || "EMERALD",
+              eventDate: targetEventObj?.date || "2026-11-28",
+              categories: [
+                {
+                  id: targetCategoryId,
+                  eventId: targetEventId,
+                  title: targetCategoryTitle,
+                  description: "Kategori pemilihan favorit",
+                  pricePerVote: 2000,
+                  candidates: [newCand],
+                },
+              ],
+            },
+            ...eventVotings,
+          ];
 
-      try {
-        const res = await fetch("/api/vote", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "ADD_CANDIDATE",
-            eventId: targetEventId,
-            eventTitle: targetEventObj?.title || activeVoteEvent?.eventTitle,
-            bannerUrl: targetEventObj?.bannerUrl || activeVoteEvent?.bannerUrl,
-            themePreset: targetEventObj?.themePreset || activeVoteEvent?.themePreset,
-            eventDate: targetEventObj?.date || activeVoteEvent?.eventDate,
-            categoryId: targetCategoryId,
-            categoryTitle: targetCategoryTitle,
-            pricePerVote: activeVoteCategory?.pricePerVote || 2000,
-            candidateNumber: candidateForm.candidateNumber,
-            name: candidateForm.name.trim(),
-            institution: candidateForm.institution.trim(),
-            photoUrl: candidateForm.photoUrl,
-            tagline: candidateForm.tagline,
-            totalVotes: 0,
-          }),
-        });
-        const data = await res.json();
-        if (data.success && data.candidate) {
-          if (Array.isArray(data.eventVotings)) {
-            setEventVotings(data.eventVotings);
-            saveStoredEventVotings(data.eventVotings);
-          } else {
-            applyLocalAddCandidate(data.candidate);
-          }
-          if (data.categoryId) {
-            setSelectedVoteCategoryId(data.categoryId);
-          }
-          showSyncToast(
-            `Peserta "${data.candidate.name}" berhasil ditambahkan & disinkronkan ke Cetas Vote!`
-          );
-        } else {
-          applyLocalAddCandidate(fallbackCand);
-          showSyncToast(`Peserta "${fallbackCand.name}" berhasil ditambahkan!`);
-        }
-      } catch {
-        applyLocalAddCandidate(fallbackCand);
-        showSyncToast(`Peserta "${fallbackCand.name}" berhasil ditambahkan!`);
-      }
+      setEventVotings(nextVotings);
+      setSelectedVoteCategoryId(targetCategoryId);
+      setIsCandidateModalOpen(false);
+      showSyncToast(`✓ Peserta "${newCand.name}" berhasil ditambahkan & disinkronkan ke Cetas Vote!`);
+      await syncVotingsToBackend(nextVotings);
     }
-    setIsCandidateModalOpen(false);
   };
 
   const handleDeleteCandidate = async (candId: string) => {
     const targetEventId =
-      activeVoteEvent?.eventId || selectedEventId || selectedVoteEventId;
+      selectedEventId || activeVoteEvent?.eventId || selectedVoteEventId;
     const targetCategoryId = activeVoteCategory?.id || selectedVoteCategoryId;
     if (!targetEventId || !targetCategoryId) return;
 
     if (confirm("Hapus peserta ini dari voting?")) {
-      setEventVotings((prev) => {
-        const next = prev.map((ev) => {
-          if (ev.eventId !== targetEventId) return ev;
-          return {
-            ...ev,
-            categories: ev.categories.map((c) => {
-              if (c.id !== targetCategoryId) return c;
-              return {
-                ...c,
-                candidates: c.candidates.filter((cand) => cand.id !== candId),
-              };
-            }),
-          };
-        });
-        saveStoredEventVotings(next);
-        return next;
+      const nextVotings = eventVotings.map((ev) => {
+        if (ev.eventId !== targetEventId) return ev;
+        return {
+          ...ev,
+          categories: ev.categories.map((c) => {
+            if (c.id !== targetCategoryId) return c;
+            return {
+              ...c,
+              candidates: c.candidates.filter((cand) => cand.id !== candId),
+            };
+          }),
+        };
       });
-      try {
-        const res = await fetch(
-          `/api/vote?eventId=${targetEventId}&categoryId=${targetCategoryId}&candidateId=${candId}`,
-          { method: "DELETE" }
-        );
-        const data = await res.json();
-        if (data.success && Array.isArray(data.eventVotings)) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
-        }
-        showSyncToast("Peserta berhasil dihapus dari voting.");
-      } catch {}
+      setEventVotings(nextVotings);
+      showSyncToast("✓ Peserta berhasil dihapus dari voting.");
+      await syncVotingsToBackend(nextVotings);
     }
   };
 
@@ -2127,15 +1961,36 @@ export default function AdminDashboardPage() {
                           {/* Modular Capabilities Badge Strip */}
                           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
                             <div className="grid grid-cols-3 gap-1.5 text-[10px] font-bold">
-                              <div className="p-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-center border border-purple-100 dark:border-purple-900/50">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectEventWorkspace(ev.id, "SCORE");
+                                }}
+                                className="p-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-center border border-purple-100 dark:border-purple-900/50 transition"
+                              >
                                 ⚖️ CETAS.SCORE
-                              </div>
-                              <div className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-center border border-amber-100 dark:border-amber-900/50">
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectEventWorkspace(ev.id, "VOTE");
+                                }}
+                                className="p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-center border border-amber-100 dark:border-amber-900/50 transition"
+                              >
                                 🗳️ {voteCfg?.categories.length || 0} Kategori Vote
-                              </div>
-                              <div className="p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-center border border-blue-100 dark:border-blue-900/50">
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectEventWorkspace(ev.id, "TICKETS");
+                                }}
+                                className="p-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-center border border-blue-100 dark:border-blue-900/50 transition"
+                              >
                                 🎫 {ev.isOpenTicketing ? `${ev.tiers?.length || 1} Tier Tiket` : "RSVP Online"}
-                              </div>
+                              </button>
                             </div>
 
                             {/* Action Button: Buka Lingkup Kerja */}
@@ -2963,13 +2818,23 @@ export default function AdminDashboardPage() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
+                          type="button"
                           onClick={handleOpenCreateCategory}
                           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md transition active:scale-95"
                         >
                           <PlusCircle className="h-4 w-4" />
                           + Tambah Kategori
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleOpenCreateCandidate}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition active:scale-95"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          + Tambah Peserta Baru
                         </button>
 
                         <Link
@@ -4080,7 +3945,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <span className="text-[10px] font-extrabold uppercase text-orange-600 dark:text-orange-400 tracking-wider">
-                  Kategori: {activeVoteCategory?.title}
+                  Kategori: {activeVoteCategory?.title || "Kategori Voting Utama (Otomatis)"}
                 </span>
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <UserPlus className="h-5 w-5 text-orange-500" />
@@ -4088,6 +3953,7 @@ export default function AdminDashboardPage() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCandidateModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
@@ -4096,6 +3962,25 @@ export default function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleSaveCandidate} className="overflow-y-auto flex-1 pr-1 space-y-3.5 my-3">
+              {activeVoteEvent && activeVoteEvent.categories.length > 0 && !editingCandidateId && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Pilih Kategori Pemilihan *
+                  </label>
+                  <select
+                    value={activeVoteCategory?.id || activeVoteEvent.categories[0].id}
+                    onChange={(e) => setSelectedVoteCategoryId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                  >
+                    {activeVoteEvent.categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.title} ({formatRupiah(cat.pricePerVote)} / vote)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -4147,15 +4032,14 @@ export default function AdminDashboardPage() {
 
               <div>
                 <FileUpload
-                  label="Foto Profil Peserta (Upload Langsung)"
-                  description="Upload foto potret resmi peserta voting (Format PNG, JPG, WEBP)"
+                  label="Foto Profil Peserta (Upload Langsung / Opsional)"
+                  description="Upload foto potret resmi peserta voting (Format PNG, JPG, WEBP — otomatis dikompresi ringan)"
                   accept="image/*"
                   value={candidateForm.photoUrl}
                   onChange={(dataUrl) =>
                     setCandidateForm({ ...candidateForm, photoUrl: dataUrl })
                   }
                   aspectRatio="square"
-                  required
                 />
               </div>
 

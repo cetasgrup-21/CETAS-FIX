@@ -34,7 +34,45 @@ export function FileUpload({
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
-      if (result) {
+      if (!result) return;
+
+      // Auto-compress images via HTML5 Canvas so base64 payloads stay lightweight (~40-90 KB)
+      if (file.type.startsWith("image/") && !file.type.includes("svg") && !file.type.includes("gif")) {
+        const img = new window.Image();
+        img.onload = () => {
+          try {
+            const maxDim = aspectRatio === "square" ? 480 : 960;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressed = canvas.toDataURL("image/jpeg", 0.78);
+              onChange(compressed, file.name);
+              return;
+            }
+          } catch {}
+          onChange(result, file.name);
+        };
+        img.onerror = () => {
+          onChange(result, file.name);
+        };
+        img.src = result;
+      } else {
         onChange(result, file.name);
       }
     };

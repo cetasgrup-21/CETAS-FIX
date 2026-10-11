@@ -16,7 +16,12 @@ import {
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
 import { DokuPaymentModal } from "@/components/doku-payment-modal";
-import { UnifiedEvent, getStoredEvents, saveStoredEvents } from "@/lib/events-unified-data";
+import {
+  INITIAL_UNIFIED_EVENTS,
+  UnifiedEvent,
+  getStoredEvents,
+  saveStoredEvents,
+} from "@/lib/events-unified-data";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 
 interface TicketTier {
@@ -49,49 +54,50 @@ interface IssuedTicket {
   qrDataUrl: string;
 }
 
-const DEFAULT_EVENTS: EventItem[] = [];
+function mapToTicketingEvents(list: UnifiedEvent[]): EventItem[] {
+  return list
+    .filter((e: UnifiedEvent) => e.status !== "FINISHED" && e.isOpenTicketing !== false)
+    .map((e: UnifiedEvent) => {
+      const tiers: TicketTier[] =
+        Array.isArray(e.tiers) && e.tiers.length > 0
+          ? e.tiers.map((t) => ({
+              id: t.id || `tier-${e.id}`,
+              name: t.name || "Tiket Reguler",
+              price: Number(t.price) || Number(e.price) || 50000,
+              quotaTotal: Number(t.quotaTotal) || Number(e.quotaTotal) || 200,
+              quotaRemaining:
+                t.quotaRemaining !== undefined
+                  ? Number(t.quotaRemaining)
+                  : Number(e.quotaRemaining) || 200,
+            }))
+          : [
+              {
+                id: `tier-${e.id}-1`,
+                name: "Tiket Reguler",
+                price: Number(e.price) || 50000,
+                quotaTotal: Number(e.quotaTotal) || 200,
+                quotaRemaining: Number(e.quotaRemaining) || 200,
+              },
+            ];
+      return {
+        id: e.id,
+        title: e.title,
+        date: e.date,
+        location: e.location,
+        bannerUrl: e.bannerUrl,
+        description: e.description,
+        themePreset: e.themePreset,
+        tiers,
+      };
+    });
+}
+
+const DEFAULT_EVENTS: EventItem[] = mapToTicketingEvents(INITIAL_UNIFIED_EVENTS);
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS);
 
   useEffect(() => {
-    const mapToTicketingEvents = (list: UnifiedEvent[]): EventItem[] =>
-      list
-        .filter((e: UnifiedEvent) => e.status !== "FINISHED" && e.isOpenTicketing !== false)
-        .map((e: UnifiedEvent) => {
-          const tiers: TicketTier[] =
-            Array.isArray(e.tiers) && e.tiers.length > 0
-              ? e.tiers.map((t) => ({
-                  id: t.id || `tier-${e.id}`,
-                  name: t.name || "Tiket Reguler",
-                  price: Number(t.price) || Number(e.price) || 50000,
-                  quotaTotal: Number(t.quotaTotal) || Number(e.quotaTotal) || 200,
-                  quotaRemaining:
-                    t.quotaRemaining !== undefined
-                      ? Number(t.quotaRemaining)
-                      : Number(e.quotaRemaining) || 200,
-                }))
-              : [
-                  {
-                    id: `tier-${e.id}-1`,
-                    name: "Tiket Reguler",
-                    price: Number(e.price) || 50000,
-                    quotaTotal: Number(e.quotaTotal) || 200,
-                    quotaRemaining: Number(e.quotaRemaining) || 200,
-                  },
-                ];
-          return {
-            id: e.id,
-            title: e.title,
-            date: e.date,
-            location: e.location,
-            bannerUrl: e.bannerUrl,
-            description: e.description,
-            themePreset: e.themePreset,
-            tiers,
-          };
-        });
-
     const stored = getStoredEvents();
     if (stored && stored.length > 0) {
       setEvents(mapToTicketingEvents(stored));
@@ -99,26 +105,10 @@ export default function EventsPage() {
 
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
-      .then(async (data) => {
-        if (data.success && Array.isArray(data.events)) {
-          if (data.events.length > 0) {
-            saveStoredEvents(data.events);
-            setEvents(mapToTicketingEvents(data.events));
-          } else if (stored && stored.length > 0) {
-            // Auto-migrate existing browser Admin events to PostgreSQL backend so public is immediately in sync
-            setEvents(mapToTicketingEvents(stored));
-            for (const ev of stored) {
-              try {
-                await fetch("/api/events", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(ev),
-                });
-              } catch {}
-            }
-          } else {
-            setEvents([]);
-          }
+      .then((data) => {
+        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+          saveStoredEvents(data.events);
+          setEvents(mapToTicketingEvents(data.events));
         }
       })
       .catch(() => {});

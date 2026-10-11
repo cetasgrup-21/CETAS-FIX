@@ -58,170 +58,55 @@ export interface UnifiedEvent {
 
 export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
   {
-    id: "ev-lkbb-cetas-2026",
-    slug: "lkbb-cetas-championship-2026",
-    title: "LKBB CETAS Championship Series 2026",
-    organizer: "CETAS Official Tournament Organizer",
-    category: "TURNAMEN LKBB PASKIBRA",
-    themePreset: "SAPPHIRE",
-    date: "2026-11-15",
-    time: "07:00 - 18:00 WIB",
-    location: "GOR Indoor Arena Jakarta Barat",
+    id: "ev-268156",
+    slug: "lkbb-cemara-2026",
+    title: "LKBB CEMARA 2026",
+    organizer: "Cetas Official",
+    category: "Kompetisi & LKBB",
+    themePreset: "EMERALD",
+    date: "2026-11-28",
+    time: "09:00 - 17:00 WIB",
+    location: "SMK BUDI MURNI 2 JAKARTA",
     locationType: "OFFLINE",
-    bannerUrl:
-      "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1000&q=85",
+    bannerUrl: "/lkbb-cemara-2026.jpg",
     description:
-      "Kejuaraan Lomba Keterampilan Baris-Berbaris (LKBB) tingkat SMP/MTs, SMA/SMK/MA, dan Purna/Umum dengan sistem rekapitulasi nilai juri real-time 0 detik Cetas.Score, E-Voting Juara Favorit, dan E-Ticketing terintegrasi.",
+      "Kejuaraan Lomba Keterampilan Baris-Berbaris (LKBB) CEMARA 2026 di SMK Budi Murni 2 Jakarta. Terintegrasi dengan sistem penilaian digital real-time Cetas.Score, E-Voting Juara Favorit (Cetas Vote), dan E-Ticketing resmi.",
     status: "PUBLISHED",
     isOpenTicketing: true,
     tiers: [
       {
-        id: "tier-lkbb-reg",
-        name: "Tiket Masuk Suporter (Tribun Reguler)",
-        price: 25000,
-        quotaRemaining: 500,
-        quotaTotal: 500,
-      },
-      {
-        id: "tier-lkbb-vip",
-        name: "VIP Arena Pass (Front Row)",
-        price: 50000,
-        quotaRemaining: 100,
-        quotaTotal: 100,
-      },
-    ],
-    isOpenOnlineRegistration: true,
-    price: 450000,
-    priceLabel: "Rp 450.000 / Pasukan",
-    quotaTotal: 60,
-    quotaRemaining: 60,
-    categoryOptions: ["Tingkat SMP/MTs", "Tingkat SMA/SMK/MA", "Kategori Purna / Umum"],
-    facilities: [
-      "Rekap Nilai Real-Time Cetas.Score",
-      "E-Sertifikat Ber-QR Resmi",
-      "Piala Bergilir & Uang Pembinaan",
-      "ID Card Kontingen & Pelatih",
-    ],
-    lkbbTeams: [
-      {
-        id: "team-01",
-        number: "01",
-        school: "Kontingen Peserta 01 (Menunggu Tampil)",
-        teamName: "Pasukan Garuda Muda",
-        level: "SMA",
-        pbbMurni: 0,
-        variasiFormasi: 0,
-        danton: 0,
-        kostum: 0,
-        penalty: 0,
-        totalScore: 0,
-        status: "BELUM_TAMPIL",
-      },
-      {
-        id: "team-02",
-        number: "02",
-        school: "Kontingen Peserta 02 (Menunggu Tampil)",
-        teamName: "Pasukan Rajawali Sakti",
-        level: "SMA",
-        pbbMurni: 0,
-        variasiFormasi: 0,
-        danton: 0,
-        kostum: 0,
-        penalty: 0,
-        totalScore: 0,
-        status: "BELUM_TAMPIL",
-      },
-      {
-        id: "team-03",
-        number: "03",
-        school: "Kontingen Peserta 03 (Menunggu Tampil)",
-        teamName: "Pasukan Nusantara Jaya",
-        level: "SMP",
-        pbbMurni: 0,
-        variasiFormasi: 0,
-        danton: 0,
-        kostum: 0,
-        penalty: 0,
-        totalScore: 0,
-        status: "BELUM_TAMPIL",
-      },
-    ],
-  },
-  {
-    id: "ev-patriot-cup-2026",
-    slug: "festival-paskibra-patriot-cup-2026",
-    title: "Festival LKBB Patriot Cup Nasional 2026",
-    organizer: "Divisi Event & Kompetisi CETAS",
-    category: "KOMPETISI NASIONAL",
-    themePreset: "FLAME",
-    date: "2026-12-06",
-    time: "07:30 - 17:30 WIB",
-    location: "Hall Basket & Indoor Stadium Jakarta",
-    locationType: "HYBRID",
-    bannerUrl:
-      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1000&q=85",
-    description:
-      "Turnamen baris-berbaris dan kreasi formasi tingkat pelajar se-Jabodetabek & Nasional. Terbuka untuk pembelian tiket penonton (Cetas Ticketing), dukungan pleton terfavorit (Cetas Vote), dan pantauan skor langsung.",
-    status: "PUBLISHED",
-    isOpenTicketing: true,
-    tiers: [
-      {
-        id: "tier-patriot-reg",
-        name: "Daily Pass Penonton",
-        price: 30000,
+        id: "tier-1791759127996-1",
+        name: "MANDATORY TICKET",
+        price: 10000,
         quotaRemaining: 400,
         quotaTotal: 400,
+        benefits: ["E-Ticket QR Code Resmi", "Akses Masuk Venue LKBB CEMARA 2026"],
       },
     ],
     isOpenOnlineRegistration: true,
-    price: 500000,
-    priceLabel: "Rp 500.000 / Pasukan",
-    quotaTotal: 50,
-    quotaRemaining: 50,
-    categoryOptions: ["Tingkat SMP/MTs", "Tingkat SMA/SMK/MA"],
+    price: 0,
+    priceLabel: "Gratis",
+    quotaTotal: 100,
+    quotaRemaining: 100,
+    categoryOptions: ["Tingkat SMP/MTs", "Tingkat SMA/SMK/MA", "Kategori Purna / Umum"],
     facilities: [
-      "Lembar Nilai Digital Transparan",
-      "E-Sertifikat Seluruh Anggota",
-      "Akses Portal Pelatih",
+      "Sertifikat Digital Resmi",
+      "E-Badge Pass QR",
+      "Snack",
     ],
-    lkbbTeams: [
-      {
-        id: "team-p1",
-        number: "01",
-        school: "Kontingen Patriot 01 (Menunggu Tampil)",
-        teamName: "Pleton Ksatria",
-        level: "SMA",
-        pbbMurni: 0,
-        variasiFormasi: 0,
-        danton: 0,
-        kostum: 0,
-        penalty: 0,
-        totalScore: 0,
-        status: "BELUM_TAMPIL",
-      },
-      {
-        id: "team-p2",
-        number: "02",
-        school: "Kontingen Patriot 02 (Menunggu Tampil)",
-        teamName: "Pleton Srikandi",
-        level: "SMP",
-        pbbMurni: 0,
-        variasiFormasi: 0,
-        danton: 0,
-        kostum: 0,
-        penalty: 0,
-        totalScore: 0,
-        status: "BELUM_TAMPIL",
-      },
-    ],
+    lkbbTeams: [],
   },
 ];
 
-const EVENTS_STORAGE_KEY = "cetas_unified_events_v3";
+const EVENTS_STORAGE_KEY = "cetas_unified_events_v4";
 
 export function getStoredEvents(): UnifiedEvent[] {
   if (typeof window === "undefined") return INITIAL_UNIFIED_EVENTS;
   try {
+    // Purge legacy keys that may contain uncompressed multi-MB base64 strings
+    localStorage.removeItem("cetas_unified_events_v1");
+    localStorage.removeItem("cetas_unified_events_v2");
+    localStorage.removeItem("cetas_unified_events_v3");
     const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
     if (!raw) return INITIAL_UNIFIED_EVENTS;
     const parsed = JSON.parse(raw);
@@ -236,5 +121,17 @@ export function saveStoredEvents(events: UnifiedEvent[]): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
-  } catch {}
+  } catch {
+    // If localStorage quota is exceeded due to large base64 banners, store with compact banner fallback
+    try {
+      const compact = events.map((e) => ({
+        ...e,
+        bannerUrl:
+          e.bannerUrl && e.bannerUrl.length > 250000
+            ? "/lkbb-cemara-2026.jpg"
+            : e.bannerUrl,
+      }));
+      localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(compact));
+    } catch {}
+  }
 }

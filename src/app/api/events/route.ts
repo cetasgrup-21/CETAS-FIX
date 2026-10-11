@@ -9,6 +9,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function normTitle(str?: string): string {
+  return (str || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function safeBanner(url?: string): string {
+  if (!url) return "/lkbb-cemara-2026.jpg";
+  if (url.length > 350000) return "/lkbb-cemara-2026.jpg";
+  return url;
+}
+
 // GET: Ambil daftar seluruh event dari PostgreSQL CetasStore
 export async function GET() {
   const events = await getEventsStore();
@@ -33,11 +43,15 @@ export async function POST(req: NextRequest) {
 
     // Sinkronisasi massal jika diperlukan
     if (body.action === "SYNC_EVENTS" && Array.isArray(body.events)) {
-      await saveEventsStore(body.events);
+      const clean = body.events.map((e: UnifiedEvent) => ({
+        ...e,
+        bannerUrl: safeBanner(e.bannerUrl),
+      }));
+      await saveEventsStore(clean);
       return NextResponse.json({
         success: true,
         message: "Daftar event berhasil disinkronkan!",
-        events: body.events,
+        events: clean,
       });
     }
 
@@ -49,7 +63,11 @@ export async function POST(req: NextRequest) {
     }
 
     const events = await getEventsStore();
-    const eventId = body.id || `ev-${Date.now().toString().slice(-6)}`;
+    const existingByTitle = events.find(
+      (e) => normTitle(e.title) === normTitle(body.title) && e.date === body.date
+    );
+    const eventId =
+      body.id || existingByTitle?.id || `ev-${Date.now().toString().slice(-6)}`;
     const slug =
       body.slug ||
       body.title
@@ -60,17 +78,15 @@ export async function POST(req: NextRequest) {
     const newEvent: UnifiedEvent = {
       id: eventId,
       slug,
-      title: body.title,
+      title: body.title.trim().replace(/\s+/g, " "),
       organizer: body.organizer || "Cetas Event Organizer",
       category: body.category || "TURNAMEN LKBB PASKIBRA",
-      themePreset: body.themePreset || "FLAME",
+      themePreset: body.themePreset || "EMERALD",
       date: body.date,
       time: body.time || "08:00 - 17:00 WIB",
       location: body.location || "Jakarta",
       locationType: body.locationType || "OFFLINE",
-      bannerUrl:
-        body.bannerUrl ||
-        "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1000&q=85",
+      bannerUrl: safeBanner(body.bannerUrl),
       description: body.description || "Deskripsi resmi event Cetas.",
       status: body.status || "PUBLISHED",
       isOpenTicketing: body.isOpenTicketing !== undefined ? Boolean(body.isOpenTicketing) : true,
@@ -112,7 +128,14 @@ export async function POST(req: NextRequest) {
       lkbbTeams: Array.isArray(body.lkbbTeams) ? body.lkbbTeams : [],
     };
 
-    const updatedEvents = [newEvent, ...events.filter((e) => e.id !== newEvent.id)];
+    const updatedEvents = [
+      newEvent,
+      ...events.filter(
+        (e) =>
+          e.id !== newEvent.id &&
+          !(normTitle(e.title) === normTitle(newEvent.title) && e.date === newEvent.date)
+      ),
+    ];
     await saveEventsStore(updatedEvents);
 
     // Otomatis buat bilik voting untuk event baru ini agar langsung sinkron dengan Cetas Vote
@@ -123,10 +146,10 @@ export async function POST(req: NextRequest) {
         eventTitle: newEvent.title,
         eventDate: newEvent.date,
         bannerUrl: newEvent.bannerUrl,
-        themePreset: newEvent.themePreset || "FLAME",
+        themePreset: newEvent.themePreset || "EMERALD",
         categories: [
           {
-            id: `cat-${Date.now()}-1`,
+            id: `cat-${newEvent.id}-smp`,
             eventId: newEvent.id,
             title: "Tingkat SMP/MTs",
             description: "Kategori voting tingkat SMP/MTs sederajat",
@@ -134,7 +157,7 @@ export async function POST(req: NextRequest) {
             candidates: [],
           },
           {
-            id: `cat-${Date.now()}-2`,
+            id: `cat-${newEvent.id}-sma`,
             eventId: newEvent.id,
             title: "Tingkat SMA/SMK/MA",
             description: "Kategori voting tingkat SMA/SMK/MA sederajat",
@@ -197,25 +220,28 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const eventIndex = events.findIndex((e) => e.id === id);
+    let eventIndex = events.findIndex((e) => e.id === id);
+    if (eventIndex === -1 && updates.title) {
+      eventIndex = events.findIndex(
+        (e) => normTitle(e.title) === normTitle(updates.title)
+      );
+    }
+
     let updatedEvent: UnifiedEvent;
 
     if (eventIndex === -1) {
-      // Self-healing upsert: jika ID belum ada di DB (misal dari local state lama), tambahkan langsung!
       updatedEvent = {
         id,
         slug: (updates.title || id).toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        title: updates.title || "Event Cetas",
+        title: (updates.title || "Event Cetas").trim().replace(/\s+/g, " "),
         organizer: updates.organizer || "Cetas Official",
         category: updates.category || "TURNAMEN LKBB PASKIBRA",
-        themePreset: updates.themePreset || "FLAME",
+        themePreset: updates.themePreset || "EMERALD",
         date: updates.date || new Date().toISOString().split("T")[0],
         time: updates.time || "08:00 - 17:00 WIB",
         location: updates.location || "Jakarta",
         locationType: updates.locationType || "OFFLINE",
-        bannerUrl:
-          updates.bannerUrl ||
-          "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1000&q=85",
+        bannerUrl: safeBanner(updates.bannerUrl),
         description: updates.description || "Deskripsi resmi event Cetas.",
         status: updates.status || "PUBLISHED",
         isOpenTicketing:
@@ -237,6 +263,10 @@ export async function PUT(req: NextRequest) {
         ...existing,
         ...updates,
         id: existing.id,
+        bannerUrl:
+          updates.bannerUrl !== undefined
+            ? safeBanner(updates.bannerUrl)
+            : existing.bannerUrl,
         tiers:
           updates.tiers !== undefined
             ? updates.tiers.map(
@@ -269,13 +299,18 @@ export async function PUT(req: NextRequest) {
 
     // Sinkronkan judul, banner, tanggal & tema event ke bilik Cetas Vote
     const votings = await getVotingsStore();
-    const voteIdx = votings.findIndex((v) => v.eventId === updatedEvent.id);
+    const voteIdx = votings.findIndex(
+      (v) =>
+        v.eventId === updatedEvent.id ||
+        normTitle(v.eventTitle) === normTitle(updatedEvent.title)
+    );
     if (voteIdx !== -1) {
       votings[voteIdx] = {
         ...votings[voteIdx],
+        eventId: updatedEvent.id,
         eventTitle: updatedEvent.title,
         eventDate: updatedEvent.date,
-        bannerUrl: updatedEvent.bannerUrl,
+        bannerUrl: safeBanner(updatedEvent.bannerUrl),
         themePreset: updatedEvent.themePreset || votings[voteIdx].themePreset,
       };
       await saveVotingsStore(votings);
@@ -284,18 +319,18 @@ export async function PUT(req: NextRequest) {
         eventId: updatedEvent.id,
         eventTitle: updatedEvent.title,
         eventDate: updatedEvent.date,
-        bannerUrl: updatedEvent.bannerUrl,
-        themePreset: updatedEvent.themePreset || "FLAME",
+        bannerUrl: safeBanner(updatedEvent.bannerUrl),
+        themePreset: updatedEvent.themePreset || "EMERALD",
         categories: [
           {
-            id: `cat-${Date.now()}-1`,
+            id: `cat-${updatedEvent.id}-smp`,
             eventId: updatedEvent.id,
             title: "Tingkat SMP/MTs",
             pricePerVote: 2000,
             candidates: [],
           },
           {
-            id: `cat-${Date.now()}-2`,
+            id: `cat-${updatedEvent.id}-sma`,
             eventId: updatedEvent.id,
             title: "Tingkat SMA/SMK/MA",
             pricePerVote: 2000,

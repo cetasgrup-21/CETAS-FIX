@@ -21,7 +21,6 @@ import {
   UserCheck,
   Clock,
   Download,
-  Star,
   Check,
   HelpCircle,
   FileText,
@@ -50,64 +49,7 @@ export default function HomePage() {
     "umum" | "pbb" | "variasi" | "danton" | "favorit"
   >("umum");
 
-  const scoreboardData: ScoreboardRow[] = [
-    {
-      rank: 1,
-      school: "SMA Negeri 1 Jakarta",
-      team: "Pasukan Garuda Sakti",
-      category: "Tingkat SMA",
-      pbbMurni: 94.5,
-      variasi: 96.0,
-      danton: 93.5,
-      kostum: 95.0,
-      penalty: 0,
-      totalScore: 379.0,
-      votes: 2450,
-      status: "TERVERIFIKASI",
-    },
-    {
-      rank: 2,
-      school: "SMK Taruna Bhakti Depok",
-      team: "Cakra Wibawa Nusantara",
-      category: "Tingkat SMA",
-      pbbMurni: 92.0,
-      variasi: 94.5,
-      danton: 91.0,
-      kostum: 93.0,
-      penalty: 0,
-      totalScore: 370.5,
-      votes: 1820,
-      status: "TERVERIFIKASI",
-    },
-    {
-      rank: 3,
-      school: "SMP Negeri 2 Bandung",
-      team: "Satria Muda Siliwangi",
-      category: "Tingkat SMP",
-      pbbMurni: 89.5,
-      variasi: 92.0,
-      danton: 89.0,
-      kostum: 91.0,
-      penalty: 0,
-      totalScore: 361.5,
-      votes: 1410,
-      status: "TERVERIFIKASI",
-    },
-    {
-      rank: 4,
-      school: "SMA Bintang Nusantara",
-      team: "Laskar Adhi Pratama",
-      category: "Tingkat SMA",
-      pbbMurni: 88.0,
-      variasi: 90.5,
-      danton: 87.0,
-      kostum: 89.5,
-      penalty: 0,
-      totalScore: 355.0,
-      votes: 980,
-      status: "SEDANG_DINILAI",
-    },
-  ];
+  const scoreboardData: ScoreboardRow[] = [];
 
   const sortedScoreboard = [...scoreboardData].sort((a, b) => {
     if (selectedScoreTab === "pbb") return b.pbbMurni - a.pbbMurni;
@@ -443,76 +385,108 @@ export default function HomePage() {
           </div>
 
           {/* Scoreboard Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {sortedScoreboard.map((item, index) => (
-              <div
-                key={item.school}
-                className="relative rounded-2xl border border-purple-100 bg-white p-5 shadow-xs purple-glow-hover transition-all space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div
-                    className={`h-8 w-8 rounded-xl font-black text-xs flex items-center justify-center ${
-                      index === 0
-                        ? "bg-amber-400 text-amber-950 shadow-xs"
-                        : index === 1
-                        ? "bg-slate-200 text-slate-800"
-                        : index === 2
-                        ? "bg-amber-700/20 text-amber-900"
-                        : "bg-purple-50 text-purple-700"
-                    }`}
-                  >
-                    #{index + 1}
-                  </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      item.status === "TERVERIFIKASI"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
-                    }`}
-                  >
-                    {item.status === "TERVERIFIKASI" ? "✓ Sah Juri" : "Proses"}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 leading-snug line-clamp-1">
-                    {item.school}
-                  </h3>
-                  <p className="text-xs text-purple-700 font-bold mt-0.5 line-clamp-1">
-                    &ldquo;{item.team}&rdquo;
-                  </p>
-                </div>
-
-                {/* Score Detail Breakdown */}
-                <div className="space-y-1.5 pt-2 border-t border-purple-50 text-xs">
-                  <div className="flex justify-between text-slate-500">
-                    <span>PBB Murni:</span>
-                    <span className="font-bold text-slate-800">{item.pbbMurni}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Variasi Formasi:</span>
-                    <span className="font-bold text-slate-800">{item.variasi}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Komandan Peleton:</span>
-                    <span className="font-bold text-slate-800">{item.danton}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Vote Publik:</span>
-                    <span className="font-bold text-purple-700">{item.votes} Suara</span>
-                  </div>
-                </div>
-
-                {/* Total Score Highlight */}
-                <div className="pt-2 border-t border-purple-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-600">Total Skor:</span>
-                  <span className="text-lg font-black text-purple-700">
-                    {item.totalScore.toFixed(1)}
-                  </span>
-                </div>
+          {sortedScoreboard.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-purple-100 bg-purple-50/30 p-10 text-center space-y-3">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                <Award className="h-6 w-6" />
               </div>
-            ))}
-          </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-slate-900">
+                  Belum Ada Event atau Data Peringkat Aktif Saat Ini
+                </h3>
+                <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+                  Papan peringkat dan rekapitulasi nilai dewan juri akan tampil secara real-time di halaman ini saat event turnamen berlangsung.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
+                <Link
+                  href="/rekap"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2.5 shadow-sm transition"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Buka Rekapitulasi Cetas.Score
+                </Link>
+                <Link
+                  href="/display"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-800 font-bold text-xs px-4 py-2.5 border border-purple-200 transition"
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                  Layar Videotron Live
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {sortedScoreboard.map((item, index) => (
+                <div
+                  key={item.school}
+                  className="relative rounded-2xl border border-purple-100 bg-white p-5 shadow-xs purple-glow-hover transition-all space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div
+                      className={`h-8 w-8 rounded-xl font-black text-xs flex items-center justify-center ${
+                        index === 0
+                          ? "bg-amber-400 text-amber-950 shadow-xs"
+                          : index === 1
+                          ? "bg-slate-200 text-slate-800"
+                          : index === 2
+                          ? "bg-amber-700/20 text-amber-900"
+                          : "bg-purple-50 text-purple-700"
+                      }`}
+                    >
+                      #{index + 1}
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        item.status === "TERVERIFIKASI"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
+                      }`}
+                    >
+                      {item.status === "TERVERIFIKASI" ? "✓ Sah Juri" : "Proses"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 leading-snug line-clamp-1">
+                      {item.school}
+                    </h3>
+                    <p className="text-xs text-purple-700 font-bold mt-0.5 line-clamp-1">
+                      &ldquo;{item.team}&rdquo;
+                    </p>
+                  </div>
+
+                  {/* Score Detail Breakdown */}
+                  <div className="space-y-1.5 pt-2 border-t border-purple-50 text-xs">
+                    <div className="flex justify-between text-slate-500">
+                      <span>PBB Murni:</span>
+                      <span className="font-bold text-slate-800">{item.pbbMurni}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Variasi Formasi:</span>
+                      <span className="font-bold text-slate-800">{item.variasi}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Komandan Peleton:</span>
+                      <span className="font-bold text-slate-800">{item.danton}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Vote Publik:</span>
+                      <span className="font-bold text-purple-700">{item.votes} Suara</span>
+                    </div>
+                  </div>
+
+                  {/* Total Score Highlight */}
+                  <div className="pt-2 border-t border-purple-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600">Total Skor:</span>
+                    <span className="text-lg font-black text-purple-700">
+                      {item.totalScore.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -907,76 +881,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 8. TESTIMONI PELATIH & PENYELENGGARA TURNAMEN */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10 space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200">
-            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-            Kepuasan Komunitas
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Dipercaya Pelatih & Penyelenggara Lomba
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-3">
-            <div className="flex items-center gap-1 text-amber-400">
-              {"★★★★★"}
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed italic">
-              &ldquo;Baru kali ini ikut LKBB yang rekap nilainya detik itu juga langsung tayang di layar videotron panggung! Pasukan kami tidak perlu menunggu larut malam untuk tahu hasil penilaian juri.&rdquo;
-            </p>
-            <div className="pt-2 border-t border-purple-50 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-purple-100 text-purple-800 font-black text-xs flex items-center justify-center">
-                BW
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-900">Bambang Wijaya, S.Pd</div>
-                <div className="text-[11px] text-slate-500">Pelatih Paskibra SMAN 1 Jakarta</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-3">
-            <div className="flex items-center gap-1 text-amber-400">
-              {"★★★★★"}
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed italic">
-              &ldquo;Sistem tiket ber-QR dinamis CETAS bikin gate masuk turnamen sangat tertib. Tidak ada lagi joki tiket atau screenshot palsu. Pendapatan tiket penonton langsung transparan di dashboard admin.&rdquo;
-            </p>
-            <div className="pt-2 border-t border-purple-50 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-indigo-100 text-indigo-800 font-black text-xs flex items-center justify-center">
-                RS
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-900">Rendi Saputra</div>
-                <div className="text-[11px] text-slate-500">Ketua Panitia Festival Pelajar</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-3">
-            <div className="flex items-center gap-1 text-amber-400">
-              {"★★★★★"}
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed italic">
-              &ldquo;Sangat terbantu dengan Cetas Production. Kami sewa sound line-array sekalian dengan aplikasi juri dan e-voting. Sangat praktis, tidak perlu pusing koordinasi vendor terpisah.&rdquo;
-            </p>
-            <div className="pt-2 border-t border-purple-50 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-purple-100 text-purple-800 font-black text-xs flex items-center justify-center">
-                DA
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-900">Dra. Anisa Kusuma</div>
-                <div className="text-[11px] text-slate-500">Pembina OSIS & Seni Pelajar</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 9. WHATSAPP & SUPPORT CTA SECTION */}
+      {/* 8. WHATSAPP & SUPPORT CTA SECTION */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-purple-200 bg-gradient-to-r from-purple-100/60 via-purple-50/40 to-indigo-50/60 p-8 sm:p-10 text-center relative overflow-hidden">
           <div className="max-w-2xl mx-auto space-y-4">

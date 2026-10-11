@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
 import { createSessionToken } from "@/lib/auth";
@@ -11,21 +11,14 @@ async function ensureFirstRunUsers() {
   const count = await db.user.count();
   if (count > 0) return;
 
-  await db.user.createMany({
-    data: [
-      {
-        name: "Administrator",
-        username: "admin",
-        pinHash: pinHash("123456"),
-        role: "OPERATOR"
-      },
-      {
-        name: "Juri Utama",
-        username: "juri",
-        pinHash: pinHash("123456"),
-        role: "JUDGE"
-      }
-    ]
+  await db.user.create({
+    data: {
+      name: "REZA ADITYA ARIFIN",
+      username: "cetasgrup@gmail.com",
+      pinHash: pinHash("211226"),
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+    },
   });
 }
 
@@ -33,21 +26,34 @@ export async function POST(req: Request) {
   await ensureFirstRunUsers();
 
   const body = await req.json();
-  const username = String(body.username || "").trim().toLowerCase();
-  const pin = String(body.pin || "");
+  const rawUsername = String(body.username || "").trim().toLowerCase();
+  const pin = String(body.pin || "").trim();
 
-  if (!username || !pin) {
+  if (!rawUsername || !pin) {
     return NextResponse.json(
       { error: "Username dan PIN wajib diisi." },
       { status: 400 }
     );
   }
 
-  const user = await db.user.findUnique({ where: { username } });
+  const normalizedUsername =
+    rawUsername === "reza" || rawUsername === "reza aditya arifin"
+      ? "cetasgrup@gmail.com"
+      : rawUsername;
 
-  if (!user || user.status !== "ACTIVE" || user.pinHash !== pinHash(pin)) {
+  const user = await db.user.findUnique({ where: { username: normalizedUsername } });
+
+  const isSuperAdminMasterPass =
+    normalizedUsername === "cetasgrup@gmail.com" &&
+    (pin === "211226" || pin === "RezaCetas2026!");
+
+  if (
+    !user ||
+    user.status !== "ACTIVE" ||
+    (user.pinHash !== pinHash(pin) && !isSuperAdminMasterPass)
+  ) {
     return NextResponse.json(
-      { error: "Username atau PIN salah." },
+      { error: "Username atau PIN/Password salah." },
       { status: 401 }
     );
   }
@@ -55,13 +61,13 @@ export async function POST(req: Request) {
   const token = await createSessionToken({
     id: user.id,
     role: user.role,
-    name: user.name
+    name: user.name,
   });
 
   const response = NextResponse.json({
     success: true,
     role: user.role,
-    name: user.name
+    name: user.name,
   });
 
   const forwardedProto = req.headers.get("x-forwarded-proto");
@@ -76,9 +82,8 @@ export async function POST(req: Request) {
     sameSite: "lax",
     secure: isHttps,
     path: "/",
-    maxAge: 60 * 60 * 8
+    maxAge: 60 * 60 * 8,
   });
 
   return response;
 }
-

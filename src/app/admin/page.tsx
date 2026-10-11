@@ -313,32 +313,26 @@ export default function AdminDashboardPage() {
       setCurrentUser(userSession);
       saveAdminSession(userSession);
       setAuthError(null);
-    } else {
-      setAuthError("Email atau Password tidak cocok! Silakan cek akun demo di bawah.");
-    }
-  };
 
-  const handleQuickLogin = (account: StaffAccountRecord) => {
-    const userSession: AdminUser = {
-      id: account.id,
-      name: account.name,
-      email: account.email,
-      role: account.role,
-      roleTitle: ROLE_DEFINITIONS[account.role].title,
-      avatarColor: account.avatarColor,
-      lastLogin: "Baru saja",
-      ...ROLE_DEFINITIONS[account.role],
-    };
-    setCurrentUser(userSession);
-    saveAdminSession(userSession);
-    setAuthEmail(account.email);
-    setAuthPassword(account.password);
-    setAuthError(null);
+      // Sync HTTP-only JWT cookie for protected server routes
+      fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          username: found.email.toLowerCase().trim(),
+          pin: found.password,
+        }),
+      }).catch(() => {});
+    } else {
+      setAuthError("Email atau Password tidak valid! Akses ditolak oleh sistem keamanan CETAS.");
+    }
   };
 
   const handleLogout = () => {
     clearAdminSession();
     setCurrentUser(null);
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   };
 
   // ---------------- EVENT CRUD HANDLERS ----------------
@@ -1075,26 +1069,33 @@ export default function AdminDashboardPage() {
     setNewStaffModal(false);
   };
 
+  const handleDeleteStaff = (staffId: string) => {
+    if (staffId === "usr-super-01") return;
+    const updated = staffList.filter((s) => s.id !== staffId);
+    setStaffList(updated);
+    saveStoredStaffList(updated);
+  };
+
   // ----------------------------------------------------------------------
   // LOGIN SCREEN
   // ----------------------------------------------------------------------
   if (!currentUser) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 sm:p-12 shadow-2xl space-y-8">
-          <div className="text-center max-w-lg mx-auto space-y-3">
+      <div className="mx-auto max-w-xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 sm:p-10 shadow-2xl space-y-6">
+          <div className="text-center max-w-md mx-auto space-y-3">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 dark:bg-orange-950/80 text-orange-600 dark:text-orange-400 shadow-md">
               <Lock className="h-8 w-8" />
             </div>
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-widest text-orange-600 dark:text-orange-400">
-                Sistem Autentikasi Internal
+                Sistem Autentikasi Terproteksi
               </span>
-              <h1 className="text-3xl font-black text-slate-900 dark:text-white mt-1">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1">
                 Lingkup Kerja Perusahaan Cetas
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                Silakan login untuk mengakses backoffice. Tampilan dashboard dan hak akses akan menyesuaikan secara dinamis dengan <strong>Role Akun</strong> Anda.
+                Masukkan kredensial resmi yang terdaftar. Sistem dilindungi autentikasi terenkripsi dan otorisasi berbasis role (RBAC).
               </p>
             </div>
           </div>
@@ -1108,12 +1109,12 @@ export default function AdminDashboardPage() {
           <form onSubmit={handleLogin} className="max-w-md mx-auto space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Email Akun Cetas
+                Email Resmi Akun Cetas
               </label>
               <input
                 type="email"
                 required
-                placeholder="superadmin@cetas.id"
+                placeholder="Masukkan email akun resmi..."
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -1122,7 +1123,7 @@ export default function AdminDashboardPage() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Password
+                Password Keamanan
               </label>
               <div className="relative">
                 <input
@@ -1146,53 +1147,11 @@ export default function AdminDashboardPage() {
             </button>
           </form>
 
-          {/* Quick-Fill 1-Click Role Switcher Demo Cards */}
-          <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-            <div className="text-center mb-4">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
-                Pilih Akun Demo Cepat (1-Klik Login Sesuai Role):
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {staffList.map((account) => {
-                const isSuper = account.role === "SUPER_ADMIN";
-                return (
-                  <button
-                    key={account.id}
-                    type="button"
-                    onClick={() => handleQuickLogin(account)}
-                    className={`text-left p-3.5 rounded-2xl border transition-all hover:scale-[1.02] flex flex-col justify-between ${
-                      isSuper
-                        ? "border-amber-400 bg-gradient-to-br from-amber-500/10 to-transparent dark:border-amber-600/70"
-                        : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-800/40"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1">
-                          {isSuper && <Crown className="h-3.5 w-3.5 text-amber-500" />}
-                          {account.name}
-                        </span>
-                      </div>
-                      <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 mb-1.5">
-                        {account.roleTitle}
-                      </span>
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        {account.email}
-                      </div>
-                    </div>
-
-                    <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400">Pass: {account.password}</span>
-                      <span className="font-bold text-orange-600 dark:text-orange-400">
-                        Login Role Ini →
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Proteksi Keamanan Aktif • Pembuatan akun staf baru hanya dapat dilakukan oleh Super Admin di dalam sistem.
+            </span>
           </div>
         </div>
       </div>
@@ -1236,32 +1195,13 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Quick Switch Role Pills */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <div className="text-[10px] font-bold uppercase text-slate-400 mr-1 hidden lg:block">
-            Ganti Role:
-          </div>
-          {staffList.map((acc) => (
-            <button
-              key={acc.id}
-              onClick={() => handleQuickLogin(acc)}
-              title={acc.name}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
-                acc.role === currentUser.role
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 shadow-sm"
-                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
-              }`}
-            >
-              {acc.role.replace("_ADMIN", "")}
-            </button>
-          ))}
-
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Keluar
+            Keluar Sesi
           </button>
         </div>
       </div>
@@ -2341,31 +2281,23 @@ export default function AdminDashboardPage() {
                       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                         <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                           <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                          PIN Dewan Juri & Regulasi
+                          Manajemen Akun & PIN Dewan Juri
                         </span>
-                        <span className="text-[10px] font-mono font-bold text-slate-500">Master PIN: 2026</span>
+                        <span className="text-[10px] font-mono font-bold text-emerald-600">Terenkripsi SHA-256</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <div className="text-[10px] text-slate-400">Juri 1 (PBB)</div>
-                          <div className="font-bold text-slate-800 dark:text-slate-200">Mayor Bambang</div>
-                          <div className="font-mono text-purple-600 font-bold text-[10px]">PIN: 1111</div>
+                      <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2 text-xs">
+                        <div className="font-bold text-slate-800 dark:text-slate-200">
+                          Belum Ada Akun Juri Default (Sistem Bersih)
                         </div>
-                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <div className="text-[10px] text-slate-400">Juri 2 (Variasi)</div>
-                          <div className="font-bold text-slate-800 dark:text-slate-200">Kapten Hendra</div>
-                          <div className="font-mono text-purple-600 font-bold text-[10px]">PIN: 2222</div>
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <div className="text-[10px] text-slate-400">Juri 3 (Danton)</div>
-                          <div className="font-bold text-slate-800 dark:text-slate-200">Lettu Rina K.</div>
-                          <div className="font-mono text-purple-600 font-bold text-[10px]">PIN: 3333</div>
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <div className="text-[10px] text-slate-400">Juri 4 (Kostum)</div>
-                          <div className="font-bold text-slate-800 dark:text-slate-200">Dra. Nurul A.</div>
-                          <div className="font-mono text-purple-600 font-bold text-[10px]">PIN: 4444</div>
-                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Seluruh akun dewan juri, operator, dan pembagian pos penilaian dibuat langsung oleh Super Admin melalui menu <strong>Kelola Dewan Juri</strong>.
+                        </p>
+                        <Link
+                          href="/admin/judges"
+                          className="inline-flex items-center gap-1.5 text-xs font-black text-purple-600 hover:text-purple-700 pt-1"
+                        >
+                          Buka Panel Kelola Dewan Juri &rarr;
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -3148,6 +3080,7 @@ export default function AdminDashboardPage() {
                   <th className="p-4">Email & Password</th>
                   <th className="p-4">Role Saat Ini</th>
                   <th className="p-4">Ubah Wewenang Role</th>
+                  <th className="p-4 text-right">Tindakan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -3159,7 +3092,7 @@ export default function AdminDashboardPage() {
                         {st.name}
                       </div>
                       <div className="text-slate-400 text-[11px]">
-                        Login Terakhir: {st.lastLogin || "Baru saja"}
+                        Status: {st.lastLogin || "Aktif"}
                       </div>
                     </td>
                     <td className="p-4 font-mono">
@@ -3174,8 +3107,9 @@ export default function AdminDashboardPage() {
                     <td className="p-4">
                       <select
                         value={st.role}
+                        disabled={st.id === "usr-super-01"}
                         onChange={(e) => handleChangeStaffRole(st.id, e.target.value as AdminRole)}
-                        className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white font-bold"
+                        className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white font-bold disabled:opacity-60"
                       >
                         <option value="SUPER_ADMIN">👑 SUPER_ADMIN (Akses 100%)</option>
                         <option value="EVENT_ADMIN">🎫 EVENT_ADMIN</option>
@@ -3183,6 +3117,23 @@ export default function AdminDashboardPage() {
                         <option value="PROD_ADMIN">📦 PROD_ADMIN</option>
                         <option value="SCANNER_STAFF">🚪 SCANNER_STAFF</option>
                       </select>
+                    </td>
+                    <td className="p-4 text-right">
+                      {st.id === "usr-super-01" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200 dark:border-amber-800">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Super Admin Utama
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStaff(st.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold border border-rose-200 transition"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Hapus
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -3885,6 +3836,113 @@ export default function AdminDashboardPage() {
                   className="px-6 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-md transition active:scale-95"
                 >
                   {editingProductId ? "Simpan Perubahan Produk ✓" : "Tambah Produk Baru ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: TAMBAH AKUN STAF BARU (OLEH SUPER ADMIN) */}
+      {/* ------------------------------------------------------------------ */}
+      {newStaffModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-center">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-amber-500" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Buat Akun Staf / Role Baru
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewStaffModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddNewStaff} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Lengkap Staf / Admin *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Budi Santoso"
+                  value={newStaffForm.name}
+                  onChange={(e) => setNewStaffForm({ ...newStaffForm, name: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Email Login *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Contoh: event@cetas.co.id"
+                  value={newStaffForm.email}
+                  onChange={(e) => setNewStaffForm({ ...newStaffForm, email: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Password Login *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Minimal 6 karakter"
+                  value={newStaffForm.password}
+                  onChange={(e) => setNewStaffForm({ ...newStaffForm, password: e.target.value })}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-mono text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Wewenang Role Akun *
+                </label>
+                <select
+                  value={newStaffForm.role}
+                  onChange={(e) =>
+                    setNewStaffForm({ ...newStaffForm, role: e.target.value as AdminRole })
+                  }
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                >
+                  <option value="EVENT_ADMIN">🎫 EVENT_ADMIN (Admin Event & Registrasi)</option>
+                  <option value="FINANCE_ADMIN">💰 FINANCE_ADMIN (Admin Keuangan & DOKU)</option>
+                  <option value="PROD_ADMIN">📦 PROD_ADMIN (Admin Cetas Production)</option>
+                  <option value="SCANNER_STAFF">🚪 SCANNER_STAFF (Petugas Gatekeeper)</option>
+                  <option value="SUPER_ADMIN">👑 SUPER_ADMIN (Full Control)</option>
+                </select>
+                <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                  {ROLE_DEFINITIONS[newStaffForm.role]?.description}
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setNewStaffModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-md transition active:scale-95"
+                >
+                  Simpan Akun Baru ✓
                 </button>
               </div>
             </form>

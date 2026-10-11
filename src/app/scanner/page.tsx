@@ -65,15 +65,14 @@ export default function GateScannerPage() {
 
   const handleStaffLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // PIN resmi panitia (demo: 2026 atau 1234)
-    if (staffPin === "2026" || staffPin === "1234") {
-      const name = staffName.trim() || "Petugas Gate 1";
+    if (staffPin === "211226" || staffPin === "RezaCetas2026!") {
+      const name = staffName.trim() || "REZA ADITYA ARIFIN";
       sessionStorage.setItem("cetas_staff_auth", "true");
       sessionStorage.setItem("cetas_staff_name", name);
       setIsStaffAuthenticated(true);
       setPinError(null);
     } else {
-      setPinError("Kode PIN Panitia salah! Masukkan PIN resmi Cetas (Demo PIN: 2026).");
+      setPinError("Kode PIN Keamanan salah! Akses ditolak.");
     }
   };
 
@@ -382,7 +381,7 @@ export default function GateScannerPage() {
                 <input
                   type="password"
                   required
-                  placeholder="Masukkan 4 digit PIN (Demo: 2026)"
+                  placeholder="Masukkan PIN Keamanan Resmi"
                   value={staffPin}
                   onChange={(e) => setStaffPin(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -390,7 +389,7 @@ export default function GateScannerPage() {
                 <KeyRound className="absolute right-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
-                Demo PIN Akses Panitia: <span className="font-mono font-bold text-orange-500">2026</span>
+                Masukkan PIN Otorisasi Resmi dari Super Admin CETAS.
               </div>
             </div>
 

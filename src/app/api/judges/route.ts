@@ -188,12 +188,14 @@ export async function GET() {
     });
 
     // ==========================================================
-    // JURI
+    // JURI / OPERATOR / TIMER
     // ==========================================================
 
     const judges = await db.user.findMany({
       where: {
-        role: "JUDGE",
+        role: {
+          in: ["JUDGE", "OPERATOR", "TIMER"],
+        },
       },
 
       orderBy: {
@@ -248,13 +250,17 @@ export async function POST(req: Request) {
     const action = clean(body.action);
 
     // ==========================================================
-    // TAMBAH JURI
+    // TAMBAH JURI / AKUN ROLE
     // ==========================================================
 
     if (action === "create") {
       const name = clean(body.name);
       const username = clean(body.username).toLowerCase();
       const pin = clean(body.pin);
+      const rawRole = clean(body.role).toUpperCase();
+      const role = ["JUDGE", "OPERATOR", "TIMER"].includes(rawRole)
+        ? rawRole
+        : "JUDGE";
 
       if (!name || !username || !pin) {
         return NextResponse.json(
@@ -312,7 +318,7 @@ export async function POST(req: Request) {
           name,
           username,
           pinHash: pinHash(pin),
-          role: "JUDGE",
+          role,
           status: "ACTIVE",
         },
 
@@ -337,7 +343,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================================
-    // EDIT JURI
+    // EDIT JURI / AKUN ROLE
     // ==========================================================
 
     if (action === "update") {
@@ -345,6 +351,7 @@ export async function POST(req: Request) {
       const name = clean(body.name);
       const username = clean(body.username).toLowerCase();
       const pin = clean(body.pin);
+      const rawRole = clean(body.role).toUpperCase();
       const status =
         clean(body.status) || "ACTIVE";
 
@@ -366,10 +373,10 @@ export async function POST(req: Request) {
         },
       });
 
-      if (!current || current.role !== "JUDGE") {
+      if (!current || current.role === "SUPER_ADMIN") {
         return NextResponse.json(
           {
-            error: "Juri tidak ditemukan.",
+            error: "Akun tidak ditemukan.",
           },
           {
             status: 404,
@@ -391,7 +398,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "Username sudah digunakan juri lain.",
+              "Username sudah digunakan akun lain.",
           },
           {
             status: 409,
@@ -402,11 +409,15 @@ export async function POST(req: Request) {
       const data: {
         name: string;
         username: string;
+        role?: string;
         status: string;
         pinHash?: string;
       } = {
         name,
         username,
+        role: ["JUDGE", "OPERATOR", "TIMER"].includes(rawRole)
+          ? rawRole
+          : current.role,
         status:
           status === "INACTIVE"
             ? "INACTIVE"
@@ -464,7 +475,7 @@ export async function POST(req: Request) {
       if (!id) {
         return NextResponse.json(
           {
-            error: "ID juri wajib diisi.",
+            error: "ID akun wajib diisi.",
           },
           {
             status: 400,
@@ -478,10 +489,10 @@ export async function POST(req: Request) {
         },
       });
 
-      if (!judge || judge.role !== "JUDGE") {
+      if (!judge || judge.role === "SUPER_ADMIN") {
         return NextResponse.json(
           {
-            error: "Juri tidak ditemukan.",
+            error: "Akun tidak ditemukan.",
           },
           {
             status: 404,

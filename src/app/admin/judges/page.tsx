@@ -95,6 +95,7 @@ export default function AdminJudgePage() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
+  const [role, setRole] = useState("JUDGE");
 
   // ==========================================================
   // PENUGASAN
@@ -210,6 +211,7 @@ export default function AdminJudgePage() {
     setName("");
     setUsername("");
     setPin("");
+    setRole("JUDGE");
     setEditing(null);
     setShowForm(false);
   }
@@ -226,6 +228,7 @@ export default function AdminJudgePage() {
     setName("");
     setUsername("");
     setPin("");
+    setRole("JUDGE");
 
     setShowForm(true);
   }
@@ -243,6 +246,7 @@ export default function AdminJudgePage() {
     setName(judge.name);
     setUsername(judge.username);
     setPin("");
+    setRole(judge.role || "JUDGE");
 
     setShowForm(true);
   }
@@ -281,6 +285,7 @@ export default function AdminJudgePage() {
             name,
             username,
             pin,
+            role,
 
             status:
               editing?.status ||
@@ -831,14 +836,14 @@ export default function AdminJudgePage() {
 
             <form
               onSubmit={saveJudge}
-              className="grid gap-4 md:grid-cols-3"
+              className="grid gap-4 md:grid-cols-4"
             >
 
               {/* NAMA */}
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
-                  Nama Juri
+                  Nama Lengkap
                 </span>
 
                 <input
@@ -858,7 +863,7 @@ export default function AdminJudgePage() {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
-                  Username
+                  Username Login
                 </span>
 
                 <input
@@ -877,6 +882,24 @@ export default function AdminJudgePage() {
                   required
                   className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
                 />
+              </label>
+
+              {/* ROLE */}
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
+                  Role Akun
+                </span>
+
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-[#071a3d] outline-none focus:border-blue-500"
+                >
+                  <option value="JUDGE">JUDGE (Dewan Juri)</option>
+                  <option value="OPERATOR">OPERATOR (Admin / Tim Rekap)</option>
+                  <option value="TIMER">TIMER (Petugas Timer)</option>
+                </select>
               </label>
 
               {/* PIN */}
@@ -915,7 +938,7 @@ export default function AdminJudgePage() {
                 />
               </label>
 
-              <div className="flex justify-end md:col-span-3">
+              <div className="flex justify-end md:col-span-4">
 
                 <button
                   type="submit"
@@ -926,7 +949,7 @@ export default function AdminJudgePage() {
                     ? "Menyimpan..."
                     : editing
                     ? "Simpan Perubahan"
-                    : "Tambah Juri"}
+                    : "Tambah Akun"}
                 </button>
 
               </div>

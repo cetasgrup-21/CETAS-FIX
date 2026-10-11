@@ -108,11 +108,11 @@ export function Footer() {
             <ul className="space-y-2 text-xs text-slate-500">
               <li className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
-                <span>Jl. Cetas Kreatif No. 88, Jakarta Selatan, Indonesia</span>
+                <span>Jl. Pesing Got Kedoya, RT.001/007, Kedoya Utara, Kebon Jeruk, Jakarta Barat, DKI Jakarta, Indonesia, 11520</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-purple-600 shrink-0" />
-                <span>+62 (021) 555-CETAS</span>
+                <a href="tel:081584682345" className="hover:text-purple-700 transition">0815-8468-2345</a>
               </li>
               <li className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -127,7 +127,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-purple-600 shrink-0" />
-                <span>support@cetas.id</span>
+                <a href="mailto:cetasgrup@gmail.com" className="hover:text-purple-700 transition">cetasgrup@gmail.com</a>
               </li>
             </ul>
           </div>

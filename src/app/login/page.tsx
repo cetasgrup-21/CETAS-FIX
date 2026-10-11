@@ -67,9 +67,7 @@ function LoginForm() {
    * =====================================================
    */
 
-  const [username, setUsername] = useState(
-    isJudge ? "juri" : "admin"
-  );
+  const [username, setUsername] = useState("");
 
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");

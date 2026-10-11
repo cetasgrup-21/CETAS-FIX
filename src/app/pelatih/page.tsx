@@ -44,276 +44,11 @@ interface ContingentScore {
   dp3Time: string;
 }
 
-const MOCK_CONTINGENTS: ContingentScore[] = [
-  {
-    contingentId: "KTG-01",
-    schoolName: "SMA Negeri 1 Jakarta",
-    teamName: "Pasukan Garuda Sakti",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 1,
-    coachName: "Bambang Sudarsono, S.Pd",
-    dantonName: "Rizky Firmansyah",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 945,
-    variasiFormasi: 960,
-    dantonScore: 935,
-    kostumScore: 950,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3790,
-    rank: 1,
-    scheduledTime: "08:30 WIB",
-    dp1Time: "08:00 WIB",
-    dp2Time: "08:15 WIB",
-    dp3Time: "08:25 WIB",
-  },
-  {
-    contingentId: "KTG-02",
-    schoolName: "SMK Taruna Bhakti Depok",
-    teamName: "Cakra Wibawa Nusantara",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 2,
-    coachName: "Hendra Wijaya",
-    dantonName: "Farhan Maulana",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 920,
-    variasiFormasi: 945,
-    dantonScore: 910,
-    kostumScore: 930,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3705,
-    rank: 2,
-    scheduledTime: "09:00 WIB",
-    dp1Time: "08:30 WIB",
-    dp2Time: "08:45 WIB",
-    dp3Time: "08:55 WIB",
-  },
-  {
-    contingentId: "KTG-03",
-    schoolName: "SMP Negeri 2 Bandung",
-    teamName: "Satria Muda Siliwangi",
-    category: "Tingkat SMP / Sederajat",
-    drawNumber: 3,
-    coachName: "Dedi Suherman, S.Pd",
-    dantonName: "Ahmad Zaki",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 895,
-    variasiFormasi: 920,
-    dantonScore: 890,
-    kostumScore: 910,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3615,
-    rank: 3,
-    scheduledTime: "09:30 WIB",
-    dp1Time: "09:00 WIB",
-    dp2Time: "09:15 WIB",
-    dp3Time: "09:25 WIB",
-  },
-  {
-    contingentId: "KTG-04",
-    schoolName: "SMA Bintang Nusantara",
-    teamName: "Laskar Adhi Pratama",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 4,
-    coachName: "Siti Rahmawati",
-    dantonName: "Dimas Anggara",
-    status: "SEDANG_PENILAIAN",
-    pbbMurni: 880,
-    variasiFormasi: 905,
-    dantonScore: 870,
-    kostumScore: 895,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3550,
-    rank: 4,
-    scheduledTime: "10:00 WIB",
-    dp1Time: "09:30 WIB",
-    dp2Time: "09:45 WIB",
-    dp3Time: "09:55 WIB",
-  },
-  {
-    contingentId: "KTG-05",
-    schoolName: "SMA Negeri 8 Jakarta",
-    teamName: "Bhayangkara Delapan",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 5,
-    coachName: "Agus Prasetyo",
-    dantonName: "Fajar Nugraha",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 865,
-    variasiFormasi: 890,
-    dantonScore: 855,
-    kostumScore: 880,
-    penaltyTime: 20,
-    penaltyBoundary: 10,
-    totalScore: 3460,
-    rank: 5,
-    scheduledTime: "10:30 WIB",
-    dp1Time: "10:00 WIB",
-    dp2Time: "10:15 WIB",
-    dp3Time: "10:25 WIB",
-  },
-  {
-    contingentId: "KTG-06",
-    schoolName: "SMP Negeri 1 Cibinong",
-    teamName: "Gita Wiratama",
-    category: "Tingkat SMP / Sederajat",
-    drawNumber: 6,
-    coachName: "Rudi Hartono, M.Pd",
-    dantonName: "Galih Pratama",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 860,
-    variasiFormasi: 885,
-    dantonScore: 850,
-    kostumScore: 870,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3465,
-    rank: 6,
-    scheduledTime: "11:00 WIB",
-    dp1Time: "10:30 WIB",
-    dp2Time: "10:45 WIB",
-    dp3Time: "10:55 WIB",
-  },
-  {
-    contingentId: "KTG-07",
-    schoolName: "SMA Negeri 3 Bogor",
-    teamName: "Kresna Duta Pratama",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 7,
-    coachName: "Wahyu Hidayat",
-    dantonName: "Bayu Aji",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 850,
-    variasiFormasi: 870,
-    dantonScore: 840,
-    kostumScore: 860,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3420,
-    rank: 7,
-    scheduledTime: "11:30 WIB",
-    dp1Time: "11:00 WIB",
-    dp2Time: "11:15 WIB",
-    dp3Time: "11:25 WIB",
-  },
-  {
-    contingentId: "KTG-08",
-    schoolName: "SMK Negeri 2 Tangerang",
-    teamName: "Pandawa Sakti",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 8,
-    coachName: "Arif Kurniawan",
-    dantonName: "Bagus Setiawan",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 840,
-    variasiFormasi: 865,
-    dantonScore: 835,
-    kostumScore: 850,
-    penaltyTime: 10,
-    penaltyBoundary: 0,
-    totalScore: 3380,
-    rank: 8,
-    scheduledTime: "13:00 WIB",
-    dp1Time: "12:30 WIB",
-    dp2Time: "12:45 WIB",
-    dp3Time: "12:55 WIB",
-  },
-  {
-    contingentId: "KTG-09",
-    schoolName: "SMP Negeri 5 Bekasi",
-    teamName: "Satya Wira Negara",
-    category: "Tingkat SMP / Sederajat",
-    drawNumber: 9,
-    coachName: "Endang Supriyatna",
-    dantonName: "Rian Saputra",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 830,
-    variasiFormasi: 850,
-    dantonScore: 825,
-    kostumScore: 840,
-    penaltyTime: 0,
-    penaltyBoundary: 10,
-    totalScore: 3335,
-    rank: 9,
-    scheduledTime: "13:30 WIB",
-    dp1Time: "13:00 WIB",
-    dp2Time: "13:15 WIB",
-    dp3Time: "13:25 WIB",
-  },
-  {
-    contingentId: "KTG-10",
-    schoolName: "SMA Negeri 2 Bekasi",
-    teamName: "Panca Tri Tunggal",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 10,
-    coachName: "Teguh Santoso",
-    dantonName: "Danang Wijaya",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 825,
-    variasiFormasi: 840,
-    dantonScore: 820,
-    kostumScore: 835,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3320,
-    rank: 10,
-    scheduledTime: "14:00 WIB",
-    dp1Time: "13:30 WIB",
-    dp2Time: "13:45 WIB",
-    dp3Time: "13:55 WIB",
-  },
-  {
-    contingentId: "KTG-11",
-    schoolName: "SMA Negeri 68 Jakarta",
-    teamName: "Srikandi Nusantara",
-    category: "Tingkat SMA / Sederajat",
-    drawNumber: 11,
-    coachName: "Tri Wulandari, S.Pd",
-    dantonName: "Anisa Rahma",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 815,
-    variasiFormasi: 830,
-    dantonScore: 810,
-    kostumScore: 830,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3285,
-    rank: 11,
-    scheduledTime: "14:30 WIB",
-    dp1Time: "14:00 WIB",
-    dp2Time: "14:15 WIB",
-    dp3Time: "14:25 WIB",
-  },
-  {
-    contingentId: "KTG-12",
-    schoolName: "PPI Purna Paskibraka",
-    teamName: "Dharma Bangsa",
-    category: "Tingkat Purna / Senior",
-    drawNumber: 12,
-    coachName: "Eko Prasetyo, S.H",
-    dantonName: "Surya Dharma",
-    status: "SELESAI_TERVERIFIKASI",
-    pbbMurni: 910,
-    variasiFormasi: 935,
-    dantonScore: 900,
-    kostumScore: 920,
-    penaltyTime: 0,
-    penaltyBoundary: 0,
-    totalScore: 3665,
-    rank: 12,
-    scheduledTime: "15:00 WIB",
-    dp1Time: "14:30 WIB",
-    dp2Time: "14:45 WIB",
-    dp3Time: "14:55 WIB",
-  },
-];
+const MOCK_CONTINGENTS: ContingentScore[] = [];
 
 export default function PelatihPortalPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedContingentId, setSelectedContingentId] = useState("KTG-01");
+  const [selectedContingentId, setSelectedContingentId] = useState("");
   const [activeTab, setActiveTab] = useState<"nilai" | "jadwal" | "berkas" | "sertifikat" | "protes">("nilai");
   const [protesForm, setProtesForm] = useState({
     aspek: "PBB Murni",
@@ -390,23 +125,29 @@ export default function PelatihPortalPage() {
             </div>
 
             <div className="md:col-span-8 flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-thin">
-              {filteredContingents.map((c) => (
-                <button
-                  key={c.contingentId}
-                  type="button"
-                  onClick={() => setSelectedContingentId(c.contingentId)}
-                  className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition ${
-                    selectedContingentId === c.contingentId
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-600/40 border border-purple-400"
-                      : "bg-white/10 text-purple-100 hover:bg-white/20 border border-white/10"
-                  }`}
-                >
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/20">
-                    {c.contingentId}
-                  </span>
-                  <span className="truncate max-w-[130px]">{c.schoolName}</span>
-                </button>
-              ))}
+              {filteredContingents.length === 0 ? (
+                <div className="text-xs text-purple-200/80 px-3 py-2 font-medium">
+                  Belum ada kontingen terdaftar pada event aktif saat ini.
+                </div>
+              ) : (
+                filteredContingents.map((c) => (
+                  <button
+                    key={c.contingentId}
+                    type="button"
+                    onClick={() => setSelectedContingentId(c.contingentId)}
+                    className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition ${
+                      selectedContingentId === c.contingentId
+                        ? "bg-purple-600 text-white shadow-md shadow-purple-600/40 border border-purple-400"
+                        : "bg-white/10 text-purple-100 hover:bg-white/20 border border-white/10"
+                    }`}
+                  >
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/20">
+                      {c.contingentId}
+                    </span>
+                    <span className="truncate max-w-[130px]">{c.schoolName}</span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -414,6 +155,39 @@ export default function PelatihPortalPage() {
 
       {/* Main Content Layout */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
+        {!activeContingent ? (
+          <div className="rounded-3xl border border-purple-100 bg-white p-12 text-center shadow-md space-y-4">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+              <Award className="h-8 w-8" />
+            </div>
+            <div className="space-y-1.5 max-w-lg mx-auto">
+              <h2 className="text-xl font-black text-slate-900">
+                Belum Ada Data Kontingen atau Event Aktif Saat Ini
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Lembar rekapitulasi nilai dewan juri, urutan jadwal tampil Daerah Persiapan (DP), dan e-sertifikat kontingen akan otomatis muncul di halaman ini saat turnamen dimulai.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/ajukan-event"
+                className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 shadow-md shadow-purple-600/20 transition"
+              >
+                <Sparkles className="h-4 w-4" />
+                Daftarkan / Ajukan Event Baru
+              </Link>
+              <a
+                href="https://wa.me/6281584682345"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs px-5 py-3 border border-purple-200 transition"
+              >
+                <MessageCircle className="h-4 w-4 text-emerald-600" />
+                Hubungi Sekretariat CETAS
+              </a>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Contingent Profile Card */}
           <div className="lg:col-span-4 space-y-4">
@@ -1024,6 +798,7 @@ export default function PelatihPortalPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

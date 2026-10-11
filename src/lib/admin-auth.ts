@@ -108,63 +108,19 @@ export interface StaffAccountRecord extends AdminUser {
 export const INITIAL_STAFF_ACCOUNTS: StaffAccountRecord[] = [
   {
     id: "usr-super-01",
-    name: "Reza Aditya (Super Admin)",
-    email: "superadmin@cetas.id",
-    password: "cetasmaster2026",
+    name: "REZA ADITYA ARIFIN",
+    email: "cetasgrup@gmail.com",
+    password: "RezaCetas2026!",
     role: "SUPER_ADMIN",
     roleTitle: ROLE_DEFINITIONS.SUPER_ADMIN.title,
     avatarColor: "bg-amber-500 text-white",
-    lastLogin: "Baru saja",
+    lastLogin: "Aktif",
     ...ROLE_DEFINITIONS.SUPER_ADMIN,
-  },
-  {
-    id: "usr-event-02",
-    name: "Maya Arisandi",
-    email: "eventadmin@cetas.id",
-    password: "cetas2026",
-    role: "EVENT_ADMIN",
-    roleTitle: ROLE_DEFINITIONS.EVENT_ADMIN.title,
-    avatarColor: "bg-blue-500 text-white",
-    lastLogin: "2 jam lalu",
-    ...ROLE_DEFINITIONS.EVENT_ADMIN,
-  },
-  {
-    id: "usr-fin-03",
-    name: "Hendra Wijaya",
-    email: "finance@cetas.id",
-    password: "cetas2026",
-    role: "FINANCE_ADMIN",
-    roleTitle: ROLE_DEFINITIONS.FINANCE_ADMIN.title,
-    avatarColor: "bg-emerald-500 text-white",
-    lastLogin: "Kemarin, 16:30 WIB",
-    ...ROLE_DEFINITIONS.FINANCE_ADMIN,
-  },
-  {
-    id: "usr-prod-04",
-    name: "Dimas Pratama",
-    email: "production@cetas.id",
-    password: "cetas2026",
-    role: "PROD_ADMIN",
-    roleTitle: ROLE_DEFINITIONS.PROD_ADMIN.title,
-    avatarColor: "bg-purple-500 text-white",
-    lastLogin: "Kemarin, 11:20 WIB",
-    ...ROLE_DEFINITIONS.PROD_ADMIN,
-  },
-  {
-    id: "usr-scan-05",
-    name: "Rian Gatekeeper (Staff Lapangan)",
-    email: "gatekeeper@cetas.id",
-    password: "cetas2026",
-    role: "SCANNER_STAFF",
-    roleTitle: ROLE_DEFINITIONS.SCANNER_STAFF.title,
-    avatarColor: "bg-orange-500 text-white",
-    lastLogin: "3 hari lalu",
-    ...ROLE_DEFINITIONS.SCANNER_STAFF,
   },
 ];
 
-const STORAGE_SESSION_KEY = "cetas_admin_current_user";
-const STORAGE_STAFF_LIST_KEY = "cetas_admin_staff_accounts";
+const STORAGE_SESSION_KEY = "cetas_admin_current_user_v2";
+const STORAGE_STAFF_LIST_KEY = "cetas_admin_staff_accounts_v2";
 
 export function getStoredStaffList(): StaffAccountRecord[] {
   if (typeof window === "undefined") return INITIAL_STAFF_ACCOUNTS;

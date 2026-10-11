@@ -93,19 +93,10 @@ export async function GET() {
 
     return NextResponse.json({ success: true, submissions });
   } catch (error) {
-    console.warn("[Get Submissions DB Offline / Mock]:", error);
+    console.warn("[Get Submissions DB Offline / Empty]:", error);
     return NextResponse.json({
       success: true,
-      submissions: [
-        {
-          id: "sub-demo-01",
-          eventName: "Festival Seni & Musik Indie Jakarta 2026",
-          featuresRequested: "Cetas Ticketing, Iklan Cetas Kita",
-          status: "PENDING",
-          submittedAt: new Date().toISOString(),
-          user: { name: "Komunitas Nada Kita", email: "nada@event.com", phone: "081584682345" },
-        },
-      ],
+      submissions: [],
     });
   }
 }

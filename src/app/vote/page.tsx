@@ -50,6 +50,8 @@ import {
   INITIAL_UNIFIED_EVENTS,
   UnifiedEvent,
   UnifiedTicketTier,
+  RegistrationCategoryQuota,
+  getEffectiveRegistrationCategories,
   getStoredEvents,
   saveStoredEvents,
 } from "@/lib/events-unified-data";
@@ -231,6 +233,7 @@ function VotePageContent() {
     isOpenTicketing: boolean;
     isOpenOnlineRegistration: boolean;
     quotaRemaining: number;
+    registrationCategories: RegistrationCategoryQuota[];
     facilities: string[];
   }>();
 
@@ -249,6 +252,7 @@ function VotePageContent() {
               benefits: ue.facilities || ["E-Ticket QR Code Resmi"],
             },
           ];
+    const regCats = getEffectiveRegistrationCategories(ue);
     allEventsMap.set(ue.id, {
       id: ue.id,
       title: ue.title,
@@ -263,7 +267,8 @@ function VotePageContent() {
       tiers: safeTiers,
       isOpenTicketing: ue.isOpenTicketing !== false,
       isOpenOnlineRegistration: Boolean(ue.isOpenOnlineRegistration),
-      quotaRemaining: ue.quotaRemaining || 200,
+      quotaRemaining: regCats.reduce((s, c) => s + c.quotaRemaining, 0) || ue.quotaRemaining || 200,
+      registrationCategories: regCats,
       facilities: ue.facilities || [],
     });
   });
@@ -295,6 +300,7 @@ function VotePageContent() {
         isOpenTicketing: false,
         isOpenOnlineRegistration: false,
         quotaRemaining: 0,
+        registrationCategories: [],
         facilities: ["Bilik Voting Digital", "Verifikasi DOKU Direct API Realtime"],
       });
     }
@@ -1330,17 +1336,46 @@ function VotePageContent() {
                 </div>
 
                 <div className="p-6 rounded-2xl bg-orange-50/60 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/60 space-y-4 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="text-xs font-extrabold text-orange-700 dark:text-orange-400 uppercase tracking-wider">
-                      Status Kuota Pendaftaran
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-extrabold text-orange-700 dark:text-orange-400 uppercase tracking-wider">
+                        Kuota Pendaftaran Per Kategori
+                      </div>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        Juara Terpisah Per Kategori
+                      </span>
                     </div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white">
+                    <div className="text-xl font-black text-slate-900 dark:text-white">
                       {activeEvent.isOpenOnlineRegistration
-                        ? `Tersedia ${activeEvent.quotaRemaining} Slot`
+                        ? `Total Tersedia ${activeEvent.quotaRemaining} Slot`
                         : "Hubungi Panitia"}
                     </div>
+
+                    {activeEvent.registrationCategories && activeEvent.registrationCategories.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        {activeEvent.registrationCategories.map((rc) => (
+                          <div
+                            key={rc.id}
+                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-orange-200/70 dark:border-slate-800 flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-black text-[10px]">
+                                {rc.code}
+                              </span>
+                              <span className="font-bold text-slate-800 dark:text-slate-200">
+                                {rc.name}
+                              </span>
+                            </div>
+                            <span className="font-black text-emerald-600 dark:text-emerald-400">
+                              Sisa {rc.quotaRemaining}/{rc.quotaTotal} Kuota
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Lakukan pendaftaran tim/kontingen dengan mengisi formulir resmi, mengunggah kartu pelajar / surat tugas, dan dapatkan E-Badge registrasi langsung.
+                      Peserta yang mendaftar otomatis tersinkronisasi masuk ke <strong>Cetas Vote</strong> dan <strong>Cetas.Score</strong> mengikuti kategorinya masing-masing, dengan penentuan juara yang terpisah antar kategori.
                     </p>
                   </div>
 

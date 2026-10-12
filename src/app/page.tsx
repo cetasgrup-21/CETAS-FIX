@@ -36,6 +36,8 @@ import { AntmanMascot } from "@/components/antman-mascot";
 import {
   INITIAL_UNIFIED_EVENTS,
   UnifiedEvent,
+  LKBBTeamScore,
+  getEffectiveRegistrationCategories,
   getStoredEvents,
   saveStoredEvents,
 } from "@/lib/events-unified-data";
@@ -55,8 +57,8 @@ export default function HomePage() {
   const [selectedScoreTab, setSelectedScoreTab] = useState<
     "umum" | "pbb" | "variasi" | "danton" | "kostum"
   >("umum");
-  const [selectedLevelFilter, setSelectedLevelFilter] = useState<"ALL" | "SMP" | "SMA" | "PURNA">("ALL");
-  const [selectedVoteCatId, setSelectedVoteCatId] = useState<string>("");
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>("ALL");
+  const [selectedVoteCatId, setSelectedVoteCatId] = useState<string>("ALL");
 
   useEffect(() => {
     const localEv = getStoredEvents();
@@ -95,22 +97,29 @@ export default function HomePage() {
           v.eventTitle.trim().toLowerCase() === activeHomeEvent.title.trim().toLowerCase())
     ) || null;
 
-  const activeLkbbTeams = (activeHomeEvent?.lkbbTeams || []).filter((t) =>
-    selectedLevelFilter === "ALL" ? true : t.level === selectedLevelFilter
-  );
+  const getTeamScoreValue = (t: LKBBTeamScore & Record<string, unknown>, tab: typeof selectedScoreTab) => {
+    const pbb = Number(t.pos1 ?? t.pbbMurni ?? 0);
+    const varFor = Number(t.pos2 ?? t.variasiFormasi ?? 0);
+    const danton = Number(t.pos3 ?? t.danton ?? 0);
+    const kostum = Number(t.pos4 ?? t.kostum ?? 0);
+    const pen = Number(t.penalty ?? 0);
+    if (tab === "pbb") return pbb;
+    if (tab === "variasi") return varFor;
+    if (tab === "danton") return danton;
+    if (tab === "kostum") return kostum;
+    return Number(t.totalScore ?? pbb + varFor + danton + kostum - pen);
+  };
 
-  const sortedLkbbTeams = [...activeLkbbTeams].sort((a, b) => {
-    if (selectedScoreTab === "pbb") return b.pbbMurni - a.pbbMurni;
-    if (selectedScoreTab === "variasi") return b.variasiFormasi - a.variasiFormasi;
-    if (selectedScoreTab === "danton") return b.danton - a.danton;
-    if (selectedScoreTab === "kostum") return b.kostum - a.kostum;
-    return b.totalScore - a.totalScore;
-  });
+  const effectiveRegCategories = activeHomeEvent
+    ? getEffectiveRegistrationCategories(activeHomeEvent)
+    : [];
 
   const activeVoteCategory =
-    activeEventVoting?.categories.find((c) => c.id === selectedVoteCatId) ||
-    activeEventVoting?.categories[0] ||
-    null;
+    selectedVoteCatId === "ALL"
+      ? null
+      : activeEventVoting?.categories.find((c) => c.id === selectedVoteCatId) ||
+        activeEventVoting?.categories[0] ||
+        null;
 
   const sortedVoteCandidates = [...(activeVoteCategory?.candidates || [])].sort(
     (a, b) => b.totalVotes - a.totalVotes
@@ -698,29 +707,43 @@ export default function HomePage() {
               <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-5 sm:p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-100">
                   <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black mb-1">
+                      🏆 Juara Terpisah Antar Kategori (SD • SMP • SMA • Umum)
+                    </div>
                     <h4 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
                       <Award className="h-5 w-5 text-purple-600" />
-                      1. Daftar Peringkat LKBB (Rekap Nilai Dewan Juri)
+                      1. Daftar Peringkat &amp; Juara LKBB Per Kategori (Rekap Nilai Juri)
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Peringkat peserta berdasarkan kategori penilaian juri PBB Murni, Variasi & Formasi, Danton, dan Kostum.
+                      Peserta yang mendaftar otomatis masuk ke klasemen kategorinya masing-masing dengan penentuan juara yang terpisah antar kategori.
                     </p>
                   </div>
 
-                  {/* Filter Tingkat LKBB */}
-                  <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-purple-100">
-                    {(["ALL", "SMP", "SMA", "PURNA"] as const).map((lvl) => (
+                  {/* Filter Tingkat / Kategori LKBB */}
+                  <div className="flex flex-wrap items-center gap-1.5 bg-white p-1.5 rounded-xl border border-purple-100">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLevelFilter("ALL")}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition ${
+                        selectedLevelFilter === "ALL"
+                          ? "bg-purple-700 text-white"
+                          : "text-slate-600 hover:bg-purple-50"
+                      }`}
+                    >
+                      Semua Kategori (Juara Terpisah)
+                    </button>
+                    {effectiveRegCategories.map((cat) => (
                       <button
-                        key={lvl}
+                        key={cat.id}
                         type="button"
-                        onClick={() => setSelectedLevelFilter(lvl)}
+                        onClick={() => setSelectedLevelFilter(cat.code)}
                         className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition ${
-                          selectedLevelFilter === lvl
+                          selectedLevelFilter === cat.code
                             ? "bg-purple-700 text-white"
                             : "text-slate-600 hover:bg-purple-50"
                         }`}
                       >
-                        {lvl === "ALL" ? "Semua Tingkat" : `Tingkat ${lvl}`}
+                        {cat.name} ({cat.quotaRemaining}/{cat.quotaTotal})
                       </button>
                     ))}
                   </div>
@@ -737,7 +760,7 @@ export default function HomePage() {
                         : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
                     }`}
                   >
-                    🏆 Juara Umum LKBB
+                    🏆 Juara Umum Per Kategori
                   </button>
                   <button
                     type="button"
@@ -748,7 +771,7 @@ export default function HomePage() {
                         : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
                     }`}
                   >
-                    🎖️ PBB Murni
+                    🎖️ PBB Murni Terbaik
                   </button>
                   <button
                     type="button"
@@ -759,7 +782,7 @@ export default function HomePage() {
                         : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
                     }`}
                   >
-                    ✨ Variasi & Formasi
+                    ✨ Variasi &amp; Formasi Terbaik
                   </button>
                   <button
                     type="button"
@@ -785,98 +808,179 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                {/* Tabel / Daftar Peringkat LKBB */}
-                {sortedLkbbTeams.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-purple-200 bg-white p-6 text-center space-y-2">
-                    <p className="text-xs font-bold text-slate-700">
-                      Belum ada peserta terdaftar pada tingkat ini.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-purple-100 bg-white">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-purple-50/70 text-[11px] font-black uppercase text-purple-900 border-b border-purple-100">
-                          <th className="py-3 px-4">Peringkat</th>
-                          <th className="py-3 px-4">No. Urut</th>
-                          <th className="py-3 px-4">Pasukan & Kontingen</th>
-                          <th className="py-3 px-4">Tingkat</th>
-                          <th className="py-3 px-4 text-right">PBB Murni</th>
-                          <th className="py-3 px-4 text-right">Variasi</th>
-                          <th className="py-3 px-4 text-right">Danton</th>
-                          <th className="py-3 px-4 text-right">Kostum</th>
-                          <th className="py-3 px-4 text-right">Total Nilai</th>
-                          <th className="py-3 px-4 text-center">Status Juri</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-purple-50 text-xs">
-                        {sortedLkbbTeams.map((team, idx) => (
-                          <tr key={team.id} className="hover:bg-purple-50/40 transition">
-                            <td className="py-3.5 px-4 font-black">
-                              <span
-                                className={`inline-flex items-center justify-center h-7 w-7 rounded-lg text-xs font-black ${
-                                  idx === 0
-                                    ? "bg-amber-400 text-amber-950"
-                                    : idx === 1
-                                    ? "bg-slate-200 text-slate-800"
-                                    : idx === 2
-                                    ? "bg-amber-700/20 text-amber-900"
-                                    : "bg-purple-50 text-purple-700"
-                                }`}
+                {/* Tabel Peringkat LKBB Terpisah Per Kategori */}
+                <div className="space-y-5">
+                  {effectiveRegCategories
+                    .filter((cat) =>
+                      selectedLevelFilter === "ALL" ? true : cat.code === selectedLevelFilter
+                    )
+                    .map((cat) => {
+                      const catTeams = [...(activeHomeEvent?.lkbbTeams || [])]
+                        .filter(
+                          (t) =>
+                            (t.categoryName &&
+                              t.categoryName.toLowerCase().trim() === cat.name.toLowerCase().trim()) ||
+                            t.level === cat.code
+                        )
+                        .sort((a, b) => {
+                          const diff =
+                            getTeamScoreValue(
+                              b as LKBBTeamScore & Record<string, unknown>,
+                              selectedScoreTab
+                            ) -
+                            getTeamScoreValue(
+                              a as LKBBTeamScore & Record<string, unknown>,
+                              selectedScoreTab
+                            );
+                          if (diff !== 0) return diff;
+                          return String(a.number || "").localeCompare(String(b.number || ""));
+                        });
+
+                      return (
+                        <div
+                          key={cat.id}
+                          className="rounded-2xl border border-purple-200 bg-white overflow-hidden shadow-xs"
+                        >
+                          <div className="px-4 py-3 bg-gradient-to-r from-purple-900 to-indigo-900 text-white flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[10px] font-black uppercase">
+                                Klasemen {cat.code}
+                              </span>
+                              <h5 className="text-sm font-black">
+                                Peringkat &amp; Juara {cat.name}
+                              </h5>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <span className="px-2.5 py-0.5 rounded-lg bg-white/10 font-bold">
+                                Peserta Terdaftar: {catTeams.length}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-200 font-bold border border-emerald-400/30">
+                                Sisa Kuota: {cat.quotaRemaining}/{cat.quotaTotal}
+                              </span>
+                            </div>
+                          </div>
+
+                          {catTeams.length === 0 ? (
+                            <div className="p-6 text-center space-y-2">
+                              <p className="text-xs font-bold text-slate-600">
+                                Belum ada peserta terdaftar pada {cat.name}.
+                              </p>
+                              <Link
+                                href="/register-event"
+                                className="inline-flex items-center gap-1.5 text-xs font-extrabold text-purple-700 hover:underline"
                               >
-                                #{idx + 1}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
-                              {team.number}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-black text-slate-900">{team.teamName}</div>
-                              <div className="text-[11px] text-slate-500">{team.school}</div>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800">
-                                {team.level}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                              {team.pbbMurni}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                              {team.variasiFormasi}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                              {team.danton}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                              {team.kostum}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-black text-purple-700 text-sm">
-                              {team.totalScore.toFixed(1)}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span
-                                className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                                  team.status === "TERVERIFIKASI"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                    : team.status === "SEDANG_DINILAI"
-                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                    : "bg-slate-100 text-slate-600"
-                                }`}
-                              >
-                                {team.status === "TERVERIFIKASI"
-                                  ? "✓ Sah Juri"
-                                  : team.status === "SEDANG_DINILAI"
-                                  ? "Sedang Dinilai"
-                                  : "Menunggu Tampil"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                                Daftar Sebagai Peserta {cat.name} &rarr;
+                              </Link>
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse">
+                                <thead>
+                                  <tr className="bg-purple-50/70 text-[11px] font-black uppercase text-purple-900 border-b border-purple-100">
+                                    <th className="py-3 px-4">Juara Kategori</th>
+                                    <th className="py-3 px-4">No. Urut</th>
+                                    <th className="py-3 px-4">Pasukan / Kontingen &amp; Danton</th>
+                                    <th className="py-3 px-4">Kategori</th>
+                                    <th className="py-3 px-4 text-right">PBB Murni</th>
+                                    <th className="py-3 px-4 text-right">Variasi</th>
+                                    <th className="py-3 px-4 text-right">Danton</th>
+                                    <th className="py-3 px-4 text-right">Kostum</th>
+                                    <th className="py-3 px-4 text-right">Total Nilai</th>
+                                    <th className="py-3 px-4 text-center">Status Juri</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-purple-50 text-xs">
+                                  {catTeams.map((rawTeam, idx) => {
+                                    const team = rawTeam as LKBBTeamScore & Record<string, unknown>;
+                                    const pbb = Number(team.pos1 ?? team.pbbMurni ?? 0);
+                                    const varFor = Number(team.pos2 ?? team.variasiFormasi ?? 0);
+                                    const danton = Number(team.pos3 ?? team.danton ?? 0);
+                                    const kostum = Number(team.pos4 ?? team.kostum ?? 0);
+                                    const pen = Number(team.penalty ?? 0);
+                                    const total = Number(
+                                      team.totalScore ?? pbb + varFor + danton + kostum - pen
+                                    );
+                                    const isVerified =
+                                      Boolean(team.isVerified) || team.status === "TERVERIFIKASI";
+                                    const champLabel =
+                                      idx === 0
+                                        ? `🥇 Juara 1 ${cat.code}`
+                                        : idx === 1
+                                        ? `🥈 Juara 2 ${cat.code}`
+                                        : idx === 2
+                                        ? `🥉 Juara 3 ${cat.code}`
+                                        : `Peringkat #${idx + 1}`;
+
+                                    return (
+                                      <tr key={team.id} className="hover:bg-purple-50/40 transition">
+                                        <td className="py-3.5 px-4 font-black">
+                                          <span
+                                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black ${
+                                              idx === 0
+                                                ? "bg-amber-400 text-amber-950"
+                                                : idx === 1
+                                                ? "bg-slate-200 text-slate-800"
+                                                : idx === 2
+                                                ? "bg-amber-700/20 text-amber-900"
+                                                : "bg-purple-50 text-purple-700"
+                                            }`}
+                                          >
+                                            {champLabel}
+                                          </span>
+                                        </td>
+                                        <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
+                                          #{team.number}
+                                        </td>
+                                        <td className="py-3.5 px-4">
+                                          <div className="font-black text-slate-900">
+                                            {String(team.schoolName || team.teamName || "Peserta")}
+                                          </div>
+                                          <div className="text-[11px] text-slate-500">
+                                            Danton / Peserta: {String(team.commander || team.school || "-")}
+                                          </div>
+                                        </td>
+                                        <td className="py-3.5 px-4">
+                                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800">
+                                            {cat.name}
+                                          </span>
+                                        </td>
+                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                                          {pbb}
+                                        </td>
+                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                                          {varFor}
+                                        </td>
+                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                                          {danton}
+                                        </td>
+                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
+                                          {kostum}
+                                        </td>
+                                        <td className="py-3.5 px-4 text-right font-mono font-black text-purple-700 text-sm">
+                                          {total.toFixed(1)}
+                                        </td>
+                                        <td className="py-3.5 px-4 text-center">
+                                          <span
+                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                                              isVerified
+                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                : "bg-slate-100 text-slate-600"
+                                            }`}
+                                          >
+                                            {isVerified ? "✓ Sah Juri" : "Terdaftar • Menunggu Nilai"}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
 
               {/* ==================================================================== */}
@@ -885,12 +989,15 @@ export default function HomePage() {
               <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-5 sm:p-6 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-pink-100">
                   <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-800 text-[10px] font-black mb-1">
+                      ❤️ Juara Favorit Terpisah Per Kategori
+                    </div>
                     <h4 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
                       <Heart className="h-5 w-5 text-pink-600 fill-pink-600" />
-                      2. Daftar Peringkat Vote (Juara Favorit Cetas Vote)
+                      2. Daftar Peringkat Vote Per Kategori (Juara Favorit Cetas Vote)
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Klasemen perolehan dukungan suara publik secara real-time di Cetas Vote.
+                      Klasemen perolehan dukungan suara publik secara real-time di Cetas Vote yang dipisahkan juaranya untuk setiap kategori.
                     </p>
                   </div>
 
@@ -915,13 +1022,24 @@ export default function HomePage() {
                 {/* Pilihan Kategori Vote */}
                 {activeEventVoting && activeEventVoting.categories.length > 0 && (
                   <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVoteCatId("ALL")}
+                      className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                        selectedVoteCatId === "ALL"
+                          ? "bg-pink-600 text-white shadow-xs"
+                          : "bg-white text-slate-700 border border-pink-200 hover:bg-pink-50"
+                      }`}
+                    >
+                      🏆 Semua Kategori (Juara Terpisah)
+                    </button>
                     {activeEventVoting.categories.map((cat) => (
                       <button
                         key={cat.id}
                         type="button"
                         onClick={() => setSelectedVoteCatId(cat.id)}
                         className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                          activeVoteCategory?.id === cat.id
+                          selectedVoteCatId === cat.id
                             ? "bg-pink-600 text-white shadow-xs"
                             : "bg-white text-slate-700 border border-pink-200 hover:bg-pink-50"
                         }`}
@@ -932,88 +1050,144 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* Daftar Peringkat Kandidat Vote */}
-                {sortedVoteCandidates.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-pink-200 bg-white p-6 text-center space-y-2">
-                    <p className="text-xs font-bold text-slate-700">
-                      Belum ada kandidat pada kategori voting ini.
-                    </p>
-                    <Link
-                      href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
-                      className="inline-flex items-center gap-1.5 text-xs font-extrabold text-pink-600 hover:underline"
-                    >
-                      Buka Bilik Cetas Vote →
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {sortedVoteCandidates.map((cand, idx) => {
-                      const pct =
-                        totalCategoryVotes > 0
-                          ? Math.round((cand.totalVotes / totalCategoryVotes) * 100)
-                          : 0;
+                {/* Daftar Peringkat Kandidat Vote Terpisah Per Kategori */}
+                <div className="space-y-5">
+                  {(activeEventVoting?.categories || [])
+                    .filter((cat) =>
+                      selectedVoteCatId === "ALL" ? true : cat.id === selectedVoteCatId
+                    )
+                    .map((cat) => {
+                      const catCandidates = [...(cat.candidates || [])].sort(
+                        (a, b) => b.totalVotes - a.totalVotes
+                      );
+                      const catTotalVotes = catCandidates.reduce(
+                        (acc, c) => acc + c.totalVotes,
+                        0
+                      );
 
                       return (
                         <div
-                          key={cand.id}
-                          className="rounded-2xl border border-pink-100 bg-white p-4 shadow-xs flex flex-col justify-between space-y-3"
+                          key={cat.id}
+                          className="rounded-2xl border border-pink-200 bg-white p-4 sm:p-5 space-y-4 shadow-xs"
                         >
-                          <div className="flex items-center gap-3.5">
-                            <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-slate-900 shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={cand.photoUrl}
-                                alt={cand.name}
-                                className="w-full h-full object-cover"
-                              />
-                              <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-black text-[10px]">
-                                #{idx + 1}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-pink-100">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2.5 py-0.5 rounded-full bg-pink-600 text-white text-[10px] font-black uppercase">
+                                Kategori Vote
                               </span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-pink-50 text-pink-700 border border-pink-200">
-                                  No. {cand.candidateNumber}
-                                </span>
-                              </div>
-                              <h5 className="text-sm font-black text-slate-900 truncate mt-1">
-                                {cand.name}
+                              <h5 className="text-sm font-black text-slate-900">
+                                Klasemen Juara Favorit: {cat.title}
                               </h5>
-                              <p className="text-[11px] text-slate-500 truncate">
-                                {cand.institution}
+                            </div>
+                            <span className="text-xs font-bold text-pink-600">
+                              {catCandidates.length} Peserta • Total {catTotalVotes.toLocaleString("id-ID")} Suara
+                            </span>
+                          </div>
+
+                          {catCandidates.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-pink-200 bg-pink-50/30 p-5 text-center space-y-2">
+                              <p className="text-xs font-bold text-slate-700">
+                                Belum ada peserta terdaftar pada kategori {cat.title}.
                               </p>
+                              <div className="flex items-center justify-center gap-4">
+                                <Link
+                                  href="/register-event"
+                                  className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:underline"
+                                >
+                                  Daftar Peserta {cat.title} →
+                                </Link>
+                                <Link
+                                  href={`/vote?eventId=${activeHomeEvent.id}&category=${cat.id}&tab=VOTE`}
+                                  className="inline-flex items-center gap-1.5 text-xs font-extrabold text-pink-600 hover:underline"
+                                >
+                                  Buka Bilik Cetas Vote →
+                                </Link>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {catCandidates.map((cand, idx) => {
+                                const pct =
+                                  catTotalVotes > 0
+                                    ? Math.round((cand.totalVotes / catTotalVotes) * 100)
+                                    : 0;
+                                const favRankLabel =
+                                  idx === 0
+                                    ? "🥇 Juara Favorit 1"
+                                    : idx === 1
+                                    ? "🥈 Juara Favorit 2"
+                                    : idx === 2
+                                    ? "🥉 Juara Favorit 3"
+                                    : `#${idx + 1}`;
 
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold text-slate-500">Perolehan Suara:</span>
-                              <span className="font-black text-pink-600">
-                                {cand.totalVotes.toLocaleString("id-ID")} Suara ({pct}%)
-                              </span>
-                            </div>
-                            <div className="w-full h-2 rounded-full bg-pink-100 overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all duration-500"
-                                style={{ width: `${Math.max(pct, cand.totalVotes > 0 ? 6 : 0)}%` }}
-                              />
-                            </div>
-                          </div>
+                                return (
+                                  <div
+                                    key={cand.id}
+                                    className="rounded-2xl border border-pink-100 bg-pink-50/20 p-4 shadow-xs flex flex-col justify-between space-y-3"
+                                  >
+                                    <div className="flex items-center gap-3.5">
+                                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-slate-900 shrink-0">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={cand.photoUrl}
+                                          alt={cand.name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-black text-[10px]">
+                                          #{idx + 1}
+                                        </span>
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-pink-50 text-pink-700 border border-pink-200">
+                                            No. {cand.candidateNumber}
+                                          </span>
+                                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                                            {favRankLabel}
+                                          </span>
+                                        </div>
+                                        <h5 className="text-sm font-black text-slate-900 truncate mt-1">
+                                          {cand.name}
+                                        </h5>
+                                        <p className="text-[11px] text-slate-500 truncate">
+                                          {cand.institution}
+                                        </p>
+                                      </div>
+                                    </div>
 
-                          <Link
-                            href={`/vote?eventId=${activeHomeEvent.id}&category=${
-                              activeVoteCategory?.id || ""
-                            }&tab=VOTE`}
-                            className="w-full py-2.5 px-3 rounded-xl bg-pink-50 hover:bg-pink-600 text-pink-700 hover:text-white border border-pink-200 font-extrabold text-xs flex items-center justify-center gap-1.5 transition"
-                          >
-                            <Heart className="h-3.5 w-3.5" />
-                            Beri Dukungan Vote di Cetas Vote
-                          </Link>
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="font-bold text-slate-500">Perolehan Suara:</span>
+                                        <span className="font-black text-pink-600">
+                                          {cand.totalVotes.toLocaleString("id-ID")} Suara ({pct}%)
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-2 rounded-full bg-pink-100 overflow-hidden">
+                                        <div
+                                          className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all duration-500"
+                                          style={{
+                                            width: `${Math.max(pct, cand.totalVotes > 0 ? 6 : 0)}%`,
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <Link
+                                      href={`/vote?eventId=${activeHomeEvent.id}&category=${cat.id}&tab=VOTE`}
+                                      className="w-full py-2.5 px-3 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition"
+                                    >
+                                      <Heart className="h-3.5 w-3.5 fill-white" />
+                                      Vote di Kategori {cat.title}
+                                    </Link>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           )}

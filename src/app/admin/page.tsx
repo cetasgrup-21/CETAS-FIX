@@ -59,6 +59,9 @@ import {
   INITIAL_UNIFIED_EVENTS,
   UnifiedEvent,
   UnifiedTicketTier,
+  RegistrationCategoryQuota,
+  getEffectiveRegistrationCategories,
+  normalizeCategoryLevelCode,
   getStoredEvents,
   saveStoredEvents,
 } from "@/lib/events-unified-data";
@@ -174,6 +177,11 @@ export default function AdminDashboardPage() {
       quotaRemaining: 300,
       quotaTotal: 300,
     },
+  ]);
+  const [eventRegCategories, setEventRegCategories] = useState<RegistrationCategoryQuota[]>([
+    { id: "regcat-default-sd", name: "Tingkat SD/MI", code: "SD", quotaTotal: 30, quotaRemaining: 30 },
+    { id: "regcat-default-smp", name: "Tingkat SMP/MTs", code: "SMP", quotaTotal: 35, quotaRemaining: 35 },
+    { id: "regcat-default-sma", name: "Tingkat SMA/SMK/MA", code: "SMA", quotaTotal: 35, quotaRemaining: 35 },
   ]);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
@@ -430,6 +438,11 @@ export default function AdminDashboardPage() {
         quotaTotal: 300,
       },
     ]);
+    setEventRegCategories([
+      { id: `regcat-${Date.now()}-sd`, name: "Tingkat SD/MI", code: "SD", quotaTotal: 30, quotaRemaining: 30 },
+      { id: `regcat-${Date.now()}-smp`, name: "Tingkat SMP/MTs", code: "SMP", quotaTotal: 35, quotaRemaining: 35 },
+      { id: `regcat-${Date.now()}-sma`, name: "Tingkat SMA/SMK/MA", code: "SMA", quotaTotal: 35, quotaRemaining: 35 },
+    ]);
     setIsEventModalOpen(true);
   };
 
@@ -456,6 +469,8 @@ export default function AdminDashboardPage() {
             },
           ];
     setEventTiers(initialTiers);
+    const initialRegCats = getEffectiveRegistrationCategories(ev);
+    setEventRegCategories(initialRegCats);
     setEventForm({
       title: ev.title,
       organizer: ev.organizer,
@@ -473,7 +488,7 @@ export default function AdminDashboardPage() {
       ticketPrice: initialTiers[0].price,
       ticketQuota: initialTiers[0].quotaTotal,
       isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
-      registrationQuota: ev.quotaTotal || 100,
+      registrationQuota: initialRegCats.reduce((s, c) => s + c.quotaTotal, 0) || ev.quotaTotal || 100,
       facilitiesText: (ev.facilities || []).join(", "),
     });
     setIsEventModalOpen(true);
@@ -522,6 +537,34 @@ export default function AdminDashboardPage() {
             },
           ];
 
+    // Normalisasi kategori pendaftaran per tingkatan (SD, SMP, SMA, Purna / Custom) & kuota masing-masing
+    const normalizedRegCategories: RegistrationCategoryQuota[] =
+      eventRegCategories && eventRegCategories.length > 0
+        ? eventRegCategories
+            .filter((c) => c.name && c.name.trim())
+            .map((c, idx) => {
+              const total = Math.max(1, Number(c.quotaTotal) || 30);
+              const rem =
+                c.quotaRemaining !== undefined && c.quotaRemaining !== null
+                  ? Math.min(total, Math.max(0, Number(c.quotaRemaining)))
+                  : total;
+              return {
+                id: c.id || `regcat-${Date.now()}-${idx + 1}`,
+                name: c.name.trim(),
+                code: normalizeCategoryLevelCode(c.name),
+                quotaTotal: total,
+                quotaRemaining: rem,
+              };
+            })
+        : [
+            { id: `regcat-${Date.now()}-sd`, name: "Tingkat SD/MI", code: "SD", quotaTotal: 30, quotaRemaining: 30 },
+            { id: `regcat-${Date.now()}-smp`, name: "Tingkat SMP/MTs", code: "SMP", quotaTotal: 35, quotaRemaining: 35 },
+            { id: `regcat-${Date.now()}-sma`, name: "Tingkat SMA/SMK/MA", code: "SMA", quotaTotal: 35, quotaRemaining: 35 },
+          ];
+
+    const totalRegQuota = normalizedRegCategories.reduce((sum, c) => sum + c.quotaTotal, 0);
+    const remRegQuota = normalizedRegCategories.reduce((sum, c) => sum + c.quotaRemaining, 0);
+
     const payload = {
       title: eventForm.title,
       organizer: eventForm.organizer,
@@ -537,8 +580,10 @@ export default function AdminDashboardPage() {
       isOpenTicketing: eventForm.isOpenTicketing,
       tiers: eventForm.isOpenTicketing ? normalizedTiers : [],
       isOpenOnlineRegistration: eventForm.isOpenOnlineRegistration,
-      quotaTotal: Number(eventForm.registrationQuota),
-      quotaRemaining: Number(eventForm.registrationQuota),
+      registrationCategories: normalizedRegCategories,
+      categoryOptions: normalizedRegCategories.map((c) => c.name),
+      quotaTotal: totalRegQuota || Number(eventForm.registrationQuota) || 100,
+      quotaRemaining: remRegQuota || Number(eventForm.registrationQuota) || 100,
       price: 0,
       priceLabel: "Gratis",
       facilities: facilitiesArray,
@@ -563,7 +608,17 @@ export default function AdminDashboardPage() {
             return next;
           });
           if (data.event.tiers) setEventTiers(data.event.tiers);
-          showSyncToast(`✓ Event & Tiket '${data.event.title}' berhasil disimpan & disinkronkan ke publik!`);
+          if (data.event.registrationCategories) setEventRegCategories(data.event.registrationCategories);
+          fetch("/api/vote", { cache: "no-store" })
+            .then((r) => r.json())
+            .then((vData) => {
+              if (vData.success && Array.isArray(vData.eventVotings)) {
+                setEventVotings(vData.eventVotings);
+                saveStoredEventVotings(vData.eventVotings);
+              }
+            })
+            .catch(() => {});
+          showSyncToast(`✓ Event, Kategori Kuota & Tiket '${data.event.title}' berhasil disimpan & disinkronkan ke publik!`);
         } else {
           setEventsList((prev) => {
             const next = prev.map((ev) =>
@@ -572,7 +627,7 @@ export default function AdminDashboardPage() {
             saveStoredEvents(next);
             return next;
           });
-          showSyncToast(`✓ Perubahan Event & Tiket berhasil disimpan!`);
+          showSyncToast(`✓ Perubahan Event & Kategori berhasil disimpan!`);
         }
       } catch {
         setEventsList((prev) => {
@@ -582,7 +637,7 @@ export default function AdminDashboardPage() {
           saveStoredEvents(next);
           return next;
         });
-        showSyncToast(`✓ Perubahan Event & Tiket tersimpan!`);
+        showSyncToast(`✓ Perubahan Event & Kategori tersimpan!`);
       }
     } else {
       try {
@@ -599,7 +654,7 @@ export default function AdminDashboardPage() {
             return next;
           });
           // Refresh votings agar bilik vote event baru langsung tampil
-          fetch("/api/vote")
+          fetch("/api/vote", { cache: "no-store" })
             .then((r) => r.json())
             .then((vData) => {
               if (vData.success && Array.isArray(vData.eventVotings)) {
@@ -614,7 +669,6 @@ export default function AdminDashboardPage() {
         const fallbackEv: UnifiedEvent = {
           id: `ev-${Date.now().toString().slice(-6)}`,
           slug: payload.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          categoryOptions: ["Tingkat SMP/MTs", "Tingkat SMA/SMK/MA", "Umum"],
           ...payload,
         };
         setEventsList((prev) => {
@@ -927,6 +981,8 @@ export default function AdminDashboardPage() {
               },
             ];
       setEventTiers(initialTiers);
+      const initialRegCats = getEffectiveRegistrationCategories(ev);
+      setEventRegCategories(initialRegCats);
       setEventForm({
         title: ev.title,
         organizer: ev.organizer,
@@ -944,7 +1000,7 @@ export default function AdminDashboardPage() {
         ticketPrice: initialTiers[0].price,
         ticketQuota: initialTiers[0].quotaTotal,
         isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
-        registrationQuota: ev.quotaTotal || 100,
+        registrationQuota: initialRegCats.reduce((s, c) => s + c.quotaTotal, 0) || ev.quotaTotal || 100,
         facilitiesText: (ev.facilities || []).join(", "),
       });
 
@@ -960,24 +1016,14 @@ export default function AdminDashboardPage() {
               : ev.bannerUrl || "/lkbb-cemara-2026.jpg",
           themePreset: ev.themePreset || "EMERALD",
           eventDate: ev.date,
-          categories: [
-            {
-              id: `cat-${ev.id}-smp`,
-              eventId: ev.id,
-              title: "Tingkat SMP/MTs",
-              description: "Pemilihan pleton terfavorit tingkat SMP/MTs",
-              pricePerVote: 2000,
-              candidates: [],
-            },
-            {
-              id: `cat-${ev.id}-sma`,
-              eventId: ev.id,
-              title: "Tingkat SMA/SMK/MA",
-              description: "Pemilihan pleton terfavorit tingkat SMA/SMK/MA",
-              pricePerVote: 2000,
-              candidates: [],
-            },
-          ],
+          categories: initialRegCats.map((rc) => ({
+            id: `cat-${ev.id}-${rc.code.toLowerCase()}`,
+            eventId: ev.id,
+            title: rc.name,
+            description: `Pemilihan peserta / pleton terfavorit ${rc.name}`,
+            pricePerVote: 2000,
+            candidates: [],
+          })),
         };
         const nextVotings = [
           defaultVote,
@@ -2489,8 +2535,8 @@ export default function AdminDashboardPage() {
                         )}
                       </div>
 
-                      <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-3">
-                        <div className="flex items-center justify-between">
+                      <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-3 md:col-span-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-xs font-black text-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
@@ -2503,22 +2549,214 @@ export default function AdminDashboardPage() {
                               }
                               className="rounded h-4 w-4 text-emerald-600"
                             />
-                            Buka Pendaftaran Online (RSVP / E-Badge)
+                            Buka Pendaftaran Peserta Online &amp; Kuota Per Kategori (SD, SMP, SMA, Purna / Custom)
                           </label>
-                          <span className="text-[10px] font-bold text-emerald-600">Gratis / Pass</span>
+                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                            Sinkron Otomatis ke Cetas Vote &amp; Cetas.Score (Juara Terpisah Per Kategori)
+                          </span>
                         </div>
                         {eventForm.isOpenOnlineRegistration && (
-                          <div className="pt-1 text-xs">
-                            <span className="text-[10px] text-slate-500 font-bold block mb-1">Fasilitas Peserta (Pisahkan koma):</span>
-                            <input
-                              type="text"
-                              value={eventForm.facilitiesText}
-                              onChange={(e) =>
-                                setEventForm({ ...eventForm, facilitiesText: e.target.value })
-                              }
-                              placeholder="Sertifikat Digital, E-Badge Pass QR, Snack"
-                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs"
-                            />
+                          <div className="pt-2 space-y-4 text-xs">
+                            <div>
+                              <span className="text-[10px] text-slate-500 font-bold block mb-1">
+                                Fasilitas Peserta (Pisahkan koma):
+                              </span>
+                              <input
+                                type="text"
+                                value={eventForm.facilitiesText}
+                                onChange={(e) =>
+                                  setEventForm({ ...eventForm, facilitiesText: e.target.value })
+                                }
+                                placeholder="Sertifikat Digital, E-Badge Pass QR, Snack"
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 text-xs"
+                              />
+                            </div>
+
+                            {/* KATEGORI & KUOTA PENDAFTARAN PER TINGKATAN */}
+                            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 space-y-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                                <div>
+                                  <h5 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                                    <Layers className="h-3.5 w-3.5 text-emerald-600" />
+                                    Kategori Pendaftaran &amp; Kuota Masing-Masing Tingkatan
+                                  </h5>
+                                  <p className="text-[11px] text-slate-500 mt-0.5">
+                                    Atur kategori (SD, SMP, SMA, Purna, dll) beserta kuotanya masing-masing. Peserta yang daftar otomatis masuk ke <strong>Cetas Vote</strong> &amp; <strong>Cetas.Score</strong> sesuai kategorinya.
+                                  </p>
+                                </div>
+                                <div className="text-[11px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800 shrink-0">
+                                  Total Kuota:{" "}
+                                  {eventRegCategories.reduce((s, c) => s + (Number(c.quotaRemaining) || 0), 0)} /{" "}
+                                  {eventRegCategories.reduce((s, c) => s + (Number(c.quotaTotal) || 0), 0)} Kursi
+                                </div>
+                              </div>
+
+                              {/* Quick Add Preset Categories */}
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-slate-400 mr-1">
+                                  + Tambah Cepat:
+                                </span>
+                                {[
+                                  { name: "Tingkat SD/MI", code: "SD" as const, quota: 30 },
+                                  { name: "Tingkat SMP/MTs", code: "SMP" as const, quota: 35 },
+                                  { name: "Tingkat SMA/SMK/MA", code: "SMA" as const, quota: 35 },
+                                  { name: "Tingkat Purna/Umum", code: "PURNA" as const, quota: 25 },
+                                ].map((preset) => {
+                                  const exists = eventRegCategories.some(
+                                    (c) => c.name.toLowerCase() === preset.name.toLowerCase()
+                                  );
+                                  return (
+                                    <button
+                                      key={preset.name}
+                                      type="button"
+                                      onClick={() => {
+                                        if (exists) return;
+                                        setEventRegCategories((prev) => [
+                                          ...prev,
+                                          {
+                                            id: `regcat-${Date.now()}-${preset.code.toLowerCase()}`,
+                                            name: preset.name,
+                                            code: preset.code,
+                                            quotaTotal: preset.quota,
+                                            quotaRemaining: preset.quota,
+                                          },
+                                        ]);
+                                      }}
+                                      disabled={exists}
+                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                                        exists
+                                          ? "bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700 cursor-not-allowed"
+                                          : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                      }`}
+                                    >
+                                      {exists ? `✓ ${preset.name}` : `+ ${preset.name}`}
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEventRegCategories((prev) => [
+                                      ...prev,
+                                      {
+                                        id: `regcat-${Date.now()}-${prev.length + 1}`,
+                                        name: `Kategori #${prev.length + 1}`,
+                                        code: "UMUM",
+                                        quotaTotal: 30,
+                                        quotaRemaining: 30,
+                                      },
+                                    ])
+                                  }
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800 transition"
+                                >
+                                  + Tambah Kategori Kustom
+                                </button>
+                              </div>
+
+                              {/* Editable Rows per Category */}
+                              <div className="space-y-2.5">
+                                {eventRegCategories.map((rc, idx) => (
+                                  <div
+                                    key={rc.id || idx}
+                                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end"
+                                  >
+                                    <div className="sm:col-span-5">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between mb-1">
+                                        <span>Nama Kategori #{idx + 1}</span>
+                                        <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-black">
+                                          Kode: {normalizeCategoryLevelCode(rc.name)}
+                                        </span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={rc.name}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setEventRegCategories((prev) =>
+                                            prev.map((item, i) =>
+                                              i === idx
+                                                ? { ...item, name: val, code: normalizeCategoryLevelCode(val) }
+                                                : item
+                                            )
+                                          );
+                                        }}
+                                        placeholder="Contoh: Tingkat SD/MI, Tingkat SMP/MTs, Tingkat SMA/SMK/MA"
+                                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                                      />
+                                    </div>
+
+                                    <div className="sm:col-span-3">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                        Kuota Total Kategori
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        value={rc.quotaTotal}
+                                        onChange={(e) => {
+                                          const val = Math.max(1, Number(e.target.value) || 1);
+                                          setEventRegCategories((prev) =>
+                                            prev.map((item, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...item,
+                                                    quotaTotal: val,
+                                                    quotaRemaining:
+                                                      item.quotaRemaining === item.quotaTotal
+                                                        ? val
+                                                        : Math.min(item.quotaRemaining, val),
+                                                  }
+                                                : item
+                                            )
+                                          );
+                                        }}
+                                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-slate-900 dark:text-white"
+                                      />
+                                    </div>
+
+                                    <div className="sm:col-span-3">
+                                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                        Sisa Kuota Tersedia
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={rc.quotaTotal}
+                                        value={rc.quotaRemaining}
+                                        onChange={(e) => {
+                                          const val = Math.max(0, Number(e.target.value) || 0);
+                                          setEventRegCategories((prev) =>
+                                            prev.map((item, i) =>
+                                              i === idx
+                                                ? { ...item, quotaRemaining: Math.min(item.quotaTotal, val) }
+                                                : item
+                                            )
+                                          );
+                                        }}
+                                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400"
+                                      />
+                                    </div>
+
+                                    <div className="sm:col-span-1 flex justify-end">
+                                      {eventRegCategories.length > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setEventRegCategories((prev) =>
+                                              prev.filter((_, i) => i !== idx)
+                                            )
+                                          }
+                                          title="Hapus Kategori Ini"
+                                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-600 transition"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2792,6 +3030,146 @@ export default function AdminDashboardPage() {
                           Buka Panel Kelola Dewan Juri &rarr;
                         </Link>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Daftar Peserta & Peringkat Juara Terpisah Per Kategori (Sinkron Otomatis dari Pendaftaran) */}
+                  <div className="p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-5 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-[10px] font-black mb-1">
+                          <Medal className="h-3.5 w-3.5 text-purple-600" />
+                          Juara Terpisah Antar Kategori • Sinkron Pendaftaran Online
+                        </div>
+                        <h4 className="text-base font-black text-slate-900 dark:text-white">
+                          Daftar Peserta &amp; Klasemen Juara Per Kategori ({selectedEvent.title})
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Setiap peserta yang mendaftar online otomatis masuk ke tabel klasemen sesuai kategorinya (SD, SMP, SMA, Purna, dll) dengan penentuan juara yang terpisah per kategori.
+                        </p>
+                      </div>
+                      <Link
+                        href="/register-event"
+                        target="_blank"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-black transition shrink-0"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Halaman Pendaftaran Peserta
+                      </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      {getEffectiveRegistrationCategories(selectedEvent).map((cat) => {
+                        const catTeams = [...(selectedEvent.lkbbTeams || [])]
+                          .filter(
+                            (t) =>
+                              (t.categoryName &&
+                                t.categoryName.toLowerCase().trim() === cat.name.toLowerCase().trim()) ||
+                              t.level === cat.code
+                          )
+                          .sort((a, b) => {
+                            const scoreDiff = (b.totalScore || 0) - (a.totalScore || 0);
+                            if (scoreDiff !== 0) return scoreDiff;
+                            return a.number.localeCompare(b.number);
+                          });
+
+                        return (
+                          <div
+                            key={cat.id}
+                            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-4 flex flex-col justify-between space-y-3"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/70 pb-2.5">
+                                <div>
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                                    Juara Terpisah • {cat.code}
+                                  </span>
+                                  <h5 className="text-sm font-black text-slate-900 dark:text-white mt-1">
+                                    {cat.name}
+                                  </h5>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] font-bold text-slate-400 block">
+                                    Sisa Kuota
+                                  </span>
+                                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                                    {cat.quotaRemaining}/{cat.quotaTotal}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {catTeams.length > 0 ? (
+                                <div className="space-y-2">
+                                  {catTeams.map((team, idx) => {
+                                    const finalScore =
+                                      team.totalScore ??
+                                      team.pbbMurni + team.variasiFormasi + team.danton + team.kostum - team.penalty;
+                                    const rankBadge =
+                                      idx === 0
+                                        ? "🥇 Juara 1"
+                                        : idx === 1
+                                        ? "🥈 Juara 2"
+                                        : idx === 2
+                                        ? "🥉 Juara 3"
+                                        : `#${idx + 1}`;
+                                    return (
+                                      <div
+                                        key={team.id}
+                                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${
+                                          idx === 0 && finalScore > 0
+                                            ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800"
+                                            : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
+                                        }`}
+                                      >
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                                              #{team.number}
+                                            </span>
+                                            <span className="text-[10px] font-black text-purple-600 dark:text-purple-400">
+                                              {rankBadge}
+                                            </span>
+                                          </div>
+                                          <div className="font-bold text-slate-900 dark:text-white truncate mt-0.5">
+                                            {team.teamName}
+                                          </div>
+                                          <div className="text-[10px] text-slate-500 truncate">
+                                            {team.school}
+                                          </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                          <div className="font-mono text-xs font-black text-emerald-600 dark:text-emerald-400">
+                                            {finalScore} Poin
+                                          </div>
+                                          <span className="text-[9px] font-bold text-slate-400">
+                                            {team.status === "TERVERIFIKASI"
+                                              ? "Terverifikasi"
+                                              : "Menunggu Nilai"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="py-6 text-center text-[11px] text-slate-400 italic">
+                                  Belum ada peserta terdaftar di {cat.name}.
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                              <span>Terdaftar: {catTeams.length} Peserta</span>
+                              <Link
+                                href="/admin/participants"
+                                className="text-purple-600 hover:underline font-black"
+                              >
+                                Kelola di Score &rarr;
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -4553,6 +4931,192 @@ export default function AdminDashboardPage() {
                           }}
                           className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold"
                         />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* KONFIGURASI PENDAFTARAN PESERTA & KUOTA PER KATEGORI (SD, SMP, SMA, PURNA / CUSTOM) */}
+                <div className="sm:col-span-2 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="text-xs font-black text-emerald-950 dark:text-emerald-200 flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={eventForm.isOpenOnlineRegistration}
+                        onChange={(e) =>
+                          setEventForm({
+                            ...eventForm,
+                            isOpenOnlineRegistration: e.target.checked,
+                          })
+                        }
+                        className="rounded h-4 w-4 text-emerald-600"
+                      />
+                      <span>Buka Pendaftaran Peserta &amp; Kuota Per Kategori (SD, SMP, SMA, dll)</span>
+                    </label>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      Sinkron Otomatis ke Voting &amp; Score (Juara Terpisah)
+                    </span>
+                  </div>
+
+                  {eventForm.isOpenOnlineRegistration && (
+                    <div className="space-y-3 pt-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-500">Tambah Kategori:</span>
+                          {[
+                            { name: "Tingkat SD/MI", code: "SD" as const, quota: 30 },
+                            { name: "Tingkat SMP/MTs", code: "SMP" as const, quota: 35 },
+                            { name: "Tingkat SMA/SMK/MA", code: "SMA" as const, quota: 35 },
+                            { name: "Tingkat Purna/Umum", code: "PURNA" as const, quota: 25 },
+                          ].map((preset) => {
+                            const exists = eventRegCategories.some(
+                              (c) => c.name.toLowerCase() === preset.name.toLowerCase()
+                            );
+                            return (
+                              <button
+                                key={preset.name}
+                                type="button"
+                                disabled={exists}
+                                onClick={() => {
+                                  if (exists) return;
+                                  setEventRegCategories((prev) => [
+                                    ...prev,
+                                    {
+                                      id: `regcat-${Date.now()}-${preset.code.toLowerCase()}`,
+                                      name: preset.name,
+                                      code: preset.code,
+                                      quotaTotal: preset.quota,
+                                      quotaRemaining: preset.quota,
+                                    },
+                                  ]);
+                                }}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                                  exists
+                                    ? "bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
+                                    : "bg-white hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-slate-900 dark:text-emerald-300 dark:border-emerald-800"
+                                }`}
+                              >
+                                {exists ? `✓ ${preset.name}` : `+ ${preset.name}`}
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEventRegCategories((prev) => [
+                                ...prev,
+                                {
+                                  id: `regcat-${Date.now()}-${prev.length + 1}`,
+                                  name: `Kategori #${prev.length + 1}`,
+                                  code: "UMUM",
+                                  quotaTotal: 30,
+                                  quotaRemaining: 30,
+                                },
+                              ])
+                            }
+                            className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800"
+                          >
+                            + Kustom
+                          </button>
+                        </div>
+                        <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                          Total Kuota:{" "}
+                          {eventRegCategories.reduce((s, c) => s + (Number(c.quotaRemaining) || 0), 0)}/
+                          {eventRegCategories.reduce((s, c) => s + (Number(c.quotaTotal) || 0), 0)}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {eventRegCategories.map((rc, idx) => (
+                          <div
+                            key={rc.id || idx}
+                            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end"
+                          >
+                            <div className="sm:col-span-5">
+                              <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                                Kategori #{idx + 1} ({normalizeCategoryLevelCode(rc.name)})
+                              </label>
+                              <input
+                                type="text"
+                                value={rc.name}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setEventRegCategories((prev) =>
+                                    prev.map((item, i) =>
+                                      i === idx
+                                        ? { ...item, name: val, code: normalizeCategoryLevelCode(val) }
+                                        : item
+                                    )
+                                  );
+                                }}
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-bold"
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                                Kuota Total
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={rc.quotaTotal}
+                                onChange={(e) => {
+                                  const val = Math.max(1, Number(e.target.value) || 1);
+                                  setEventRegCategories((prev) =>
+                                    prev.map((item, i) =>
+                                      i === idx
+                                        ? {
+                                            ...item,
+                                            quotaTotal: val,
+                                            quotaRemaining:
+                                              item.quotaRemaining === item.quotaTotal
+                                                ? val
+                                                : Math.min(item.quotaRemaining, val),
+                                          }
+                                        : item
+                                    )
+                                  );
+                                }}
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-black"
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                                Sisa Kuota
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={rc.quotaTotal}
+                                value={rc.quotaRemaining}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Number(e.target.value) || 0);
+                                  setEventRegCategories((prev) =>
+                                    prev.map((item, i) =>
+                                      i === idx
+                                        ? { ...item, quotaRemaining: Math.min(item.quotaTotal, val) }
+                                        : item
+                                    )
+                                  );
+                                }}
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-black text-emerald-600"
+                              />
+                            </div>
+                            <div className="sm:col-span-1 flex justify-end">
+                              {eventRegCategories.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEventRegCategories((prev) => prev.filter((_, i) => i !== idx))
+                                  }
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

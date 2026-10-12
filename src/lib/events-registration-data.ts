@@ -1,3 +1,5 @@
+import { RegistrationCategoryQuota } from "./events-unified-data";
+
 export interface EventRegistrationItem {
   id: string;
   slug: string;
@@ -15,6 +17,7 @@ export interface EventRegistrationItem {
   quotaTotal: number;
   quotaRemaining: number;
   categoryOptions: string[];
+  registrationCategories?: RegistrationCategoryQuota[];
   bannerUrl: string;
   description: string;
   facilities: string[];
@@ -25,6 +28,7 @@ export interface EventRegistrationItem {
 export interface RegisteredAttendee {
   id: string;
   badgeCode: string; // e.g. CETAS-ATD-2026-98124
+  candidateNumber?: string; // Nomor urut peserta otomatis di kategori tersebut (e.g. "01")
   eventId: string;
   eventName: string;
   fullName: string;
@@ -32,6 +36,7 @@ export interface RegisteredAttendee {
   phone: string;
   institution: string;
   category: string;
+  levelCode?: string; // "SD" | "SMP" | "SMA" | "PURNA"
   notes?: string;
   portfolioUrl?: string;
   qrPayload: string;
@@ -40,8 +45,8 @@ export interface RegisteredAttendee {
   status: "CONFIRMED" | "WAITLIST" | "CANCELLED";
 }
 
-// Data awal registrasi bersih (Fresh Clean State untuk pengembangan)
+// Data awal registrasi bersih
 export const INITIAL_REGISTRATION_EVENTS: EventRegistrationItem[] = [];
 
-// Data awal peserta bersih (Fresh Clean State untuk pengembangan)
+// Data awal peserta bersih
 export const INITIAL_ATTENDEES: RegisteredAttendee[] = [];

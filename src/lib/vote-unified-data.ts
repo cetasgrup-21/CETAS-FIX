@@ -6,7 +6,7 @@ export interface VoteCandidate {
   categoryId: string;
   candidateNumber: string; // e.g. "01", "02"
   name: string;
-  institution: string; // e.g. SMPN 1 Jakarta, SMAN 3 Bandung, Purna 2024
+  institution: string; // e.g. SDN 1 Jakarta, SMPN 1 Jakarta, SMAN 3 Bandung
   photoUrl: string;
   tagline: string;
   totalVotes: number;
@@ -15,7 +15,7 @@ export interface VoteCandidate {
 export interface VoteCategory {
   id: string;
   eventId: string;
-  title: string; // e.g. "Tingkat SMP", "Tingkat SMA", "Kategori Purna"
+  title: string; // e.g. "Tingkat SD/MI", "Tingkat SMP/MTs", "Tingkat SMA/SMK/MA"
   description?: string;
   pricePerVote: number;
   candidates: VoteCandidate[];
@@ -39,10 +39,18 @@ export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
     themePreset: "EMERALD",
     categories: [
       {
+        id: "cat-ev-268156-sd",
+        eventId: "ev-268156",
+        title: "Tingkat SD/MI",
+        description: "Pemilihan pleton terfavorit tingkat SD/MI (Juara Favorit Terpisah)",
+        pricePerVote: 2000,
+        candidates: [],
+      },
+      {
         id: "cat-ev-268156-smp",
         eventId: "ev-268156",
         title: "Tingkat SMP/MTs",
-        description: "Pemilihan pleton terfavorit tingkat SMP/MTs",
+        description: "Pemilihan pleton terfavorit tingkat SMP/MTs (Juara Favorit Terpisah)",
         pricePerVote: 2000,
         candidates: [],
       },
@@ -50,7 +58,7 @@ export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
         id: "cat-ev-268156-sma",
         eventId: "ev-268156",
         title: "Tingkat SMA/SMK/MA",
-        description: "Pemilihan pleton terfavorit tingkat SMA/SMK/MA",
+        description: "Pemilihan pleton terfavorit tingkat SMA/SMK/MA (Juara Favorit Terpisah)",
         pricePerVote: 2000,
         candidates: [],
       },
@@ -58,15 +66,15 @@ export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
   },
 ];
 
-const VOTE_STORAGE_KEY = "cetas_event_votings_v4";
+const VOTE_STORAGE_KEY = "cetas_event_votings_v5";
 
 export function getStoredEventVotings(): EventVotingConfig[] {
   if (typeof window === "undefined") return INITIAL_EVENT_VOTINGS;
   try {
-    // Purge legacy keys that may contain multi-MB base64 strings
     localStorage.removeItem("cetas_event_votings_v1");
     localStorage.removeItem("cetas_event_votings_v2");
     localStorage.removeItem("cetas_event_votings_v3");
+    localStorage.removeItem("cetas_event_votings_v4");
     const raw = localStorage.getItem(VOTE_STORAGE_KEY);
     if (!raw) return INITIAL_EVENT_VOTINGS;
     const parsed = JSON.parse(raw);
@@ -80,7 +88,6 @@ export function getStoredEventVotings(): EventVotingConfig[] {
 export function saveStoredEventVotings(votings: EventVotingConfig[]): void {
   if (typeof window === "undefined") return;
   try {
-    // Avoid duplicating huge event banner base64 inside vote storage
     const compact = votings.map((v) => ({
       ...v,
       bannerUrl:

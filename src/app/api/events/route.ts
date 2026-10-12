@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UnifiedEvent } from "@/lib/events-unified-data";
+import {
+  UnifiedEvent,
+  getEffectiveRegistrationCategories,
+  normalizeCategoryLevelCode,
+} from "@/lib/events-unified-data";
 import {
   getEventsStore,
   saveEventsStore,
@@ -19,9 +23,24 @@ function safeBanner(url?: string): string {
   return url;
 }
 
+function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
+  const regCats = getEffectiveRegistrationCategories(ev);
+  const totalQ = regCats.reduce((sum, c) => sum + c.quotaTotal, 0);
+  const remQ = regCats.reduce((sum, c) => sum + c.quotaRemaining, 0);
+  return {
+    ...ev,
+    bannerUrl: safeBanner(ev.bannerUrl),
+    registrationCategories: regCats,
+    categoryOptions: regCats.map((c) => c.name),
+    quotaTotal: totalQ,
+    quotaRemaining: remQ,
+  };
+}
+
 // GET: Ambil daftar seluruh event dari PostgreSQL CetasStore
 export async function GET() {
-  const events = await getEventsStore();
+  const rawEvents = await getEventsStore();
+  const events = rawEvents.map(normalizeEventCategoriesAndQuota);
   return NextResponse.json(
     {
       success: true,
@@ -43,10 +62,9 @@ export async function POST(req: NextRequest) {
 
     // Sinkronisasi massal jika diperlukan
     if (body.action === "SYNC_EVENTS" && Array.isArray(body.events)) {
-      const clean = body.events.map((e: UnifiedEvent) => ({
-        ...e,
-        bannerUrl: safeBanner(e.bannerUrl),
-      }));
+      const clean = body.events.map((e: UnifiedEvent) =>
+        normalizeEventCategoriesAndQuota(e)
+      );
       await saveEventsStore(clean);
       return NextResponse.json({
         success: true,
@@ -75,7 +93,34 @@ export async function POST(req: NextRequest) {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-    const newEvent: UnifiedEvent = {
+    const defaultRegCats =
+      Array.isArray(body.registrationCategories) && body.registrationCategories.length > 0
+        ? body.registrationCategories
+        : [
+            {
+              id: `reg-cat-${eventId}-sd`,
+              name: "Tingkat SD/MI",
+              code: "SD",
+              quotaTotal: 30,
+              quotaRemaining: 30,
+            },
+            {
+              id: `reg-cat-${eventId}-smp`,
+              name: "Tingkat SMP/MTs",
+              code: "SMP",
+              quotaTotal: 35,
+              quotaRemaining: 35,
+            },
+            {
+              id: `reg-cat-${eventId}-sma`,
+              name: "Tingkat SMA/SMK/MA",
+              code: "SMA",
+              quotaTotal: 35,
+              quotaRemaining: 35,
+            },
+          ];
+
+    const newEvent = normalizeEventCategoriesAndQuota({
       id: eventId,
       slug,
       title: body.title.trim().replace(/\s+/g, " "),
@@ -89,19 +134,31 @@ export async function POST(req: NextRequest) {
       bannerUrl: safeBanner(body.bannerUrl),
       description: body.description || "Deskripsi resmi event Cetas.",
       status: body.status || "PUBLISHED",
-      isOpenTicketing: body.isOpenTicketing !== undefined ? Boolean(body.isOpenTicketing) : true,
+      isOpenTicketing:
+        body.isOpenTicketing !== undefined ? Boolean(body.isOpenTicketing) : true,
       tiers:
         Array.isArray(body.tiers) && body.tiers.length > 0
-          ? body.tiers.map((t: { id?: string; name?: string; price?: number; quotaTotal?: number; quotaRemaining?: number }, idx: number) => ({
-              id: t.id || `tier-${Date.now()}-${idx + 1}`,
-              name: t.name || "Tiket Reguler",
-              price: Number(t.price) || 0,
-              quotaTotal: Number(t.quotaTotal) || 100,
-              quotaRemaining:
-                t.quotaRemaining !== undefined
-                  ? Number(t.quotaRemaining)
-                  : Number(t.quotaTotal) || 100,
-            }))
+          ? body.tiers.map(
+              (
+                t: {
+                  id?: string;
+                  name?: string;
+                  price?: number;
+                  quotaTotal?: number;
+                  quotaRemaining?: number;
+                },
+                idx: number
+              ) => ({
+                id: t.id || `tier-${Date.now()}-${idx + 1}`,
+                name: t.name || "Tiket Reguler",
+                price: Number(t.price) || 0,
+                quotaTotal: Number(t.quotaTotal) || 100,
+                quotaRemaining:
+                  t.quotaRemaining !== undefined
+                    ? Number(t.quotaRemaining)
+                    : Number(t.quotaTotal) || 100,
+              })
+            )
           : [
               {
                 id: `tier-${Date.now()}-1`,
@@ -111,22 +168,23 @@ export async function POST(req: NextRequest) {
                 quotaRemaining: Number(body.defaultQuota ?? body.ticketQuota ?? 200),
               },
             ],
-      isOpenOnlineRegistration: Boolean(body.isOpenOnlineRegistration),
+      isOpenOnlineRegistration:
+        body.isOpenOnlineRegistration !== undefined
+          ? Boolean(body.isOpenOnlineRegistration)
+          : true,
       price: body.price !== undefined ? Number(body.price) : 0,
       priceLabel: body.priceLabel || (body.price === 0 ? "Gratis" : `Rp ${body.price}`),
-      quotaTotal: Number(body.quotaTotal) || 150,
-      quotaRemaining: Number(body.quotaRemaining || body.quotaTotal) || 150,
-      categoryOptions: body.categoryOptions || [
-        "Tingkat SMP/MTs",
-        "Tingkat SMA/SMK/MA",
-        "Kategori Purna / Umum",
-      ],
+      quotaTotal: Number(body.quotaTotal) || 100,
+      quotaRemaining: Number(body.quotaRemaining || body.quotaTotal) || 100,
+      registrationCategories: defaultRegCats,
+      categoryOptions: defaultRegCats.map((c: { name: string }) => c.name),
       facilities: body.facilities || [
-        "Sertifikat Digital Cetas",
-        "Akses Gate Pass QR Code",
+        "Sertifikat Digital Resmi",
+        "E-Badge Pass QR",
+        "Snack",
       ],
       lkbbTeams: Array.isArray(body.lkbbTeams) ? body.lkbbTeams : [],
-    };
+    });
 
     const updatedEvents = [
       newEvent,
@@ -138,8 +196,9 @@ export async function POST(req: NextRequest) {
     ];
     await saveEventsStore(updatedEvents);
 
-    // Otomatis buat bilik voting untuk event baru ini agar langsung sinkron dengan Cetas Vote
+    // Otomatis buat bilik voting sesuai kategori pendaftaran (SD, SMP, SMA, dll.)
     const votings = await getVotingsStore();
+    const regCats = getEffectiveRegistrationCategories(newEvent);
     if (!votings.some((v) => v.eventId === newEvent.id)) {
       votings.unshift({
         eventId: newEvent.id,
@@ -147,24 +206,14 @@ export async function POST(req: NextRequest) {
         eventDate: newEvent.date,
         bannerUrl: newEvent.bannerUrl,
         themePreset: newEvent.themePreset || "EMERALD",
-        categories: [
-          {
-            id: `cat-${newEvent.id}-smp`,
-            eventId: newEvent.id,
-            title: "Tingkat SMP/MTs",
-            description: "Kategori voting tingkat SMP/MTs sederajat",
-            pricePerVote: 2000,
-            candidates: [],
-          },
-          {
-            id: `cat-${newEvent.id}-sma`,
-            eventId: newEvent.id,
-            title: "Tingkat SMA/SMK/MA",
-            description: "Kategori voting tingkat SMA/SMK/MA sederajat",
-            pricePerVote: 2000,
-            candidates: [],
-          },
-        ],
+        categories: regCats.map((rc) => ({
+          id: `cat-${newEvent.id}-${rc.code.toLowerCase()}`,
+          eventId: newEvent.id,
+          title: rc.name,
+          description: `Kategori pemilihan favorit ${rc.name} (Juara Terpisah)`,
+          pricePerVote: 2000,
+          candidates: [],
+        })),
       });
       await saveVotingsStore(votings);
     }
@@ -184,7 +233,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: Edit Event / Edit Tier Tiket / Kurangi Kuota Tiket (Upsert Aman & Auto-Sync)
+// PUT: Edit Event / Edit Kategori & Kuota Pendaftaran / Edit Tier Tiket
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
@@ -230,7 +279,7 @@ export async function PUT(req: NextRequest) {
     let updatedEvent: UnifiedEvent;
 
     if (eventIndex === -1) {
-      updatedEvent = {
+      updatedEvent = normalizeEventCategoriesAndQuota({
         id,
         slug: (updates.title || id).toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         title: (updates.title || "Event Cetas").trim().replace(/\s+/g, " "),
@@ -250,16 +299,21 @@ export async function PUT(req: NextRequest) {
         isOpenOnlineRegistration: Boolean(updates.isOpenOnlineRegistration),
         price: Number(updates.price) || 0,
         priceLabel: updates.priceLabel || "Gratis",
-        quotaTotal: Number(updates.quotaTotal) || 150,
-        quotaRemaining: Number(updates.quotaRemaining) || 150,
-        categoryOptions: updates.categoryOptions || ["Umum"],
+        quotaTotal: Number(updates.quotaTotal) || 100,
+        quotaRemaining: Number(updates.quotaRemaining) || 100,
+        registrationCategories: updates.registrationCategories,
+        categoryOptions: updates.categoryOptions || [
+          "Tingkat SD/MI",
+          "Tingkat SMP/MTs",
+          "Tingkat SMA/SMK/MA",
+        ],
         facilities: updates.facilities || ["E-Badge QR"],
         lkbbTeams: Array.isArray(updates.lkbbTeams) ? updates.lkbbTeams : [],
-      };
+      });
       events.unshift(updatedEvent);
     } else {
       const existing = events[eventIndex];
-      updatedEvent = {
+      updatedEvent = normalizeEventCategoriesAndQuota({
         ...existing,
         ...updates,
         id: existing.id,
@@ -291,20 +345,42 @@ export async function PUT(req: NextRequest) {
                 })
               )
             : existing.tiers,
-      };
+      });
       events[eventIndex] = updatedEvent;
     }
 
     await saveEventsStore(events);
 
-    // Sinkronkan judul, banner, tanggal & tema event ke bilik Cetas Vote
+    // Sinkronkan judul, banner, tanggal, tema & kategori pendaftaran ke bilik Cetas Vote
     const votings = await getVotingsStore();
+    const regCats = getEffectiveRegistrationCategories(updatedEvent);
     const voteIdx = votings.findIndex(
       (v) =>
         v.eventId === updatedEvent.id ||
         normTitle(v.eventTitle) === normTitle(updatedEvent.title)
     );
+
     if (voteIdx !== -1) {
+      const existingVoteCats = Array.isArray(votings[voteIdx].categories)
+        ? [...votings[voteIdx].categories]
+        : [];
+      for (const rc of regCats) {
+        const hasCat = existingVoteCats.some(
+          (vc) =>
+            normTitle(vc.title) === normTitle(rc.name) ||
+            normalizeCategoryLevelCode(vc.title) === rc.code
+        );
+        if (!hasCat) {
+          existingVoteCats.push({
+            id: `cat-${updatedEvent.id}-${rc.code.toLowerCase()}-${Date.now()}`,
+            eventId: updatedEvent.id,
+            title: rc.name,
+            description: `Pemilihan peserta/pleton terfavorit ${rc.name} (Juara Terpisah)`,
+            pricePerVote: 2000,
+            candidates: [],
+          });
+        }
+      }
       votings[voteIdx] = {
         ...votings[voteIdx],
         eventId: updatedEvent.id,
@@ -312,6 +388,7 @@ export async function PUT(req: NextRequest) {
         eventDate: updatedEvent.date,
         bannerUrl: safeBanner(updatedEvent.bannerUrl),
         themePreset: updatedEvent.themePreset || votings[voteIdx].themePreset,
+        categories: existingVoteCats,
       };
       await saveVotingsStore(votings);
     } else {
@@ -321,29 +398,21 @@ export async function PUT(req: NextRequest) {
         eventDate: updatedEvent.date,
         bannerUrl: safeBanner(updatedEvent.bannerUrl),
         themePreset: updatedEvent.themePreset || "EMERALD",
-        categories: [
-          {
-            id: `cat-${updatedEvent.id}-smp`,
-            eventId: updatedEvent.id,
-            title: "Tingkat SMP/MTs",
-            pricePerVote: 2000,
-            candidates: [],
-          },
-          {
-            id: `cat-${updatedEvent.id}-sma`,
-            eventId: updatedEvent.id,
-            title: "Tingkat SMA/SMK/MA",
-            pricePerVote: 2000,
-            candidates: [],
-          },
-        ],
+        categories: regCats.map((rc) => ({
+          id: `cat-${updatedEvent.id}-${rc.code.toLowerCase()}`,
+          eventId: updatedEvent.id,
+          title: rc.name,
+          description: `Pemilihan peserta/pleton terfavorit ${rc.name} (Juara Terpisah)`,
+          pricePerVote: 2000,
+          candidates: [],
+        })),
       });
       await saveVotingsStore(votings);
     }
 
     return NextResponse.json({
       success: true,
-      message: `Event '${updatedEvent.title}' & tiket berhasil diperbarui dan disinkronkan ke publik!`,
+      message: `Event '${updatedEvent.title}', kategori & kuota berhasil diperbarui dan disinkronkan!`,
       event: updatedEvent,
       events,
     });

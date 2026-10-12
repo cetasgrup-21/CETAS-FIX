@@ -1349,179 +1349,148 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. PAKET LAYANAN & SKEMA HARGA TRANSPARAN (PRICING TIERS) */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12 space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200">
-            <Award className="h-3.5 w-3.5 text-purple-600" />
-            Pilihan Paket Event
+      {/* 6. SEJARAH SINGKAT TENTANG CETAS & IKLAN RESMI CETAS */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10">
+        {/* Bagian A: Sejarah Singkat & Profil Perjalanan CETAS */}
+        <div className="rounded-3xl border border-purple-100 bg-white p-6 sm:p-10 shadow-sm space-y-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-purple-100 pb-6">
+            <div className="space-y-2 max-w-3xl">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200">
+                <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                Profil &amp; Sejarah Singkat CETAS
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                Perjalanan CETAS Membangun Standar Baru Turnamen Modern
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Berpusat di <strong>Kedoya Utara, Kebon Jeruk, Jakarta Barat</strong>, <strong>CETAS (Centralized Electronic Tournament &amp; Award System)</strong> hadir sebagai pelopor ekosistem manajemen kompetisi, LKBB Paskibra, ajang olahraga, dan produksi event satu atap di Indonesia.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5 bg-purple-50/70 border border-purple-100 p-4 rounded-2xl text-xs">
+              <div className="flex items-center gap-2 font-black text-purple-950">
+                <MapPin className="h-4 w-4 text-purple-600 shrink-0" />
+                <span>Markas Resmi CETAS Grup</span>
+              </div>
+              <p className="text-[11px] text-slate-600 max-w-xs leading-relaxed">
+                Jl. Pesing Got Kedoya, RT.001/007, Kedoya Utara, Kebon Jeruk, Jakarta Barat, DKI Jakarta 11520
+              </p>
+              <div className="text-[11px] font-bold text-purple-700 pt-1 border-t border-purple-200/60">
+                WA/Telp: 0815-8468-2345 • cetasgrup@gmail.com
+              </div>
+            </div>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Skema Paket & Harga Transparan
-          </h2>
-          <p className="text-sm text-slate-500 max-w-2xl mx-auto">
-            Pilih paket yang sesuai dengan skala turnamen Anda. Tanpa biaya tersembunyi.
-          </p>
+
+          {/* 3 Fase Sejarah Singkat CETAS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-6 space-y-3 relative overflow-hidden">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-purple-700 text-white font-black text-xs">
+                Awal Mula &amp; Gagasan
+              </div>
+              <h3 className="text-lg font-black text-slate-900">
+                Menjawab Keresahan Rekapitulasi Manual
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                CETAS lahir dari pengalaman langsung di lapangan melihat betapa melelahkannya proses rekapitulasi nilai kertas pada perlombaan baris-berbaris (LKBB) dan turnamen pelajar yang memakan waktu berjam-jam serta rawan salah hitung.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-6 space-y-3 relative overflow-hidden">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-indigo-600 text-white font-black text-xs">
+                Inovasi Digital Terpadu
+              </div>
+              <h3 className="text-lg font-black text-slate-900">
+                Lahirnya CETAS.SCORE, Vote &amp; Ticketing
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                CETAS mengembangkan arsitektur penilaian juri digital real-time 0 detik yang langsung memisahkan klasemen juara per kategori (SD, SMP, SMA, Umum), terintegrasi otomatis dengan bilik dukungan publik <strong>Cetas Vote</strong> dan <strong>Cetas Ticketing</strong> ber-QR dinamis.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-6 space-y-3 relative overflow-hidden">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-600 text-white font-black text-xs">
+                Ekosistem Satu Atap
+              </div>
+              <h3 className="text-lg font-black text-slate-900">
+                Sinergi Software &amp; Cetas Production
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Kini CETAS bukan sekadar platform aplikasi, melainkan mitra penyelenggara satu atap yang menyatukan sistem digital turnamen dengan dukungan peralatan fisik <strong>Cetas Production</strong> (Sound System, Videotron LED, Lighting, Panggung, hingga Merchandise).
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Paket 1: E-Voting */}
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                Turnamen Mandiri
-              </span>
-              <h3 className="text-xl font-black text-slate-900">Cetas Vote</h3>
-              <div className="text-3xl font-black text-purple-700">
-                Rp 0 <span className="text-xs text-slate-500 font-normal">/ setup</span>
+        {/* Bagian B: Banner Iklan Resmi dari CETAS (Iklan Cetas Kita) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Iklan 1: Promosi & Publikasi Event di CETAS */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 p-7 sm:p-8 text-white shadow-lg flex flex-col justify-between space-y-6">
+            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-purple-500/20 blur-2xl pointer-events-none" />
+            <div className="space-y-3 relative z-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-wider">
+                📢 Iklan Resmi CETAS • Publikasi Event
               </div>
-              <p className="text-xs text-slate-500">
-                Bilik suara e-voting juara favorit turnamen dengan sistem revenue share 10% per transaksi QRIS.
+              <h3 className="text-2xl font-black leading-tight">
+                Ingin Event &amp; Turnamen Anda Tayang Eksklusif di Portal CETAS?
+              </h3>
+              <p className="text-xs sm:text-sm text-purple-100/90 leading-relaxed">
+                Daftarkan dan publikasikan event sekolah, kampus, LKBB Paskibra, e-sports, atau festival Anda di ekosistem CETAS. Pendaftaran peserta per kategori (SD, SMP, SMA, Umum) langsung otomatis tersinkronisasi dengan bilik voting dan papan skor live!
               </p>
-              <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-purple-50">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Payment Gateway DOKU Direct API (QRIS & E-Wallet)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Leaderboard Suara Real-time</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Anti-Bot & Verifikasi Akun</span>
-                </li>
-              </ul>
             </div>
-            <Link
-              href="/vote"
-              className="w-full py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs text-center transition"
-            >
-              Buka Bilik Vote
-            </Link>
+
+            <div className="flex flex-wrap items-center gap-3 relative z-10 pt-2">
+              <Link
+                href="/ajukan-event"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition active:scale-95"
+              >
+                <Send className="h-4 w-4" />
+                Ajukan Event Sekarang
+              </Link>
+              <a
+                href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20ingin%20pasang%20iklan%20atau%20publikasi%20event%20di%20CETAS."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Hubungi Tim Iklan CETAS
+              </a>
+            </div>
           </div>
 
-          {/* Paket 2: E-Ticketing */}
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                Gate Scanner
-              </span>
-              <h3 className="text-xl font-black text-slate-900">Cetas Ticketing</h3>
-              <div className="text-3xl font-black text-purple-700">
-                Rp 1.500 <span className="text-xs text-slate-500 font-normal">/ tiket</span>
+          {/* Iklan 2: Cetas Production & Merchandise Resmi */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-7 sm:p-8 text-white shadow-lg flex flex-col justify-between space-y-6">
+            <div className="absolute -left-10 -bottom-10 h-44 w-44 rounded-full bg-cyan-400/20 blur-2xl pointer-events-none" />
+            <div className="space-y-3 relative z-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                🎛️ Iklan Resmi CETAS • Cetas Production
               </div>
-              <p className="text-xs text-slate-500">
-                Sistem e-tiket ber-QR HMAC dinamis untuk konser, seminar, dan tiket penonton turnamen.
+              <h3 className="text-2xl font-black leading-tight">
+                Solusi Sewa Alat Event, Videotron LED &amp; Cetak Merchandise
+              </h3>
+              <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
+                Percayakan kebutuhan produksi fisik acara Anda pada <strong>Cetas Production</strong>. Tersedia paket sewa Sound System, Lighting, Videotron LED, Panggung Rigging, hingga pembuatan Kaos Event, Lanyard, ID Card, dan Piala/Medali Kejuaraan.
               </p>
-              <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-purple-50">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Kode QR Dinamis Anti-Screenshot</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Aplikasi Gate Scanner Validator</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Laporan Omzet & Kapasitas Live</span>
-                </li>
-              </ul>
             </div>
-            <Link
-              href="/events"
-              className="w-full py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs text-center transition"
-            >
-              Pesan Tiket
-            </Link>
-          </div>
 
-          {/* Paket 3: Sistem Penilaian Juri (Featured!) */}
-          <div className="rounded-3xl border-2 border-purple-600 bg-gradient-to-b from-purple-50/40 to-white p-6 shadow-xl flex flex-col justify-between space-y-6 relative">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-purple-600 text-white font-black text-[10px] uppercase tracking-wider shadow-sm">
-              Paling Direkomendasikan
+            <div className="flex flex-wrap items-center gap-3 relative z-10 pt-2">
+              <Link
+                href="/production"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-blue-50 text-blue-950 font-black text-xs shadow-md transition active:scale-95"
+              >
+                <ShoppingBag className="h-4 w-4 text-blue-700" />
+                Lihat Katalog Cetas Production
+              </Link>
+              <a
+                href="https://wa.me/6281584682345?text=Halo%20Cetas%20Production%2C%20saya%20ingin%20konsultasi%20sewa%20alat%20event%20dan%20merchandise."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Konsultasi Produksi WA
+              </a>
             </div>
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-100 text-purple-800">
-                Turnamen & LKBB
-              </span>
-              <h3 className="text-xl font-black text-slate-900">Rekap Juri Digital</h3>
-              <div className="text-3xl font-black text-purple-700">
-                Rp 2.500.000 <span className="text-xs text-slate-500 font-normal">/ event</span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Sistem penilaian juri digital tablet, engine rekapitulasi otomatis, dan tayangan videotron.
-              </p>
-              <ul className="space-y-2.5 text-xs text-slate-700 pt-2 border-t border-purple-100">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-purple-600 shrink-0" />
-                  <span className="font-semibold">Aplikasi Juri Tablet (3-5 Pos Juri)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-purple-600 shrink-0" />
-                  <span className="font-semibold">Rekap Nilai Otomatis 0 Detik</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-purple-600 shrink-0" />
-                  <span className="font-semibold">Portal Akses Pelatih & Kontingen</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-purple-600 shrink-0" />
-                  <span className="font-semibold">Cetak Berita Acara & Piagam Ber-QR</span>
-                </li>
-              </ul>
-            </div>
-            <a
-              href="https://wa.me/6281584682345?text=Halo%20Tim%20CETAS%2C%20saya%20tertarik%20dengan%20Paket%20Rekap%20Juri%20Digital."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs text-center shadow-md shadow-purple-600/30 transition active:scale-95"
-            >
-              Pilih Paket Ini
-            </a>
-          </div>
-
-          {/* Paket 4: All-in-One Turnamen Akbar */}
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                Satu Atap Lengkap
-              </span>
-              <h3 className="text-xl font-black text-slate-900">All-in-One Akbar</h3>
-              <div className="text-2xl font-black text-purple-700">
-                Konsultasi WA <span className="text-xs text-slate-500 font-normal">/ custom</span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Seluruh sistem digital + sewa Sound System Line-Array 10.000W + Videotron LED + Panggung Rigging Cetas Production.
-              </p>
-              <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-purple-50">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Sistem Juri + Tiket + E-Voting</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Sound Line-Array & Lighting Panggung</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Videotron LED Screen Outdoor/Indoor</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>Tim Operator & Soundman Standby</span>
-                </li>
-              </ul>
-            </div>
-            <a
-              href="https://wa.me/6281584682345?text=Halo%20Tim%20CETAS%2C%20saya%20ingin%20konsultasi%20Paket%20All-in-One%20Turnamen%20Akbar."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs text-center transition"
-            >
-              Konsultasi WhatsApp
-            </a>
           </div>
         </div>
       </section>

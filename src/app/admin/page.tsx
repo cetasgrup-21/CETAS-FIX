@@ -391,6 +391,9 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           username: found.email.toLowerCase().trim(),
           pin: found.password,
+          syncStaffAccount: true,
+          name: found.name,
+          role: found.role,
         }),
       }).catch(() => {});
     } else {
@@ -1466,6 +1469,7 @@ export default function AdminDashboardPage() {
 
   // ---------------- STAFF MANAGEMENT HANDLERS ----------------
   const handleChangeStaffRole = (staffId: string, newRole: AdminRole) => {
+    const targetStaff = staffList.find((s) => s.id === staffId);
     const updated = staffList.map((s) => {
       if (s.id === staffId) {
         return {
@@ -1479,6 +1483,21 @@ export default function AdminDashboardPage() {
     });
     setStaffList(updated);
     saveStoredStaffList(updated);
+
+    if (targetStaff) {
+      fetch("/api/judges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          upsertByUsername: true,
+          name: targetStaff.name,
+          username: targetStaff.email.toLowerCase().trim(),
+          pin: targetStaff.password,
+          role: newRole,
+        }),
+      }).catch(() => {});
+    }
 
     if (currentUser?.id === staffId) {
       const updatedUser: AdminUser = {
@@ -1511,7 +1530,23 @@ export default function AdminDashboardPage() {
     const updated = [...staffList, newStaff];
     setStaffList(updated);
     saveStoredStaffList(updated);
-    setNewStaffForm({ name: "", email: "", password: "", role: "EVENT_ADMIN" });
+
+    // Sinkronkan akun staf (terutama STAFF_REKAP / EVENT_ADMIN) ke database CETAS.SCORE
+    fetch("/api/judges", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        upsertByUsername: true,
+        name: newStaff.name,
+        username: newStaff.email.toLowerCase().trim(),
+        pin: newStaff.password,
+        role: newStaff.role,
+      }),
+    }).catch(() => {});
+
+    showSyncToast(`✓ Akun '${newStaff.name}' (${ROLE_DEFINITIONS[newStaff.role].title}) berhasil dibuat & disinkronkan!`);
+    setNewStaffForm({ name: "", email: "", password: "", role: "STAFF_REKAP" });
     setNewStaffModal(false);
   };
 
@@ -4240,6 +4275,7 @@ export default function AdminDashboardPage() {
                         className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white font-bold disabled:opacity-60"
                       >
                         <option value="SUPER_ADMIN">👑 SUPER_ADMIN (Akses 100%)</option>
+                        <option value="STAFF_REKAP">📊 STAFF_REKAP (Staff Rekap &amp; Juara)</option>
                         <option value="EVENT_ADMIN">🎫 EVENT_ADMIN</option>
                         <option value="FINANCE_ADMIN">💰 FINANCE_ADMIN</option>
                         <option value="PROD_ADMIN">📦 PROD_ADMIN</option>
@@ -5620,8 +5656,9 @@ export default function AdminDashboardPage() {
                   }
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
                 >
-                  <option value="EVENT_ADMIN">🎫 EVENT_ADMIN (Admin Event & Registrasi)</option>
-                  <option value="FINANCE_ADMIN">💰 FINANCE_ADMIN (Admin Keuangan & DOKU)</option>
+                  <option value="STAFF_REKAP">📊 STAFF_REKAP (Staff Rekap &amp; Juara CETAS.SCORE)</option>
+                  <option value="EVENT_ADMIN">🎫 EVENT_ADMIN (Admin Event &amp; Registrasi)</option>
+                  <option value="FINANCE_ADMIN">💰 FINANCE_ADMIN (Admin Keuangan &amp; DOKU)</option>
                   <option value="PROD_ADMIN">📦 PROD_ADMIN (Admin Cetas Production)</option>
                   <option value="SCANNER_STAFF">🚪 SCANNER_STAFF (Petugas Gatekeeper)</option>
                   <option value="SUPER_ADMIN">👑 SUPER_ADMIN (Full Control)</option>

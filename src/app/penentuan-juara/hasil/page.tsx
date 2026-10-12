@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ScoreStaffAuthGate from "@/components/ScoreStaffAuthGate";
 
 type Winner = {
   id: string;
@@ -596,7 +597,7 @@ function AwardCard({
  * PAGE
  * ============================================================ */
 
-export default function HasilPenentuanJuaraPage() {
+function HasilPenentuanJuaraContent() {
   const [event, setEvent] =
     useState<Api["event"]>();
 
@@ -1443,5 +1444,16 @@ export default function HasilPenentuanJuaraPage() {
         }
       `}</style>
     </main>
+  );
+}
+
+export default function HasilPenentuanJuaraPage() {
+  return (
+    <ScoreStaffAuthGate
+      pageTitle="Cetak & Review Hasil Juara"
+      pageDescription="Halaman Cetak & Review Hasil Juara wajib login menggunakan akun Admin atau Role &quot;STAFF REKAP&quot;."
+    >
+      <HasilPenentuanJuaraContent />
+    </ScoreStaffAuthGate>
   );
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import ScoreStaffAuthGate from "@/components/ScoreStaffAuthGate";
 
 type Level = { id: string; code: string; name: string; sortOrder: number };
 type Category = { id: string; name: string; eventLevelId: string | null; percentage: number; sortOrder: number };
@@ -92,7 +93,7 @@ function methodLabel(method: string) {
   return method === "MANUAL" ? "Manual" : "Gabungan Kategori";
 }
 
-export default function PenentuanJuaraPage() {
+function PenentuanJuaraContent() {
   const [data, setData] = useState<Api | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -484,5 +485,16 @@ export default function PenentuanJuaraPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function PenentuanJuaraPage() {
+  return (
+    <ScoreStaffAuthGate
+      pageTitle="Juara & Cetak (Penentuan Juara)"
+      pageDescription="Halaman Penentuan Juara & Cetak Hasil wajib login menggunakan akun Admin atau Role &quot;STAFF REKAP&quot;."
+    >
+      <PenentuanJuaraContent />
+    </ScoreStaffAuthGate>
   );
 }

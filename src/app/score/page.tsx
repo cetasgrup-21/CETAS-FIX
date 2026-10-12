@@ -68,12 +68,17 @@ export default function CetasScorePortalPage() {
             href="/rekap"
             className="card p-6 transition hover:-translate-y-1 hover:border-blue-400 group"
           >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 font-black text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition">
-              R
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 font-black text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition">
+                R
+              </div>
+              <span className="rounded-full bg-purple-50 border border-purple-200 px-2.5 py-1 text-[10px] font-black text-purple-700">
+                🔒 Admin / Staff Rekap
+              </span>
             </div>
             <b className="text-xl text-[#071a3d]">Rekap Nilai</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Lihat rekapitulasi nilai per tingkatan, progres penilaian juri, dan ranking.
+              Rekapitulasi nilai per tingkatan, progres penilaian juri, dan lembar nilai (Wajib Login Admin / Staff Rekap).
             </p>
           </Link>
 
@@ -81,12 +86,17 @@ export default function CetasScorePortalPage() {
             href="/penentuan-juara"
             className="card p-6 transition hover:-translate-y-1 hover:border-blue-400 group"
           >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 font-black text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition">
-              🏆
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 font-black text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition">
+                🏆
+              </div>
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-black text-amber-800">
+                🔒 Admin / Staff Rekap
+              </span>
             </div>
-            <b className="text-xl text-[#071a3d]">Juara & Cetak</b>
+            <b className="text-xl text-[#071a3d]">Juara &amp; Cetak</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Penentuan juara utama/kategori, tie breaker, dan cetak rekap F4 landscape.
+              Penentuan juara utama/kategori, tie breaker, dan cetak rekap F4 (Wajib Login Admin / Staff Rekap).
             </p>
           </Link>
 
@@ -99,7 +109,7 @@ export default function CetasScorePortalPage() {
             </div>
             <b className="text-xl text-[#071a3d]">Display Layar</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Tampilan leaderboard publik & panggung secara realtime tanpa perlu login.
+              Tampilan leaderboard publik &amp; panggung secara realtime tanpa perlu login.
             </p>
           </Link>
         </section>
@@ -108,7 +118,7 @@ export default function CetasScorePortalPage() {
         <section className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold text-slate-500">
           <div className="flex items-center gap-4 flex-wrap">
             <Link href="/admin/judges" className="hover:text-blue-600 transition">
-              👥 Penugasan Juri
+              👥 Kelola Juri &amp; Staff Rekap
             </Link>
             <span>•</span>
             <Link href="/admin/participants" className="hover:text-blue-600 transition">

@@ -188,13 +188,13 @@ export async function GET() {
     });
 
     // ==========================================================
-    // JURI / OPERATOR / TIMER
+    // JURI / STAFF REKAP / OPERATOR / TIMER
     // ==========================================================
 
     const judges = await db.user.findMany({
       where: {
         role: {
-          in: ["JUDGE", "OPERATOR", "TIMER"],
+          in: ["JUDGE", "STAFF_REKAP", "OPERATOR", "TIMER"],
         },
       },
 
@@ -250,7 +250,7 @@ export async function POST(req: Request) {
     const action = clean(body.action);
 
     // ==========================================================
-    // TAMBAH JURI / AKUN ROLE
+    // TAMBAH JURI / AKUN ROLE (TERMASUK STAFF_REKAP)
     // ==========================================================
 
     if (action === "create") {
@@ -258,7 +258,18 @@ export async function POST(req: Request) {
       const username = clean(body.username).toLowerCase();
       const pin = clean(body.pin);
       const rawRole = clean(body.role).toUpperCase();
-      const role = ["JUDGE", "OPERATOR", "TIMER"].includes(rawRole)
+      const allowedRoles = [
+        "JUDGE",
+        "STAFF_REKAP",
+        "OPERATOR",
+        "TIMER",
+        "EVENT_ADMIN",
+        "FINANCE_ADMIN",
+        "PROD_ADMIN",
+        "SCANNER_STAFF",
+        "ADMIN",
+      ];
+      const role = allowedRoles.includes(rawRole)
         ? rawRole
         : "JUDGE";
 
@@ -266,7 +277,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "Nama, username, dan PIN wajib diisi.",
+              "Nama, username, dan PIN/Password wajib diisi.",
           },
           {
             status: 400,
@@ -277,18 +288,7 @@ export async function POST(req: Request) {
       if (pin.length < 4) {
         return NextResponse.json(
           {
-            error: "PIN minimal 4 angka.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
-
-      if (!/^\d+$/.test(pin)) {
-        return NextResponse.json(
-          {
-            error: "PIN hanya boleh berisi angka.",
+            error: "PIN / Password minimal 4 karakter.",
           },
           {
             status: 400,
@@ -303,6 +303,28 @@ export async function POST(req: Request) {
       });
 
       if (existing) {
+        if (body.upsertByUsername) {
+          const updatedUser = await db.user.update({
+            where: { username },
+            data: {
+              name,
+              pinHash: pinHash(pin),
+              role,
+              status: "ACTIVE",
+            },
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              role: true,
+              status: true,
+            },
+          });
+          return NextResponse.json({
+            success: true,
+            judge: updatedUser,
+          });
+        }
         return NextResponse.json(
           {
             error: "Username sudah digunakan.",
@@ -406,6 +428,18 @@ export async function POST(req: Request) {
         );
       }
 
+      const allowedRoles = [
+        "JUDGE",
+        "STAFF_REKAP",
+        "OPERATOR",
+        "TIMER",
+        "EVENT_ADMIN",
+        "FINANCE_ADMIN",
+        "PROD_ADMIN",
+        "SCANNER_STAFF",
+        "ADMIN",
+      ];
+
       const data: {
         name: string;
         username: string;
@@ -415,7 +449,7 @@ export async function POST(req: Request) {
       } = {
         name,
         username,
-        role: ["JUDGE", "OPERATOR", "TIMER"].includes(rawRole)
+        role: allowedRoles.includes(rawRole)
           ? rawRole
           : current.role,
         status:
@@ -425,14 +459,11 @@ export async function POST(req: Request) {
       };
 
       if (pin) {
-        if (
-          !/^\d+$/.test(pin) ||
-          pin.length < 4
-        ) {
+        if (pin.length < 4) {
           return NextResponse.json(
             {
               error:
-                "PIN baru minimal 4 angka dan hanya boleh angka.",
+                "PIN / Password baru minimal 4 karakter.",
             },
             {
               status: 400,

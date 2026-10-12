@@ -897,7 +897,8 @@ export default function AdminJudgePage() {
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-[#071a3d] outline-none focus:border-blue-500"
                 >
                   <option value="JUDGE">JUDGE (Dewan Juri)</option>
-                  <option value="OPERATOR">OPERATOR (Admin / Tim Rekap)</option>
+                  <option value="STAFF_REKAP">STAFF REKAP (Staff Rekap &amp; Juara / Cetak)</option>
+                  <option value="OPERATOR">OPERATOR (Operator / Tim Rekap)</option>
                   <option value="TIMER">TIMER (Petugas Timer)</option>
                 </select>
               </label>
@@ -907,34 +908,25 @@ export default function AdminJudgePage() {
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
                   {editing
-                    ? "PIN Baru (opsional)"
-                    : "PIN"}
+                    ? "PIN / Password Baru (opsional)"
+                    : "PIN / Password"}
                 </span>
 
                 <input
                   value={pin}
                   onChange={(e) =>
                     setPin(
-                      e.target.value
-                        .replace(
-                          /\D/g,
-                          ""
-                        )
-                        .slice(
-                          0,
-                          12
-                        )
+                      e.target.value.slice(0, 24)
                     )
                   }
                   type="password"
-                  inputMode="numeric"
                   placeholder={
                     editing
                       ? "Kosongkan jika tidak diganti"
-                      : "Minimal 4 angka"
+                      : "Minimal 4 karakter / angka"
                   }
                   required={!editing}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.25em] outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.15em] outline-none focus:border-blue-500"
                 />
               </label>
 
@@ -959,7 +951,7 @@ export default function AdminJudgePage() {
         )}
 
         {/* ==================================================
-            DAFTAR JURI
+            DAFTAR JURI & STAFF REKAP
         ================================================== */}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -967,28 +959,28 @@ export default function AdminJudgePage() {
           <div className="mb-5">
 
             <p className="text-xs font-black uppercase tracking-wider text-blue-600">
-              Daftar Juri
+              Daftar Akun Juri &amp; Staff Rekap
             </p>
 
             <h2 className="mt-1 text-xl font-black text-[#071a3d]">
-              {judges.length} Juri Terdaftar
+              {judges.length} Akun Terdaftar
             </h2>
 
           </div>
 
           {loading ? (
             <div className="rounded-xl bg-slate-50 p-10 text-center text-sm font-bold text-slate-400">
-              Memuat data juri...
+              Memuat data akun...
             </div>
           ) : !judges.length ? (
             <div className="rounded-xl bg-slate-50 p-10 text-center">
 
               <p className="font-black text-[#071a3d]">
-                Belum ada juri tambahan.
+                Belum ada akun juri / staff rekap tambahan.
               </p>
 
               <p className="mt-1 text-sm text-slate-400">
-                Juri bisa ditambahkan
+                Juri atau Staff Rekap bisa ditambahkan
                 menggunakan tombol di atas.
               </p>
 
@@ -1024,6 +1016,24 @@ export default function AdminJudgePage() {
                               <h3 className="font-black text-[#071a3d]">
                                 {judge.name}
                               </h3>
+
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                                  judge.role === "STAFF_REKAP" || judge.role === "OPERATOR"
+                                    ? "bg-indigo-100 text-indigo-700"
+                                    : judge.role === "TIMER"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-blue-50 text-blue-700"
+                                }`}
+                              >
+                                {judge.role === "STAFF_REKAP"
+                                  ? "STAFF REKAP"
+                                  : judge.role === "OPERATOR"
+                                  ? "OPERATOR / REKAP"
+                                  : judge.role === "TIMER"
+                                  ? "TIMER"
+                                  : "DEWAN JURI"}
+                              </span>
 
                               <span
                                 className={`rounded-full px-2.5 py-1 text-[11px] font-black ${

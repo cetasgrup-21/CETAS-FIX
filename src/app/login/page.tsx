@@ -53,13 +53,19 @@ function LoginForm() {
 
   /*
    * =====================================================
-   * DETEKSI LOGIN JURI
+   * DETEKSI LOGIN JURI / STAFF REKAP
    * =====================================================
    */
 
   const isJudge =
     next === "/judge" ||
     next.startsWith("/judge/");
+
+  const isRekapOrJuara =
+    next === "/penentuan-juara" ||
+    next.startsWith("/penentuan-juara/") ||
+    next === "/rekap" ||
+    next.startsWith("/rekap/");
 
   /*
    * =====================================================
@@ -92,6 +98,31 @@ function LoginForm() {
     setLoading(true);
 
     try {
+      const cleanUser = username.trim();
+      const cleanPin = pin.trim();
+
+      // Cek apakah akun terdaftar di daftar staf /admin lokal untuk disinkronkan
+      let matchedStaff: { name?: string; role?: string } | null = null;
+      try {
+        const rawList = localStorage.getItem("cetas_admin_staff_accounts_v2");
+        if (rawList) {
+          const parsed = JSON.parse(rawList) as Array<{
+            name: string;
+            email: string;
+            password: string;
+            role: string;
+          }>;
+          const found = parsed.find(
+            (u) =>
+              u.email.toLowerCase() === cleanUser.toLowerCase() &&
+              u.password === cleanPin
+          );
+          if (found) {
+            matchedStaff = { name: found.name, role: found.role };
+          }
+        }
+      } catch {}
+
       /*
        * =================================================
        * KIRIM LOGIN KE API
@@ -111,9 +142,15 @@ function LoginForm() {
           credentials: "include",
 
           body: JSON.stringify({
-            username:
-              username.trim(),
-            pin: pin.trim(),
+            username: cleanUser,
+            pin: cleanPin,
+            ...(matchedStaff
+              ? {
+                  syncStaffAccount: true,
+                  name: matchedStaff.name,
+                  role: matchedStaff.role,
+                }
+              : {}),
           }),
         }
       );
@@ -127,6 +164,8 @@ function LoginForm() {
       let data: {
         error?: string;
         success?: boolean;
+        role?: string;
+        name?: string;
       } = {};
 
       try {
@@ -146,22 +185,36 @@ function LoginForm() {
 
         setError(
           data.error ||
-            "Username atau PIN salah."
+            "Username/Email atau PIN/Password salah."
         );
 
         return;
+      }
+
+      // Validasi Role untuk halaman Juara & Cetak / Rekap
+      const userRole = String(data.role || "").toUpperCase();
+      if (isRekapOrJuara) {
+        const allowedForRekap = [
+          "SUPER_ADMIN",
+          "ADMIN",
+          "EVENT_ADMIN",
+          "STAFF_REKAP",
+          "STAFF REKAP",
+          "OPERATOR",
+        ];
+        if (!allowedForRekap.includes(userRole)) {
+          setLoading(false);
+          setError(
+            `Akses ditolak: Akun dengan role "${userRole}" tidak memiliki izin mengakses halaman Juara & Cetak. Silakan login menggunakan akun Admin atau Role "STAFF REKAP".`
+          );
+          return;
+        }
       }
 
       /*
        * =================================================
        * LOGIN BERHASIL
        * =================================================
-       *
-       * Jangan menggunakan router.replace()
-       * atau router.refresh().
-       *
-       * Gunakan navigasi browser penuh supaya
-       * cookie session terbaru langsung digunakan.
        */
 
       window.location.assign(next);
@@ -214,12 +267,16 @@ function LoginForm() {
 
             <h1 className="mt-5 text-xl font-black text-white">
               {isJudge
-                ? "Login Juri"
-                : "Login Admin"}
+                ? "Login Dewan Juri"
+                : isRekapOrJuara
+                ? "Login Admin / Staff Rekap"
+                : "Login Admin & Staff Rekap"}
             </h1>
 
             <p className="mt-1 text-sm text-white/60">
-              Masuk untuk melanjutkan ke Cetas.Score
+              {isRekapOrJuara
+                ? "Wajib login sebagai Admin atau Role Staff Rekap untuk mengakses Juara & Cetak"
+                : "Masuk untuk melanjutkan ke Cetas.Score"}
             </p>
 
           </div>
@@ -240,7 +297,7 @@ function LoginForm() {
             <label className="block">
 
               <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                Username
+                Username / Email Resmi
               </span>
 
               <input
@@ -250,6 +307,7 @@ function LoginForm() {
                     e.target.value
                   )
                 }
+                placeholder="Contoh: staffrekap / cetasgrup@gmail.com"
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-500"
                 autoComplete="username"
                 autoCapitalize="none"
@@ -261,26 +319,23 @@ function LoginForm() {
             </label>
 
             {/* =================================================
-                PIN
+                PIN / PASSWORD
             ================================================= */}
 
             <label className="block">
 
               <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                PIN
+                PIN / Password
               </span>
 
               <input
                 value={pin}
                 onChange={(e) =>
                   setPin(
-                    e.target.value
-                      .replace(/\D/g, "")
-                      .slice(0, 12)
+                    e.target.value.slice(0, 32)
                   )
                 }
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.3em] outline-none transition focus:border-blue-500"
-                inputMode="numeric"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.15em] outline-none transition focus:border-blue-500"
                 type="password"
                 autoComplete="current-password"
                 placeholder="••••••"
@@ -313,19 +368,19 @@ function LoginForm() {
               className="w-full rounded-xl bg-[#1769e0] px-4 py-3 font-bold text-white transition hover:bg-[#125bc4] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? "Memeriksa..."
+                ? "Memeriksa Otorisasi..."
                 : "Masuk"}
             </button>
 
             {/* =================================================
-                KEMBALI KE CETAS
+                KEMBALI KE CETAS.SCORE
             ================================================= */}
 
             <Link
-              href="/"
+              href="/score"
               className="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-[#1769e0] hover:bg-blue-50 hover:text-[#1769e0]"
             >
-              ← Kembali ke CETAS
+              ← Kembali ke CETAS.SCORE
             </Link>
 
           </form>

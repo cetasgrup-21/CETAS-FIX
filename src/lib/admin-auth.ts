@@ -3,7 +3,8 @@ export type AdminRole =
   | "EVENT_ADMIN"
   | "FINANCE_ADMIN"
   | "PROD_ADMIN"
-  | "SCANNER_STAFF";
+  | "SCANNER_STAFF"
+  | "STAFF_REKAP";
 
 export interface AdminUser {
   id: string;
@@ -22,6 +23,7 @@ export interface AdminUser {
   canManageAttendees: boolean;
   canManageProduction: boolean;
   canAccessScanner: boolean;
+  canManageScoreRekap?: boolean;
 }
 
 export const ROLE_DEFINITIONS: Record<
@@ -37,6 +39,7 @@ export const ROLE_DEFINITIONS: Record<
     canManageAttendees: boolean;
     canManageProduction: boolean;
     canAccessScanner: boolean;
+    canManageScoreRekap?: boolean;
   }
 > = {
   SUPER_ADMIN: {
@@ -50,6 +53,7 @@ export const ROLE_DEFINITIONS: Record<
     canManageAttendees: true,
     canManageProduction: true,
     canAccessScanner: true,
+    canManageScoreRekap: true,
   },
   EVENT_ADMIN: {
     title: "🎫 Admin Event & Registrasi",
@@ -62,6 +66,7 @@ export const ROLE_DEFINITIONS: Record<
     canManageAttendees: true,
     canManageProduction: false,
     canAccessScanner: true,
+    canManageScoreRekap: true,
   },
   FINANCE_ADMIN: {
     title: "💰 Admin Keuangan & DOKU Gateway",
@@ -74,6 +79,7 @@ export const ROLE_DEFINITIONS: Record<
     canManageAttendees: false,
     canManageProduction: false,
     canAccessScanner: false,
+    canManageScoreRekap: false,
   },
   PROD_ADMIN: {
     title: "📦 Admin Cetas Production & Alat",
@@ -86,6 +92,7 @@ export const ROLE_DEFINITIONS: Record<
     canManageAttendees: false,
     canManageProduction: true,
     canAccessScanner: false,
+    canManageScoreRekap: false,
   },
   SCANNER_STAFF: {
     title: "🚪 Petugas Gatekeeper & Scanner",
@@ -98,8 +105,34 @@ export const ROLE_DEFINITIONS: Record<
     canManageAttendees: true,
     canManageProduction: false,
     canAccessScanner: true,
+    canManageScoreRekap: false,
+  },
+  STAFF_REKAP: {
+    title: "📊 Staff Rekap & Juara (CETAS.SCORE)",
+    badgeColor: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/70 dark:text-indigo-300 dark:border-indigo-800",
+    description: "Petugas rekapitulasi nilai, penentuan kategori juara, penguncian pemenang, dan cetak dokumen hasil akhir CETAS.SCORE.",
+    canEditFinances: false,
+    canManageStaff: false,
+    canManageAds: false,
+    canApproveEvents: false,
+    canManageAttendees: false,
+    canManageProduction: false,
+    canAccessScanner: false,
+    canManageScoreRekap: true,
   },
 };
+
+export function canAccessScoreRekapAndJuara(role?: string | null): boolean {
+  const normalized = String(role || "").trim().toUpperCase();
+  return [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "EVENT_ADMIN",
+    "STAFF_REKAP",
+    "STAFF REKAP",
+    "OPERATOR",
+  ].includes(normalized);
+}
 
 export interface StaffAccountRecord extends AdminUser {
   password: string; // Demo credentials

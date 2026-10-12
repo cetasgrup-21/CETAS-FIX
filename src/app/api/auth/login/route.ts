@@ -8,18 +8,37 @@ function pinHash(pin: string) {
 }
 
 async function ensureFirstRunUsers() {
-  const count = await db.user.count();
-  if (count > 0) return;
-
-  await db.user.create({
-    data: {
-      name: "REZA ADITYA ARIFIN",
-      username: "cetasgrup@gmail.com",
-      pinHash: pinHash("211226"),
-      role: "SUPER_ADMIN",
-      status: "ACTIVE",
-    },
+  const superAdmin = await db.user.findUnique({
+    where: { username: "cetasgrup@gmail.com" },
   });
+
+  if (!superAdmin) {
+    await db.user.create({
+      data: {
+        name: "REZA ADITYA ARIFIN",
+        username: "cetasgrup@gmail.com",
+        pinHash: pinHash("211226"),
+        role: "SUPER_ADMIN",
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  const defaultStaffRekap = await db.user.findUnique({
+    where: { username: "staffrekap" },
+  });
+
+  if (!defaultStaffRekap) {
+    await db.user.create({
+      data: {
+        name: "TIM REKAP CETAS.SCORE",
+        username: "staffrekap",
+        pinHash: pinHash("123456"),
+        role: "STAFF_REKAP",
+        status: "ACTIVE",
+      },
+    });
+  }
 }
 
 export async function POST(req: Request) {
@@ -31,17 +50,34 @@ export async function POST(req: Request) {
 
   if (!rawUsername || !pin) {
     return NextResponse.json(
-      { error: "Username dan PIN wajib diisi." },
+      { error: "Username/Email dan PIN/Password wajib diisi." },
       { status: 400 }
     );
   }
 
   const normalizedUsername =
-    rawUsername === "reza" || rawUsername === "reza aditya arifin"
+    rawUsername === "reza" ||
+    rawUsername === "reza aditya arifin" ||
+    rawUsername === "admin"
       ? "cetasgrup@gmail.com"
+      : rawUsername === "rekap@cetas.id" || rawUsername === "rekap@cetas.co.id"
+      ? "staffrekap"
       : rawUsername;
 
-  const user = await db.user.findUnique({ where: { username: normalizedUsername } });
+  let user = await db.user.findUnique({ where: { username: normalizedUsername } });
+
+  // Jika login berasal dari akun staf yang baru dibuat di dashboard /admin, sinkronkan ke db.user
+  if (!user && body.syncStaffAccount && body.role && body.name) {
+    user = await db.user.create({
+      data: {
+        name: String(body.name).trim(),
+        username: normalizedUsername,
+        pinHash: pinHash(pin),
+        role: String(body.role).trim().toUpperCase(),
+        status: "ACTIVE",
+      },
+    });
+  }
 
   const isSuperAdminMasterPass =
     normalizedUsername === "cetasgrup@gmail.com" &&
@@ -53,7 +89,7 @@ export async function POST(req: Request) {
     (user.pinHash !== pinHash(pin) && !isSuperAdminMasterPass)
   ) {
     return NextResponse.json(
-      { error: "Username atau PIN/Password salah." },
+      { error: "Username/Email atau PIN/Password salah." },
       { status: 401 }
     );
   }
@@ -68,6 +104,13 @@ export async function POST(req: Request) {
     success: true,
     role: user.role,
     name: user.name,
+    username: user.username,
+    user: {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      role: user.role,
+    },
   });
 
   const forwardedProto = req.headers.get("x-forwarded-proto");

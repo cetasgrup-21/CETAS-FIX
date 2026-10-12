@@ -7,6 +7,7 @@ import {
   useState,
   useRef,
 } from "react";
+import ScoreStaffAuthGate from "@/components/ScoreStaffAuthGate";
 
 type Judge = {
   judgeId: string;
@@ -321,7 +322,7 @@ function unique<T>(
   );
 }
 
-export default function RekapPage() {
+function RekapContent() {
   const [data, setData] =
     useState<ApiResponse | null>(
       null
@@ -3348,5 +3349,16 @@ export default function RekapPage() {
           )}
       </div>
     </main>
+  );
+}
+
+export default function RekapPage() {
+  return (
+    <ScoreStaffAuthGate
+      pageTitle="Rekapitulasi Nilai & Lembar Penilaian"
+      pageDescription="Halaman Rekapitulasi Nilai wajib login menggunakan akun Admin atau Role &quot;STAFF REKAP&quot;."
+    >
+      <RekapContent />
+    </ScoreStaffAuthGate>
   );
 }

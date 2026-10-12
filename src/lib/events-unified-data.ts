@@ -64,6 +64,7 @@ export interface UnifiedEvent {
 
   // Data Peserta & Peringkat LKBB (Cetas.Score)
   lkbbTeams?: LKBBTeamScore[];
+  updatedAt?: number;
 }
 
 export function normalizeCategoryLevelCode(rawName: string): string {
@@ -229,3 +230,58 @@ export function saveStoredEvents(events: UnifiedEvent[]): void {
     } catch {}
   }
 }
+
+export function mergeEventsWithLocal(
+  serverEvents: UnifiedEvent[],
+  localEvents: UnifiedEvent[]
+): UnifiedEvent[] {
+  if (!Array.isArray(localEvents) || localEvents.length === 0) {
+    return serverEvents;
+  }
+  const localMap = new Map(localEvents.map((e) => [e.id, e]));
+  const merged = serverEvents.map((srv) => {
+    const loc = localMap.get(srv.id);
+    if (!loc) return srv;
+    const locTime = Number(loc.updatedAt) || 0;
+    const srvTime = Number(srv.updatedAt) || 0;
+    if (locTime > srvTime) {
+      return {
+        ...srv,
+        ...loc,
+        tiers:
+          Array.isArray(loc.tiers) && loc.tiers.length > 0
+            ? loc.tiers
+            : srv.tiers,
+        registrationCategories:
+          Array.isArray(loc.registrationCategories) &&
+          loc.registrationCategories.length > 0
+            ? loc.registrationCategories
+            : srv.registrationCategories,
+        lkbbTeams:
+          Array.isArray(loc.lkbbTeams) && loc.lkbbTeams.length >= (srv.lkbbTeams?.length || 0)
+            ? loc.lkbbTeams
+            : srv.lkbbTeams,
+      };
+    }
+    if (
+      locTime === srvTime &&
+      Array.isArray(loc.tiers) &&
+      loc.tiers.length > (srv.tiers?.length || 0)
+    ) {
+      return {
+        ...srv,
+        tiers: loc.tiers,
+        isOpenTicketing: loc.isOpenTicketing ?? srv.isOpenTicketing,
+      };
+    }
+    return srv;
+  });
+
+  for (const loc of localEvents) {
+    if (loc.updatedAt && !merged.some((m) => m.id === loc.id)) {
+      merged.unshift(loc);
+    }
+  }
+  return merged;
+}
+

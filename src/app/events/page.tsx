@@ -21,6 +21,7 @@ import {
   UnifiedEvent,
   getStoredEvents,
   saveStoredEvents,
+  mergeEventsWithLocal,
 } from "@/lib/events-unified-data";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 
@@ -60,10 +61,13 @@ function mapToTicketingEvents(list: UnifiedEvent[]): EventItem[] {
     .map((e: UnifiedEvent) => {
       const tiers: TicketTier[] =
         Array.isArray(e.tiers) && e.tiers.length > 0
-          ? e.tiers.map((t) => ({
-              id: t.id || `tier-${e.id}`,
+          ? e.tiers.map((t, idx) => ({
+              id: t.id || `tier-${e.id}-${idx + 1}`,
               name: t.name || "Tiket Reguler",
-              price: Number(t.price) || Number(e.price) || 50000,
+              price:
+                t.price !== undefined && t.price !== null
+                  ? Number(t.price)
+                  : Number(e.price) || 25000,
               quotaTotal: Number(t.quotaTotal) || Number(e.quotaTotal) || 200,
               quotaRemaining:
                 t.quotaRemaining !== undefined
@@ -74,7 +78,7 @@ function mapToTicketingEvents(list: UnifiedEvent[]): EventItem[] {
               {
                 id: `tier-${e.id}-1`,
                 name: "Tiket Reguler",
-                price: Number(e.price) || 50000,
+                price: Number(e.price) || 25000,
                 quotaTotal: Number(e.quotaTotal) || 200,
                 quotaRemaining: Number(e.quotaRemaining) || 200,
               },
@@ -107,8 +111,10 @@ export default function EventsPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          saveStoredEvents(data.events);
-          setEvents(mapToTicketingEvents(data.events));
+          const latestLocal = getStoredEvents();
+          const merged = mergeEventsWithLocal(data.events, latestLocal);
+          saveStoredEvents(merged);
+          setEvents(mapToTicketingEvents(merged));
         }
       })
       .catch(() => {});

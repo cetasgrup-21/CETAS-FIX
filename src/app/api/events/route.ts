@@ -27,9 +27,37 @@ function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
   const regCats = getEffectiveRegistrationCategories(ev);
   const totalQ = regCats.reduce((sum, c) => sum + c.quotaTotal, 0);
   const remQ = regCats.reduce((sum, c) => sum + c.quotaRemaining, 0);
+  const normalizedTiers =
+    Array.isArray(ev.tiers) && ev.tiers.length > 0
+      ? ev.tiers.map((t, idx) => ({
+          id: t.id || `tier-${ev.id || "ev"}-${idx + 1}`,
+          name: (t.name || `Tier Tiket #${idx + 1}`).trim(),
+          price: Math.max(0, Number(t.price) || 0),
+          quotaTotal: Math.max(1, Number(t.quotaTotal) || 100),
+          quotaRemaining:
+            t.quotaRemaining !== undefined && t.quotaRemaining !== null
+              ? Math.max(0, Number(t.quotaRemaining))
+              : Math.max(1, Number(t.quotaTotal) || 100),
+          benefits:
+            Array.isArray(t.benefits) && t.benefits.length > 0
+              ? t.benefits
+              : ["E-Ticket QR Code Resmi"],
+        }))
+      : [
+          {
+            id: `tier-${ev.id || "ev"}-1`,
+            name: "Tiket Reguler",
+            price: Number(ev.price) > 0 ? Number(ev.price) : 10000,
+            quotaTotal: 300,
+            quotaRemaining: 300,
+            benefits: ["E-Ticket QR Code Resmi"],
+          },
+        ];
+
   return {
     ...ev,
     bannerUrl: safeBanner(ev.bannerUrl),
+    tiers: normalizedTiers,
     registrationCategories: regCats,
     categoryOptions: regCats.map((c) => c.name),
     quotaTotal: totalQ,
@@ -322,7 +350,7 @@ export async function PUT(req: NextRequest) {
             ? safeBanner(updates.bannerUrl)
             : existing.bannerUrl,
         tiers:
-          updates.tiers !== undefined
+          Array.isArray(updates.tiers) && updates.tiers.length > 0
             ? updates.tiers.map(
                 (
                   t: {
@@ -331,6 +359,7 @@ export async function PUT(req: NextRequest) {
                     price?: number;
                     quotaTotal?: number;
                     quotaRemaining?: number;
+                    benefits?: string[];
                   },
                   idx: number
                 ) => ({
@@ -342,6 +371,10 @@ export async function PUT(req: NextRequest) {
                     t.quotaRemaining !== undefined
                       ? Number(t.quotaRemaining)
                       : Number(t.quotaTotal) || 100,
+                  benefits:
+                    Array.isArray(t.benefits) && t.benefits.length > 0
+                      ? t.benefits
+                      : ["E-Ticket QR Code Resmi"],
                 })
               )
             : existing.tiers,

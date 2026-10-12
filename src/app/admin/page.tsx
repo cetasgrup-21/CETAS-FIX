@@ -64,6 +64,7 @@ import {
   normalizeCategoryLevelCode,
   getStoredEvents,
   saveStoredEvents,
+  mergeEventsWithLocal,
 } from "@/lib/events-unified-data";
 import {
   INITIAL_UNIFIED_PRODUCTS,
@@ -272,6 +273,54 @@ export default function AdminDashboardPage() {
     "EVENTS" | "PRODUCTION" | "FINANCES" | "SUBMISSIONS" | "STAFF" | "AUDIT" | "ADS"
   >("EVENTS"); // Default to EVENTS so user lands directly on Pusat Event Workspace!
 
+  const hydrateFormAndTiersFromEvent = (ev: UnifiedEvent) => {
+    setEditingEventId(ev.id);
+    const isStandard = EVENT_CATEGORY_OPTIONS.some((opt) => opt.value === ev.category);
+    if (!isStandard) {
+      setIsCustomCategory(true);
+      setCustomCategoryText(ev.category);
+    } else {
+      setIsCustomCategory(false);
+      setCustomCategoryText("");
+    }
+    const initialTiers: UnifiedTicketTier[] =
+      Array.isArray(ev.tiers) && ev.tiers.length > 0
+        ? ev.tiers
+        : [
+            {
+              id: `tier-${ev.id}-1`,
+              name: "Tiket Reguler",
+              price: ev.price || 10000,
+              quotaTotal: ev.quotaTotal || 400,
+              quotaRemaining: ev.quotaRemaining || 400,
+              benefits: ev.facilities || ["E-Ticket QR Code Resmi"],
+            },
+          ];
+    setEventTiers(initialTiers);
+    const initialRegCats = getEffectiveRegistrationCategories(ev);
+    setEventRegCategories(initialRegCats);
+    setEventForm({
+      title: ev.title,
+      organizer: ev.organizer,
+      category: ev.category,
+      themePreset: ev.themePreset || "EMERALD",
+      date: ev.date,
+      time: ev.time,
+      location: ev.location,
+      locationType: ev.locationType,
+      bannerUrl: ev.bannerUrl,
+      description: ev.description,
+      status: ev.status,
+      isOpenTicketing: ev.isOpenTicketing,
+      ticketTierName: initialTiers[0].name,
+      ticketPrice: initialTiers[0].price,
+      ticketQuota: initialTiers[0].quotaTotal,
+      isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
+      registrationQuota: initialRegCats.reduce((s, c) => s + c.quotaTotal, 0) || ev.quotaTotal || 100,
+      facilitiesText: (ev.facilities || []).join(", "),
+    });
+  };
+
   // Initial Data Fetching
   useEffect(() => {
     const session = getStoredAdminSession();
@@ -280,19 +329,73 @@ export default function AdminDashboardPage() {
     const storedStaff = getStoredStaffList();
     if (storedStaff && storedStaff.length > 0) setStaffList(storedStaff);
 
+    let savedEventId: string | null = null;
+    let savedSubTab: "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" = "DETAILS";
+    try {
+      savedEventId = sessionStorage.getItem("cetas_admin_selected_event_id");
+      const rawTab = sessionStorage.getItem("cetas_admin_event_subtab");
+      if (
+        rawTab === "DETAILS" ||
+        rawTab === "SCORE" ||
+        rawTab === "VOTE" ||
+        rawTab === "TICKETS" ||
+        rawTab === "ATTENDEES"
+      ) {
+        savedSubTab = rawTab;
+      }
+    } catch {}
+
     // Fetch Events & Sync LocalStorage + PostgreSQL
     const localEv = getStoredEvents();
     if (localEv && localEv.length > 0) {
       setEventsList(localEv);
       setSelectedEventToConnect(localEv[0].id);
+      if (savedEventId) {
+        const foundLocal = localEv.find((e) => e.id === savedEventId);
+        if (foundLocal) {
+          setSelectedEventId(foundLocal.id);
+          setSelectedVoteEventId(foundLocal.id);
+          setEventSubTab(savedSubTab);
+          hydrateFormAndTiersFromEvent(foundLocal);
+        }
+      }
     }
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          setEventsList(data.events);
-          saveStoredEvents(data.events);
-          setSelectedEventToConnect(data.events[0].id);
+          const latestLocal = getStoredEvents();
+          const merged = mergeEventsWithLocal(data.events, latestLocal);
+          setEventsList(merged);
+          saveStoredEvents(merged);
+          setSelectedEventToConnect(merged[0].id);
+
+          const activeEvId =
+            sessionStorage.getItem("cetas_admin_selected_event_id") || savedEventId;
+          if (activeEvId) {
+            const foundMerged = merged.find((e) => e.id === activeEvId);
+            if (foundMerged) {
+              setSelectedEventId(foundMerged.id);
+              setSelectedVoteEventId(foundMerged.id);
+              hydrateFormAndTiersFromEvent(foundMerged);
+            }
+          }
+
+          // Push any newer local event changes to PostgreSQL in the background
+          for (const m of merged) {
+            const srv = data.events.find((s: UnifiedEvent) => s.id === m.id);
+            if (
+              !srv ||
+              (Number(m.updatedAt) || 0) > (Number(srv.updatedAt) || 0) ||
+              (Array.isArray(m.tiers) && m.tiers.length > (srv.tiers?.length || 0))
+            ) {
+              fetch("/api/events", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(m),
+              }).catch(() => {});
+            }
+          }
         }
       })
       .catch(() => {});
@@ -497,7 +600,41 @@ export default function AdminDashboardPage() {
     setIsEventModalOpen(true);
   };
 
-  const handleSaveEvent = async (e?: React.FormEvent) => {
+  const updateEventTiersLive = (
+    updater: (prev: UnifiedTicketTier[]) => UnifiedTicketTier[],
+    autoEnableTicketing = false
+  ) => {
+    setEventTiers((prev) => {
+      const nextTiers = updater(prev);
+      const targetId = selectedEventId || editingEventId;
+      if (targetId) {
+        const now = Date.now();
+        setEventsList((prevEvents) => {
+          const nextEvents = prevEvents.map((ev) =>
+            ev.id === targetId
+              ? {
+                  ...ev,
+                  tiers: nextTiers,
+                  isOpenTicketing: autoEnableTicketing ? true : ev.isOpenTicketing,
+                  updatedAt: now,
+                }
+              : ev
+          );
+          saveStoredEvents(nextEvents);
+          return nextEvents;
+        });
+      }
+      return nextTiers;
+    });
+    if (autoEnableTicketing) {
+      setEventForm((f) => ({ ...f, isOpenTicketing: true }));
+    }
+  };
+
+  const handleSaveEvent = async (
+    e?: React.FormEvent,
+    forceOpenTicketing?: boolean
+  ) => {
     if (e) e.preventDefault();
     if (!eventForm.title.trim()) return;
 
@@ -511,25 +648,35 @@ export default function AdminDashboardPage() {
         ? customCategoryText.trim()
         : eventForm.category;
 
-    // Sinkronkan tier pertama dengan form cepat, dan pertahankan seluruh tier tambahan
+    const effectiveOpenTicketing = forceOpenTicketing
+      ? true
+      : eventForm.isOpenTicketing;
+    if (forceOpenTicketing && !eventForm.isOpenTicketing) {
+      setEventForm((f) => ({ ...f, isOpenTicketing: true }));
+    }
+
+    // Pertahankan seluruh tier tiket secara akurat tanpa menimpa tier #1 dengan state lama
     const normalizedTiers: UnifiedTicketTier[] =
       eventTiers && eventTiers.length > 0
-        ? eventTiers.map((t, idx) =>
-            idx === 0
-              ? {
-                  ...t,
-                  name: eventForm.ticketTierName || t.name || "Tiket Reguler",
-                  price: Number(eventForm.ticketPrice ?? t.price ?? 0),
-                  quotaTotal: Number(eventForm.ticketQuota ?? t.quotaTotal ?? 100),
-                  quotaRemaining: Number(eventForm.ticketQuota ?? t.quotaRemaining ?? 100),
-                }
-              : {
-                  ...t,
-                  price: Number(t.price) || 0,
-                  quotaTotal: Number(t.quotaTotal) || 100,
-                  quotaRemaining: Number(t.quotaRemaining ?? t.quotaTotal) || 100,
-                }
-          )
+        ? eventTiers.map((t, idx) => {
+            const total = Math.max(1, Number(t.quotaTotal) || 100);
+            const rem =
+              t.quotaRemaining !== undefined && t.quotaRemaining !== null
+                ? Math.min(total, Math.max(0, Number(t.quotaRemaining)))
+                : total;
+            return {
+              ...t,
+              id: t.id || `tier-${Date.now()}-${idx + 1}`,
+              name: t.name && t.name.trim() ? t.name.trim() : `Tiket Tier #${idx + 1}`,
+              price: Math.max(0, Number(t.price) || 0),
+              quotaTotal: total,
+              quotaRemaining: rem,
+              benefits:
+                Array.isArray(t.benefits) && t.benefits.length > 0
+                  ? t.benefits
+                  : ["E-Ticket QR Code Resmi"],
+            };
+          })
         : [
             {
               id: `tier-${Date.now()}-1`,
@@ -537,6 +684,7 @@ export default function AdminDashboardPage() {
               price: Number(eventForm.ticketPrice) || 0,
               quotaRemaining: Number(eventForm.ticketQuota) || 100,
               quotaTotal: Number(eventForm.ticketQuota) || 100,
+              benefits: ["E-Ticket QR Code Resmi"],
             },
           ];
 
@@ -567,6 +715,7 @@ export default function AdminDashboardPage() {
 
     const totalRegQuota = normalizedRegCategories.reduce((sum, c) => sum + c.quotaTotal, 0);
     const remRegQuota = normalizedRegCategories.reduce((sum, c) => sum + c.quotaRemaining, 0);
+    const saveTimestamp = Date.now();
 
     const payload = {
       title: eventForm.title,
@@ -580,8 +729,8 @@ export default function AdminDashboardPage() {
       bannerUrl: eventForm.bannerUrl,
       description: eventForm.description,
       status: eventForm.status,
-      isOpenTicketing: eventForm.isOpenTicketing,
-      tiers: eventForm.isOpenTicketing ? normalizedTiers : [],
+      isOpenTicketing: effectiveOpenTicketing,
+      tiers: normalizedTiers,
       isOpenOnlineRegistration: eventForm.isOpenOnlineRegistration,
       registrationCategories: normalizedRegCategories,
       categoryOptions: normalizedRegCategories.map((c) => c.name),
@@ -590,6 +739,7 @@ export default function AdminDashboardPage() {
       price: 0,
       priceLabel: "Gratis",
       facilities: facilitiesArray,
+      updatedAt: saveTimestamp,
     };
 
     const targetEventId = isEventModalOpen
@@ -597,6 +747,19 @@ export default function AdminDashboardPage() {
       : selectedEventId || editingEventId;
 
     if (targetEventId) {
+      // 0ms Optimistic Update: Langsung simpan ke state & localStorage sebelum request jaringan selesai
+      setEventTiers(normalizedTiers);
+      setEventRegCategories(normalizedRegCategories);
+      setEventsList((prev) => {
+        const next = prev.map((ev) =>
+          ev.id === targetEventId
+            ? ({ ...ev, ...payload, id: targetEventId } as UnifiedEvent)
+            : ev
+        );
+        saveStoredEvents(next);
+        return next;
+      });
+
       try {
         const res = await fetch("/api/events", {
           method: "PUT",
@@ -605,13 +768,23 @@ export default function AdminDashboardPage() {
         });
         const data = await res.json();
         if (data.success && data.event) {
+          const syncedEvent: UnifiedEvent = {
+            ...data.event,
+            tiers:
+              Array.isArray(data.event.tiers) && data.event.tiers.length > 0
+                ? data.event.tiers
+                : normalizedTiers,
+            updatedAt: saveTimestamp,
+          };
           setEventsList((prev) => {
-            const next = prev.map((ev) => (ev.id === targetEventId ? data.event : ev));
+            const next = prev.map((ev) => (ev.id === targetEventId ? syncedEvent : ev));
             saveStoredEvents(next);
             return next;
           });
-          if (data.event.tiers) setEventTiers(data.event.tiers);
-          if (data.event.registrationCategories) setEventRegCategories(data.event.registrationCategories);
+          setEventTiers(syncedEvent.tiers);
+          if (syncedEvent.registrationCategories) {
+            setEventRegCategories(syncedEvent.registrationCategories);
+          }
           fetch("/api/vote", { cache: "no-store" })
             .then((r) => r.json())
             .then((vData) => {
@@ -621,26 +794,12 @@ export default function AdminDashboardPage() {
               }
             })
             .catch(() => {});
-          showSyncToast(`✓ Event, Kategori Kuota & Tiket '${data.event.title}' berhasil disimpan & disinkronkan ke publik!`);
+          showSyncToast(`✓ Event, Kategori Kuota & ${syncedEvent.tiers.length} Tier Tiket '${syncedEvent.title}' berhasil disimpan & disinkronkan ke publik!`);
         } else {
-          setEventsList((prev) => {
-            const next = prev.map((ev) =>
-              ev.id === targetEventId ? ({ ...ev, ...payload, id: targetEventId } as UnifiedEvent) : ev
-            );
-            saveStoredEvents(next);
-            return next;
-          });
-          showSyncToast(`✓ Perubahan Event & Kategori berhasil disimpan!`);
+          showSyncToast(`✓ Perubahan Event & ${normalizedTiers.length} Tier Tiket berhasil disimpan!`);
         }
       } catch {
-        setEventsList((prev) => {
-          const next = prev.map((ev) =>
-            ev.id === targetEventId ? ({ ...ev, ...payload, id: targetEventId } as UnifiedEvent) : ev
-          );
-          saveStoredEvents(next);
-          return next;
-        });
-        showSyncToast(`✓ Perubahan Event & Kategori tersimpan!`);
+        showSyncToast(`✓ Perubahan Event & ${normalizedTiers.length} Tier Tiket tersimpan!`);
       }
     } else {
       try {
@@ -951,6 +1110,15 @@ export default function AdminDashboardPage() {
     } catch {}
   };
 
+  const handleSwitchSubTab = (
+    tab: "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES"
+  ) => {
+    setEventSubTab(tab);
+    try {
+      sessionStorage.setItem("cetas_admin_event_subtab", tab);
+    } catch {}
+  };
+
   const handleSelectEventWorkspace = async (
     eventId: string,
     initialSubTab: "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" = "DETAILS"
@@ -958,54 +1126,15 @@ export default function AdminDashboardPage() {
     setSelectedEventId(eventId);
     setSelectedVoteEventId(eventId);
     setEventSubTab(initialSubTab);
+    try {
+      sessionStorage.setItem("cetas_admin_selected_event_id", eventId);
+      sessionStorage.setItem("cetas_admin_event_subtab", initialSubTab);
+    } catch {}
 
     const ev = eventsList.find((e) => e.id === eventId);
     if (ev) {
-      setEditingEventId(ev.id);
-      const isStandard = EVENT_CATEGORY_OPTIONS.some((opt) => opt.value === ev.category);
-      if (!isStandard) {
-        setIsCustomCategory(true);
-        setCustomCategoryText(ev.category);
-      } else {
-        setIsCustomCategory(false);
-        setCustomCategoryText("");
-      }
-      const initialTiers: UnifiedTicketTier[] =
-        ev.tiers && ev.tiers.length > 0
-          ? ev.tiers
-          : [
-              {
-                id: `tier-${ev.id}-1`,
-                name: "Tiket Reguler",
-                price: ev.price || 10000,
-                quotaTotal: ev.quotaTotal || 400,
-                quotaRemaining: ev.quotaRemaining || 400,
-                benefits: ev.facilities || ["E-Ticket QR Code Resmi"],
-              },
-            ];
-      setEventTiers(initialTiers);
+      hydrateFormAndTiersFromEvent(ev);
       const initialRegCats = getEffectiveRegistrationCategories(ev);
-      setEventRegCategories(initialRegCats);
-      setEventForm({
-        title: ev.title,
-        organizer: ev.organizer,
-        category: ev.category,
-        themePreset: ev.themePreset || "EMERALD",
-        date: ev.date,
-        time: ev.time,
-        location: ev.location,
-        locationType: ev.locationType,
-        bannerUrl: ev.bannerUrl,
-        description: ev.description,
-        status: ev.status,
-        isOpenTicketing: ev.isOpenTicketing,
-        ticketTierName: initialTiers[0].name,
-        ticketPrice: initialTiers[0].price,
-        ticketQuota: initialTiers[0].quotaTotal,
-        isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
-        registrationQuota: initialRegCats.reduce((s, c) => s + c.quotaTotal, 0) || ev.quotaTotal || 100,
-        facilitiesText: (ev.facilities || []).join(", "),
-      });
 
       // Synchronously ensure voting config exists for this event right away
       const existingVote = eventVotings.find((v) => v.eventId === eventId);
@@ -2144,7 +2273,12 @@ export default function AdminDashboardPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setSelectedEventId(null)}
+                      onClick={() => {
+                        setSelectedEventId(null);
+                        try {
+                          sessionStorage.removeItem("cetas_admin_selected_event_id");
+                        } catch {}
+                      }}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black transition active:scale-95 shadow-sm"
                     >
                       <ArrowLeft className="h-4 w-4 text-orange-500" />
@@ -2197,7 +2331,7 @@ export default function AdminDashboardPage() {
                 {/* Sub-Tabs Selector for this Event */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
                   <button
-                    onClick={() => setEventSubTab("DETAILS")}
+                    onClick={() => handleSwitchSubTab("DETAILS")}
                     className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                       eventSubTab === "DETAILS"
                         ? "bg-orange-500 text-white shadow-md shadow-orange-500/25"
@@ -2209,7 +2343,7 @@ export default function AdminDashboardPage() {
                   </button>
 
                   <button
-                    onClick={() => setEventSubTab("SCORE")}
+                    onClick={() => handleSwitchSubTab("SCORE")}
                     className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                       eventSubTab === "SCORE"
                         ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
@@ -2221,7 +2355,7 @@ export default function AdminDashboardPage() {
                   </button>
 
                   <button
-                    onClick={() => setEventSubTab("VOTE")}
+                    onClick={() => handleSwitchSubTab("VOTE")}
                     className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                       eventSubTab === "VOTE"
                         ? "bg-amber-500 text-white shadow-md shadow-amber-500/25"
@@ -2233,7 +2367,7 @@ export default function AdminDashboardPage() {
                   </button>
 
                   <button
-                    onClick={() => setEventSubTab("TICKETS")}
+                    onClick={() => handleSwitchSubTab("TICKETS")}
                     className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                       eventSubTab === "TICKETS"
                         ? "bg-blue-600 text-white shadow-md shadow-blue-600/25"
@@ -2245,7 +2379,7 @@ export default function AdminDashboardPage() {
                   </button>
 
                   <button
-                    onClick={() => setEventSubTab("ATTENDEES")}
+                    onClick={() => handleSwitchSubTab("ATTENDEES")}
                     className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                       eventSubTab === "ATTENDEES"
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/25"
@@ -3540,17 +3674,20 @@ export default function AdminDashboardPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          setEventTiers((prev) => [
-                            ...prev,
-                            {
-                              id: `tier-${Date.now()}-${prev.length + 1}`,
-                              name: `Tier Tiket #${prev.length + 1} (VIP / Presale)`,
-                              price: 75000,
-                              quotaTotal: 100,
-                              quotaRemaining: 100,
-                              benefits: ["E-Ticket QR Code Resmi"],
-                            },
-                          ])
+                          updateEventTiersLive(
+                            (prev) => [
+                              ...prev,
+                              {
+                                id: `tier-${Date.now()}-${prev.length + 1}`,
+                                name: `Tier Tiket #${prev.length + 1} (VIP / Presale)`,
+                                price: 75000,
+                                quotaTotal: 100,
+                                quotaRemaining: 100,
+                                benefits: ["E-Ticket QR Code Resmi"],
+                              },
+                            ],
+                            true
+                          )
                         }
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black transition shrink-0"
                       >
@@ -3574,7 +3711,7 @@ export default function AdminDashboardPage() {
                               value={tier.name}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setEventTiers((prev) =>
+                                updateEventTiersLive((prev) =>
                                   prev.map((t, i) => (i === idx ? { ...t, name: val } : t))
                                 );
                                 if (idx === 0) {
@@ -3596,7 +3733,7 @@ export default function AdminDashboardPage() {
                               value={tier.price}
                               onChange={(e) => {
                                 const val = Number(e.target.value);
-                                setEventTiers((prev) =>
+                                updateEventTiersLive((prev) =>
                                   prev.map((t, i) => (i === idx ? { ...t, price: val } : t))
                                 );
                                 if (idx === 0) {
@@ -3617,10 +3754,17 @@ export default function AdminDashboardPage() {
                               value={tier.quotaTotal}
                               onChange={(e) => {
                                 const val = Number(e.target.value);
-                                setEventTiers((prev) =>
+                                updateEventTiersLive((prev) =>
                                   prev.map((t, i) =>
                                     i === idx
-                                      ? { ...t, quotaTotal: val, quotaRemaining: Math.min(t.quotaRemaining, val) || val }
+                                      ? {
+                                          ...t,
+                                          quotaTotal: val,
+                                          quotaRemaining:
+                                            t.quotaRemaining === t.quotaTotal
+                                              ? val
+                                              : Math.min(t.quotaRemaining, val) || val,
+                                        }
                                       : t
                                   )
                                 );
@@ -3642,7 +3786,7 @@ export default function AdminDashboardPage() {
                               value={tier.quotaRemaining}
                               onChange={(e) => {
                                 const val = Number(e.target.value);
-                                setEventTiers((prev) =>
+                                updateEventTiersLive((prev) =>
                                   prev.map((t, i) => (i === idx ? { ...t, quotaRemaining: val } : t))
                                 );
                               }}
@@ -3655,7 +3799,7 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setEventTiers((prev) => prev.filter((_, i) => i !== idx))
+                                  updateEventTiersLive((prev) => prev.filter((_, i) => i !== idx))
                                 }
                                 title="Hapus Tier Ini"
                                 className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-600 transition"
@@ -3682,7 +3826,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleSaveEvent()}
+                        onClick={() => handleSaveEvent(undefined, true)}
                         className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-lg shadow-blue-600/25 transition active:scale-95"
                       >
                         <Check className="h-4 w-4" />

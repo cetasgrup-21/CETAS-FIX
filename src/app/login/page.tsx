@@ -307,7 +307,7 @@ function LoginForm() {
                     e.target.value
                   )
                 }
-                placeholder="Contoh: staffrekap / cetasgrup@gmail.com"
+                placeholder="Username atau email terdaftar"
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-500"
                 autoComplete="username"
                 autoCapitalize="none"

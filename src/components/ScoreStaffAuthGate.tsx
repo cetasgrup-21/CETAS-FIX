@@ -239,7 +239,7 @@ export default function ScoreStaffAuthGate({
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Contoh: staffrekap atau cetasgrup@gmail.com"
+                placeholder="Username atau email admin / staff rekap"
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#1769e0]"
                 autoComplete="username"
                 autoCapitalize="none"
@@ -279,25 +279,6 @@ export default function ScoreStaffAuthGate({
                 ? "Memverifikasi Akun..."
                 : "Masuk sebagai Admin / Staff Rekap →"}
             </button>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-[11px] leading-relaxed text-slate-600">
-              <p className="font-black text-slate-800">
-                Informasi Akses Role &quot;STAFF REKAP&quot;:
-              </p>
-              <p className="mt-1">
-                • Akun <strong>STAFF REKAP</strong> dapat dibuat atau dikelola oleh Super Admin melalui menu{" "}
-                <Link href="/admin/judges" className="font-bold text-[#1769e0] underline">
-                  Manajemen Juri &amp; Staff Rekap
-                </Link>{" "}
-                atau{" "}
-                <Link href="/admin" className="font-bold text-[#1769e0] underline">
-                  Portal Admin CETAS
-                </Link>.
-              </p>
-              <p className="mt-0.5">
-                • Akun bawaan Tim Rekap: username <code className="rounded bg-slate-200 px-1.5 py-0.5 font-mono font-bold text-slate-900">staffrekap</code> / PIN <code className="rounded bg-slate-200 px-1.5 py-0.5 font-mono font-bold text-slate-900">123456</code>.
-              </p>
-            </div>
 
             <div className="flex gap-2 pt-1">
               <Link

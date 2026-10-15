@@ -156,36 +156,36 @@ function MascotSelector({
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {CETAS_MASCOT_PRESETS.map((m) => {
           const isSelected = value === m.url;
           return (
             <div
               key={m.id}
               onClick={() => onChange(m.url)}
-              className={`p-2.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between group relative ${
+              className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between group relative ${
                 isSelected
                   ? "border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 shadow-md ring-2 ring-orange-500/20 scale-[1.02]"
                   : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
               }`}
             >
-              <div className="h-16 w-full flex items-center justify-center p-1 bg-white/70 dark:bg-slate-800/70 rounded-xl mb-1.5 shadow-inner">
+              <div className="h-20 w-full flex items-center justify-center p-2 bg-slate-50 dark:bg-slate-800/80 rounded-xl mb-2 border border-slate-100 dark:border-slate-700/60">
                 <img
                   src={m.url}
                   alt={m.name}
-                  className="h-14 w-14 object-contain filter drop-shadow group-hover:scale-105 transition-transform"
+                  className="h-16 w-16 object-contain filter drop-shadow group-hover:scale-105 transition-transform"
                 />
               </div>
               {isSelected && (
-                <span className="text-[9px] bg-orange-500 text-white font-extrabold px-1.5 py-0.5 rounded-full absolute top-2 right-2 shadow">
+                <span className="text-[9px] bg-orange-500 text-white font-extrabold px-2 py-0.5 rounded-full absolute top-2.5 right-2.5 shadow">
                   Dipilih ✓
                 </span>
               )}
               <div className="text-center pt-1 border-t border-slate-100 dark:border-slate-800/60">
-                <div className="text-[11px] font-black text-slate-900 dark:text-white leading-tight truncate">
+                <div className="text-xs font-black text-slate-900 dark:text-white leading-tight truncate">
                   {m.name}
                 </div>
-                <div className="text-[9px] text-slate-500 line-clamp-1 mt-0.5">
+                <div className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
                   {m.tagline}
                 </div>
               </div>
@@ -194,15 +194,59 @@ function MascotSelector({
         })}
       </div>
 
-      <div className="pt-1">
+      <div className="pt-2 space-y-2">
         <FileUpload
           label="Atau Upload File Gambar Maskot Kustom Sendiri"
-          description="Format PNG transparan sangat direkomendasikan (Maks. 5 MB)"
-          accept="image/*"
+          description="Format PNG transparan asli (Maks. 5 MB) - Transparansi dipertahankan 100%"
+          accept="image/png,image/webp,image/*"
           value={value}
           onChange={(dataUrl) => onChange(dataUrl)}
           aspectRatio="square"
         />
+
+        {value && !currentMascot && (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50">
+            <span className="text-[11px] text-amber-900 dark:text-amber-300 font-medium">
+              💡 Gambar maskot kustom memiliki latar belakang hitam / kotak gelap?
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (!value) return;
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                  const canvas = document.createElement("canvas");
+                  canvas.width = img.naturalWidth || img.width;
+                  canvas.height = img.naturalHeight || img.height;
+                  const ctx = canvas.getContext("2d");
+                  if (!ctx) return;
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+                  ctx.drawImage(img, 0, 0);
+                  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                  const data = imgData.data;
+                  for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    // Jika pixel hitam atau hampir hitam, ubah alpha jadi 0 (100% transparan)
+                    if (r <= 45 && g <= 45 && b <= 45) {
+                      data[i + 3] = 0;
+                    }
+                  }
+                  ctx.putImageData(imgData, 0, 0);
+                  const transparentDataUrl = canvas.toDataURL("image/png");
+                  onChange(transparentDataUrl);
+                };
+                img.src = value;
+              }}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition active:scale-95"
+            >
+              <span>🪄</span>
+              <span>Hapus Latar Hitam (Buat Transparan)</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

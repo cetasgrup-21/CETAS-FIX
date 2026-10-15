@@ -82,7 +82,7 @@ export const CETAS_MASCOT_PRESETS: MascotOption[] = [
     id: "ceti-transparent",
     name: "Ceti (Maskot Resmi Transparan)",
     url: "/mascot/ceti_transparent.png",
-    tagline: "Maskot robot semut cerdas ikonik CETAS dengan latar transparan",
+    tagline: "Robot semut cerdas ikonik CETAS dengan latar transparan resmi",
   },
   {
     id: "ceti-classic",
@@ -95,42 +95,6 @@ export const CETAS_MASCOT_PRESETS: MascotOption[] = [
     name: "Cetas Ant (Jempol Juara)",
     url: "/mascot/cetas_ant_thumbsup.png",
     tagline: "Semut juara memberi acungan jempol",
-  },
-  {
-    id: "cetas-ant-waving",
-    name: "Cetas Ant (Melambaikan Tangan)",
-    url: "/mascot/cetas_ant_waving.png",
-    tagline: "Semut ceria menyambut seluruh peserta & penonton",
-  },
-  {
-    id: "anty-purple-thumbsup",
-    name: "Anty Purple (Pose Jempol)",
-    url: "/mascot/anty_purple_thumbsup.png",
-    tagline: "Anty edisi ungu elegan dengan pose jempol",
-  },
-  {
-    id: "anty-purple-waving",
-    name: "Anty Purple (Melambai Ramah)",
-    url: "/mascot/anty_purple_waving.png",
-    tagline: "Anty edisi ungu menyapa para hadirin event",
-  },
-  {
-    id: "anty-purple-full",
-    name: "Anty Purple (Full Body)",
-    url: "/mascot/anty_purple_full.png",
-    tagline: "Pose lengkap Anty Purple berdiri tegak",
-  },
-  {
-    id: "antman-thumbsup",
-    name: "Ant-Man Champion",
-    url: "/mascot/antman_thumbsup.png",
-    tagline: "Karakter Ant-Man tangguh untuk kompetisi & kejuaraan",
-  },
-  {
-    id: "antman-waving",
-    name: "Ant-Man Ranger",
-    url: "/mascot/antman_waving.png",
-    tagline: "Ant-Man ramah memandu peserta lomba",
   },
 ];
 

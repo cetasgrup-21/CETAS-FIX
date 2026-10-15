@@ -36,14 +36,23 @@ export function FileUpload({
       const result = e.target?.result as string;
       if (!result) return;
 
-      // Auto-compress images via HTML5 Canvas so base64 payloads stay lightweight (~40-90 KB)
+      // Auto-compress images via HTML5 Canvas while preserving PNG alpha transparency
       if (file.type.startsWith("image/") && !file.type.includes("svg") && !file.type.includes("gif")) {
+        const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
+        const isWebp = file.type === "image/webp" || file.name.toLowerCase().endsWith(".webp");
+
         const img = new window.Image();
         img.onload = () => {
           try {
-            const maxDim = aspectRatio === "square" ? 480 : 960;
+            const maxDim = aspectRatio === "square" ? 640 : 960;
             let width = img.width;
             let height = img.height;
+
+            // Jika file PNG sudah berukuran pas (< 1.5MB) dan tidak melebihi maxDim, langsung gunakan hasil asli
+            if (isPng && width <= maxDim && height <= maxDim && file.size < 1.5 * 1024 * 1024) {
+              onChange(result, file.name);
+              return;
+            }
 
             if (width > maxDim || height > maxDim) {
               if (width > height) {
@@ -60,7 +69,23 @@ export function FileUpload({
             canvas.height = height;
             const ctx = canvas.getContext("2d");
             if (ctx) {
+              // Bersihkan kanvas agar transparan 100% tanpa latar hitam default
+              ctx.clearRect(0, 0, width, height);
               ctx.drawImage(img, 0, 0, width, height);
+
+              if (isPng) {
+                // Ekspor sebagai PNG 32-bit dengan alpha channel utuh (anti latar hitam)
+                const pngData = canvas.toDataURL("image/png");
+                onChange(pngData, file.name);
+                return;
+              }
+
+              if (isWebp) {
+                const webpData = canvas.toDataURL("image/webp", 0.85);
+                onChange(webpData, file.name);
+                return;
+              }
+
               const compressed = canvas.toDataURL("image/jpeg", 0.78);
               onChange(compressed, file.name);
               return;
@@ -137,18 +162,20 @@ export function FileUpload({
             <div className="relative rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 overflow-hidden group">
               {isImage ? (
                 <div
-                  className={`relative w-full rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center ${
+                  className={`relative w-full rounded-xl overflow-hidden flex items-center justify-center ${
                     aspectRatio === "banner"
-                      ? "h-36 sm:h-44"
+                      ? "h-36 sm:h-44 bg-slate-950"
                       : aspectRatio === "square"
-                      ? "h-28 w-28 mx-auto"
-                      : "h-24"
+                      ? "h-28 w-28 mx-auto bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5"
+                      : "h-24 bg-slate-100"
                   }`}
                 >
                   <img
                     src={value}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full ${
+                      aspectRatio === "square" ? "object-contain drop-shadow" : "object-cover"
+                    }`}
                   />
                   <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button

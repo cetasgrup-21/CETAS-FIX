@@ -742,28 +742,29 @@ export default function AdminDashboardPage() {
     updater: (prev: UnifiedTicketTier[]) => UnifiedTicketTier[],
     autoEnableTicketing = false
   ) => {
+    const targetId = selectedEventId || editingEventId;
+    const now = Date.now();
+    let computedTiers: UnifiedTicketTier[] = [];
     setEventTiers((prev) => {
-      const nextTiers = updater(prev);
-      const targetId = selectedEventId || editingEventId;
-      if (targetId) {
-        const now = Date.now();
-        setEventsList((prevEvents) => {
-          const nextEvents = prevEvents.map((ev) =>
-            ev.id === targetId
-              ? {
-                  ...ev,
-                  tiers: nextTiers,
-                  isOpenTicketing: autoEnableTicketing ? true : ev.isOpenTicketing,
-                  updatedAt: now,
-                }
-              : ev
-          );
-          saveStoredEvents(nextEvents);
-          return nextEvents;
-        });
-      }
-      return nextTiers;
+      computedTiers = updater(prev);
+      return computedTiers;
     });
+    if (targetId) {
+      setEventsList((prevEvents) => {
+        const nextEvents = prevEvents.map((ev) =>
+          ev.id === targetId
+            ? {
+                ...ev,
+                tiers: computedTiers.length > 0 ? computedTiers : updater(ev.tiers || []),
+                isOpenTicketing: autoEnableTicketing ? true : ev.isOpenTicketing,
+                updatedAt: now,
+              }
+            : ev
+        );
+        saveStoredEvents(nextEvents);
+        return nextEvents;
+      });
+    }
     if (autoEnableTicketing) {
       setEventForm((f) => ({ ...f, isOpenTicketing: true }));
     }
@@ -797,11 +798,13 @@ export default function AdminDashboardPage() {
     const normalizedTiers: UnifiedTicketTier[] =
       eventTiers && eventTiers.length > 0
         ? eventTiers.map((t, idx) => {
-            const total = Math.max(1, Number(t.quotaTotal) || 100);
-            const rem =
+            const rawTotal = Number(t.quotaTotal);
+            const total = rawTotal > 0 ? rawTotal : 100;
+            const rawRem =
               t.quotaRemaining !== undefined && t.quotaRemaining !== null
-                ? Math.min(total, Math.max(0, Number(t.quotaRemaining)))
+                ? Number(t.quotaRemaining)
                 : total;
+            const rem = Math.min(total, Math.max(0, rawRem >= 0 ? rawRem : total));
             return {
               ...t,
               id: t.id || `tier-${Date.now()}-${idx + 1}`,
@@ -820,8 +823,8 @@ export default function AdminDashboardPage() {
               id: `tier-${Date.now()}-1`,
               name: eventForm.ticketTierName || "Tiket Reguler",
               price: Number(eventForm.ticketPrice) || 0,
-              quotaRemaining: Number(eventForm.ticketQuota) || 100,
-              quotaTotal: Number(eventForm.ticketQuota) || 100,
+              quotaRemaining: Number(eventForm.ticketQuota) > 0 ? Number(eventForm.ticketQuota) : 100,
+              quotaTotal: Number(eventForm.ticketQuota) > 0 ? Number(eventForm.ticketQuota) : 100,
               benefits: ["E-Ticket QR Code Resmi"],
             },
           ];
@@ -3920,20 +3923,21 @@ export default function AdminDashboardPage() {
                               min={1}
                               value={tier.quotaTotal}
                               onChange={(e) => {
-                                const val = Number(e.target.value);
+                                const rawVal = e.target.value;
+                                const val = rawVal === "" ? 0 : Math.max(0, Number(rawVal) || 0);
                                 updateEventTiersLive((prev) =>
-                                  prev.map((t, i) =>
-                                    i === idx
-                                      ? {
-                                          ...t,
-                                          quotaTotal: val,
-                                          quotaRemaining:
-                                            t.quotaRemaining === t.quotaTotal
-                                              ? val
-                                              : Math.min(t.quotaRemaining, val) || val,
-                                        }
-                                      : t
-                                  )
+                                  prev.map((t, i) => {
+                                    if (i !== idx) return t;
+                                    const oldTotal = Number(t.quotaTotal) || 0;
+                                    const oldRem = Number(t.quotaRemaining) || 0;
+                                    const sold = Math.max(0, oldTotal - oldRem);
+                                    const nextRem = val > 0 ? Math.max(0, val - sold) : 0;
+                                    return {
+                                      ...t,
+                                      quotaTotal: val,
+                                      quotaRemaining: nextRem,
+                                    };
+                                  })
                                 );
                                 if (idx === 0) {
                                   setEventForm((f) => ({ ...f, ticketQuota: val }));
@@ -3952,7 +3956,8 @@ export default function AdminDashboardPage() {
                               min={0}
                               value={tier.quotaRemaining}
                               onChange={(e) => {
-                                const val = Number(e.target.value);
+                                const rawVal = e.target.value;
+                                const val = rawVal === "" ? 0 : Math.max(0, Number(rawVal) || 0);
                                 updateEventTiersLive((prev) =>
                                   prev.map((t, i) => (i === idx ? { ...t, quotaRemaining: val } : t))
                                 );

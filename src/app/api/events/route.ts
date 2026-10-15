@@ -28,20 +28,24 @@ function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
   const remQ = regCats.reduce((sum, c) => sum + c.quotaRemaining, 0);
   const normalizedTiers =
     Array.isArray(ev.tiers) && ev.tiers.length > 0
-      ? ev.tiers.map((t, idx) => ({
-          id: t.id || `tier-${ev.id || "ev"}-${idx + 1}`,
-          name: (t.name || `Tier Tiket #${idx + 1}`).trim(),
-          price: Math.max(0, Number(t.price) || 0),
-          quotaTotal: Math.max(1, Number(t.quotaTotal) || 100),
-          quotaRemaining:
-            t.quotaRemaining !== undefined && t.quotaRemaining !== null
-              ? Math.max(0, Number(t.quotaRemaining))
-              : Math.max(1, Number(t.quotaTotal) || 100),
-          benefits:
-            Array.isArray(t.benefits) && t.benefits.length > 0
-              ? t.benefits
-              : ["E-Ticket QR Code Resmi"],
-        }))
+      ? ev.tiers.map((t, idx) => {
+          const qTotal = Math.max(1, Number(t.quotaTotal) > 0 ? Number(t.quotaTotal) : 100);
+          const qRem =
+            t.quotaRemaining !== undefined && t.quotaRemaining !== null && Number(t.quotaRemaining) >= 0
+              ? Number(t.quotaRemaining)
+              : qTotal;
+          return {
+            id: t.id || `tier-${ev.id || "ev"}-${idx + 1}`,
+            name: (t.name || `Tier Tiket #${idx + 1}`).trim(),
+            price: Math.max(0, Number(t.price) || 0),
+            quotaTotal: qTotal,
+            quotaRemaining: Math.min(qTotal, qRem),
+            benefits:
+              Array.isArray(t.benefits) && t.benefits.length > 0
+                ? t.benefits
+                : ["E-Ticket QR Code Resmi"],
+          };
+        })
       : [
           {
             id: `tier-${ev.id || "ev"}-1`,
@@ -369,20 +373,24 @@ export async function PUT(req: NextRequest) {
                     benefits?: string[];
                   },
                   idx: number
-                ) => ({
-                  id: t.id || `tier-${Date.now()}-${idx + 1}`,
-                  name: t.name || "Tiket Reguler",
-                  price: Number(t.price) || 0,
-                  quotaTotal: Number(t.quotaTotal) || 100,
-                  quotaRemaining:
-                    t.quotaRemaining !== undefined
+                ) => {
+                  const qTotal = Math.max(1, Number(t.quotaTotal) > 0 ? Number(t.quotaTotal) : 100);
+                  const qRem =
+                    t.quotaRemaining !== undefined && t.quotaRemaining !== null && Number(t.quotaRemaining) >= 0
                       ? Number(t.quotaRemaining)
-                      : Number(t.quotaTotal) || 100,
-                  benefits:
-                    Array.isArray(t.benefits) && t.benefits.length > 0
-                      ? t.benefits
-                      : ["E-Ticket QR Code Resmi"],
-                })
+                      : qTotal;
+                  return {
+                    id: t.id || `tier-${Date.now()}-${idx + 1}`,
+                    name: t.name || "Tiket Reguler",
+                    price: Math.max(0, Number(t.price) || 0),
+                    quotaTotal: qTotal,
+                    quotaRemaining: Math.min(qTotal, qRem),
+                    benefits:
+                      Array.isArray(t.benefits) && t.benefits.length > 0
+                        ? t.benefits
+                        : ["E-Ticket QR Code Resmi"],
+                  };
+                }
               )
             : existing.tiers,
       });

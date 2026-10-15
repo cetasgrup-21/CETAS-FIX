@@ -608,126 +608,145 @@ export default function HomePage() {
             /* ==================================================================== */
             <div className="space-y-8 animate-in fade-in duration-300">
               {/* Banner Ringkas Event Terpilih + Link Pintas Utama */}
-              <div className="relative rounded-2xl border border-purple-200 bg-slate-950 p-5 sm:p-6 text-white space-y-5 overflow-hidden">
-                {activeHomeEvent.bannerUrl && (
-                  <div className="absolute inset-0 z-0 pointer-events-none select-none">
-                    <img
-                      src={activeHomeEvent.bannerUrl}
-                      alt={activeHomeEvent.title}
-                      className="w-full h-full object-cover opacity-20 filter blur-xs"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-purple-950/90 to-slate-950/95" />
-                  </div>
-                )}
-                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    {(activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL) && (
+              <div className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+                {/* Banner Header Image with Smooth Scrim */}
+                <div className="relative min-h-[190px] sm:min-h-[220px] w-full bg-slate-950 flex flex-col justify-end p-5 sm:p-7 text-white overflow-hidden">
+                  {activeHomeEvent.bannerUrl && (
+                    <div className="absolute inset-0 z-0">
                       <img
-                        src={activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL}
-                        alt="Maskot Event"
-                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.6)] shrink-0 bg-white/5 rounded-2xl p-1 border border-white/10"
+                        src={activeHomeEvent.bannerUrl}
+                        alt={activeHomeEvent.title}
+                        className="w-full h-full object-cover opacity-75"
                       />
-                    )}
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-500 text-white">
-                          {activeHomeEvent.category}
-                        </span>
-                        <span className="text-xs text-purple-200 font-semibold">
-                          📅 {activeHomeEvent.date} ({activeHomeEvent.time}) • 📍{" "}
-                          {activeHomeEvent.location}
-                        </span>
-                      </div>
-                      <h3 className="text-xl sm:text-2xl font-black text-white">
-                        {activeHomeEvent.title}
-                      </h3>
-                      <p className="text-xs text-slate-300 max-w-3xl">
-                        {activeHomeEvent.description}
-                      </p>
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/60" />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Quick Switch Event Dropdown / Button */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedHomeEventId(null)}
-                      className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition flex items-center gap-1.5"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      Ganti / Pilih Event Lain
-                    </button>
+                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      {(activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL) && (
+                        <img
+                          src={activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL}
+                          alt="Maskot Event"
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.7)] shrink-0 bg-black/30 backdrop-blur-md rounded-2xl p-1.5 border border-white/20"
+                        />
+                      )}
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-600 text-white shadow-sm">
+                            {activeHomeEvent.category}
+                          </span>
+                          <span className="text-xs text-slate-200 font-semibold bg-black/40 backdrop-blur-sm px-2.5 py-0.5 rounded-full border border-white/10">
+                            📅 {activeHomeEvent.date} ({activeHomeEvent.time}) • 📍{" "}
+                            {activeHomeEvent.location}
+                          </span>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">
+                          {activeHomeEvent.title}
+                        </h3>
+                        <p className="text-xs text-slate-200 max-w-3xl line-clamp-2 drop-shadow-sm">
+                          {activeHomeEvent.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Switch Event Dropdown / Button */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedHomeEventId(null)}
+                        className="px-4 py-2.5 rounded-xl bg-black/50 hover:bg-black/70 text-white text-xs font-bold border border-white/20 backdrop-blur-md transition flex items-center gap-1.5 shadow-md active:scale-95"
+                      >
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                        Ganti / Pilih Event Lain
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 {/* BARIS LINK RESMI KE CETAS VOTE, CETAS TICKETING, PENDAFTARAN & CETAS.SCORE */}
-                <div className="pt-4 border-t border-white/15">
-                  <div className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 mb-2.5">
-                    🔗 Link Akses Cepat Event Ini (Cetas Vote, Cetas Ticketing & Rekap Nilai):
+                <div className="p-5 sm:p-6 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                      Link Akses Cepat Event Ini:
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      Terintegrasi Ekosistem Cetas
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <Link
                       href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-lg transition group"
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-md shadow-pink-600/20 hover:shadow-pink-600/35 hover:-translate-y-0.5 transition duration-200 group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <Heart className="h-4 w-4 fill-white" />
+                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                          <Heart className="h-4 w-4 fill-white" />
+                        </div>
                         <div>
-                          <div>Buka Cetas Vote</div>
-                          <div className="text-[10px] font-normal text-pink-100">
+                          <div className="font-black text-white text-xs">Buka Cetas Vote</div>
+                          <div className="text-[10px] font-medium text-pink-100">
                             Vote Pleton Favorit Event Ini
                           </div>
                         </div>
                       </div>
-                      <ExternalLink className="h-4 w-4 opacity-80 group-hover:translate-x-0.5 transition" />
+                      <ExternalLink className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
                     </Link>
 
                     <Link
                       href={`/vote?eventId=${activeHomeEvent.id}&tab=TICKETS`}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg transition group"
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-extrabold text-xs shadow-md shadow-blue-600/20 hover:shadow-blue-600/35 hover:-translate-y-0.5 transition duration-200 group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <Ticket className="h-4 w-4" />
+                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                          <Ticket className="h-4 w-4 text-white" />
+                        </div>
                         <div>
-                          <div>Buka Cetas Ticketing</div>
-                          <div className="text-[10px] font-normal text-blue-100">
+                          <div className="font-black text-white text-xs">Buka Cetas Ticketing</div>
+                          <div className="text-[10px] font-medium text-blue-100">
                             Beli E-Tiket Masuk Arena
                           </div>
                         </div>
                       </div>
-                      <ExternalLink className="h-4 w-4 opacity-80 group-hover:translate-x-0.5 transition" />
+                      <ExternalLink className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
                     </Link>
 
                     <Link
                       href="/register-event"
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-extrabold text-xs transition group"
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 hover:shadow-emerald-600/35 hover:-translate-y-0.5 transition duration-200 group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                          <CheckCircle2 className="h-4 w-4 text-white" />
+                        </div>
                         <div>
-                          <div>Pendaftaran Peserta</div>
-                          <div className="text-[10px] font-normal text-slate-300">
+                          <div className="font-black text-white text-xs">Pendaftaran Peserta</div>
+                          <div className="text-[10px] font-medium text-emerald-100">
                             Registrasi Kontingen Online
                           </div>
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
                     </Link>
 
                     <Link
                       href="/rekap"
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-extrabold text-xs transition group"
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-md shadow-purple-600/20 hover:shadow-purple-600/35 hover:-translate-y-0.5 transition duration-200 group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <Monitor className="h-4 w-4 text-amber-400" />
+                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                          <Monitor className="h-4 w-4 text-white" />
+                        </div>
                         <div>
-                          <div>Rekap Detail Cetas.Score</div>
-                          <div className="text-[10px] font-normal text-slate-300">
+                          <div className="font-black text-white text-xs">Rekap Detail Cetas.Score</div>
+                          <div className="text-[10px] font-medium text-purple-100">
                             Tabel Nilai Juri & Videotron
                           </div>
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
                     </Link>
                   </div>
                 </div>

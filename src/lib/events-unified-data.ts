@@ -274,7 +274,7 @@ export function mergeEventsWithLocal(
         ? loc.bannerUrl
         : srv.bannerUrl || loc.bannerUrl || "";
 
-    if (locTime > srvTime) {
+    if (locTime >= srvTime) {
       return {
         ...srv,
         ...loc,
@@ -282,7 +282,7 @@ export function mergeEventsWithLocal(
         tiers:
           Array.isArray(loc.tiers) && loc.tiers.length > 0
             ? loc.tiers
-            : srv.tiers,
+            : (Array.isArray(srv.tiers) && srv.tiers.length > 0 ? srv.tiers : loc.tiers),
         registrationCategories:
           Array.isArray(loc.registrationCategories) &&
           loc.registrationCategories.length > 0
@@ -295,22 +295,17 @@ export function mergeEventsWithLocal(
         mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
       };
     }
-    if (
-      locTime === srvTime &&
-      Array.isArray(loc.tiers) &&
-      loc.tiers.length > (srv.tiers?.length || 0)
-    ) {
-      return {
-        ...srv,
-        bannerUrl: effectiveBanner,
-        tiers: loc.tiers,
-        isOpenTicketing: loc.isOpenTicketing ?? srv.isOpenTicketing,
-        mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
-      };
-    }
     return {
       ...srv,
       bannerUrl: effectiveBanner,
+      tiers:
+        Array.isArray(srv.tiers) && srv.tiers.length > 0
+          ? srv.tiers
+          : (Array.isArray(loc.tiers) && loc.tiers.length > 0 ? loc.tiers : srv.tiers),
+      registrationCategories:
+        Array.isArray(srv.registrationCategories) && srv.registrationCategories.length > 0
+          ? srv.registrationCategories
+          : loc.registrationCategories,
       mascotUrl: srv.mascotUrl || loc?.mascotUrl || DEFAULT_MASCOT_URL,
     };
   });

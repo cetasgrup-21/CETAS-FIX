@@ -55,6 +55,7 @@ import {
   getEffectiveRegistrationCategories,
   getStoredEvents,
   saveStoredEvents,
+  mergeEventsWithLocal,
 } from "@/lib/events-unified-data";
 
 declare global {
@@ -172,8 +173,10 @@ function VotePageContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          setUnifiedEvents(data.events);
-          saveStoredEvents(data.events);
+          const latestLocal = getStoredEvents();
+          const merged = mergeEventsWithLocal(data.events, latestLocal);
+          setUnifiedEvents(merged);
+          saveStoredEvents(merged);
         }
       })
       .catch(() => {});

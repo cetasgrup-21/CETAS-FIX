@@ -90,13 +90,6 @@ export function getStoredEventVotings(): EventVotingConfig[] {
 export function saveStoredEventVotings(votings: EventVotingConfig[]): void {
   if (typeof window === "undefined") return;
   try {
-    const compact = votings.map((v) => ({
-      ...v,
-      bannerUrl:
-        v.bannerUrl && v.bannerUrl.length > 250000
-          ? "/lkbb-cemara-2026.jpg"
-          : v.bannerUrl,
-    }));
-    localStorage.setItem(VOTE_STORAGE_KEY, JSON.stringify(compact));
+    localStorage.setItem(VOTE_STORAGE_KEY, JSON.stringify(votings));
   } catch {}
 }

@@ -251,17 +251,8 @@ export function saveStoredEvents(events: UnifiedEvent[]): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
-  } catch {
-    try {
-      const compact = events.map((e) => ({
-        ...e,
-        bannerUrl:
-          e.bannerUrl && e.bannerUrl.length > 250000
-            ? "/lkbb-cemara-2026.jpg"
-            : e.bannerUrl,
-      }));
-      localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(compact));
-    } catch {}
+  } catch (err) {
+    console.warn("[saveStoredEvents] localStorage quota warning:", err);
   }
 }
 
@@ -278,10 +269,16 @@ export function mergeEventsWithLocal(
     if (!loc) return srv;
     const locTime = Number(loc.updatedAt) || 0;
     const srvTime = Number(srv.updatedAt) || 0;
+    const effectiveBanner =
+      loc.bannerUrl && loc.bannerUrl !== "/lkbb-cemara-2026.jpg"
+        ? loc.bannerUrl
+        : srv.bannerUrl || loc.bannerUrl || "";
+
     if (locTime > srvTime) {
       return {
         ...srv,
         ...loc,
+        bannerUrl: effectiveBanner,
         tiers:
           Array.isArray(loc.tiers) && loc.tiers.length > 0
             ? loc.tiers
@@ -305,6 +302,7 @@ export function mergeEventsWithLocal(
     ) {
       return {
         ...srv,
+        bannerUrl: effectiveBanner,
         tiers: loc.tiers,
         isOpenTicketing: loc.isOpenTicketing ?? srv.isOpenTicketing,
         mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
@@ -312,6 +310,7 @@ export function mergeEventsWithLocal(
     }
     return {
       ...srv,
+      bannerUrl: effectiveBanner,
       mascotUrl: srv.mascotUrl || loc?.mascotUrl || DEFAULT_MASCOT_URL,
     };
   });

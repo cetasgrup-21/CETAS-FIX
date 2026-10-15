@@ -41,6 +41,7 @@ import {
   getEffectiveRegistrationCategories,
   getStoredEvents,
   saveStoredEvents,
+  mergeEventsWithLocal,
 } from "@/lib/events-unified-data";
 import {
   INITIAL_EVENT_VOTINGS,
@@ -72,8 +73,10 @@ export default function HomePage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          setEventsList(data.events);
-          saveStoredEvents(data.events);
+          const currentLocal = getStoredEvents();
+          const merged = mergeEventsWithLocal(data.events, currentLocal);
+          setEventsList(merged);
+          saveStoredEvents(merged);
         }
       })
       .catch(() => {});
@@ -605,8 +608,18 @@ export default function HomePage() {
             /* ==================================================================== */
             <div className="space-y-8 animate-in fade-in duration-300">
               {/* Banner Ringkas Event Terpilih + Link Pintas Utama */}
-              <div className="rounded-2xl border border-purple-200 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 p-5 sm:p-6 text-white space-y-5">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="relative rounded-2xl border border-purple-200 bg-slate-950 p-5 sm:p-6 text-white space-y-5 overflow-hidden">
+                {activeHomeEvent.bannerUrl && (
+                  <div className="absolute inset-0 z-0 pointer-events-none select-none">
+                    <img
+                      src={activeHomeEvent.bannerUrl}
+                      alt={activeHomeEvent.title}
+                      className="w-full h-full object-cover opacity-20 filter blur-xs"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-purple-950/90 to-slate-950/95" />
+                  </div>
+                )}
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex items-start gap-4">
                     {(activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL) && (
                       <img

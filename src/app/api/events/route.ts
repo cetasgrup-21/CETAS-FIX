@@ -18,8 +18,7 @@ function normTitle(str?: string): string {
 }
 
 function safeBanner(url?: string): string {
-  if (!url) return "/lkbb-cemara-2026.jpg";
-  if (url.length > 350000) return "/lkbb-cemara-2026.jpg";
+  if (!url || typeof url !== "string") return "";
   return url;
 }
 

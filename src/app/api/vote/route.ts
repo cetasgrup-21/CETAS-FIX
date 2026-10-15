@@ -17,8 +17,7 @@ function normTitle(str?: string): string {
 }
 
 function safeBanner(url?: string): string {
-  if (!url) return "/lkbb-cemara-2026.jpg";
-  if (url.length > 250000) return "/lkbb-cemara-2026.jpg";
+  if (!url || typeof url !== "string") return "";
   return url;
 }
 
@@ -45,7 +44,7 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
       events.find((e) => normTitle(e.title) === normTitle(v.eventTitle));
 
     if (matchedEv) {
-      const targetBanner = safeBanner(matchedEv.bannerUrl);
+      const targetBanner = safeBanner(matchedEv.bannerUrl) || matchedEv.bannerUrl;
       if (
         v.eventTitle !== matchedEv.title ||
         v.bannerUrl !== targetBanner ||
@@ -58,9 +57,6 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
         v.themePreset = matchedEv.themePreset || v.themePreset;
         updated = true;
       }
-    } else if (v.bannerUrl && v.bannerUrl.length > 250000) {
-      v.bannerUrl = "/lkbb-cemara-2026.jpg";
-      updated = true;
     }
     cleanVotings.push(v);
   }

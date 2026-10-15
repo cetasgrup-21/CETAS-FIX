@@ -44,12 +44,13 @@ export function FileUpload({
         const img = new window.Image();
         img.onload = () => {
           try {
-            const maxDim = aspectRatio === "square" ? 640 : 960;
+            const isSquare = aspectRatio === "square";
+            const maxDim = isSquare ? 512 : 1200;
             let width = img.width;
             let height = img.height;
 
-            // Jika file PNG sudah berukuran pas (< 1.5MB) dan tidak melebihi maxDim, langsung gunakan hasil asli
-            if (isPng && width <= maxDim && height <= maxDim && file.size < 1.5 * 1024 * 1024) {
+            // Jika file square PNG sudah berukuran pas (< 1MB) dan kecil, langsung gunakan hasil asli
+            if (isSquare && isPng && width <= maxDim && height <= maxDim && file.size < 1024 * 1024) {
               onChange(result, file.name);
               return;
             }
@@ -69,24 +70,19 @@ export function FileUpload({
             canvas.height = height;
             const ctx = canvas.getContext("2d");
             if (ctx) {
-              // Bersihkan kanvas agar transparan 100% tanpa latar hitam default
               ctx.clearRect(0, 0, width, height);
               ctx.drawImage(img, 0, 0, width, height);
 
-              if (isPng) {
-                // Ekspor sebagai PNG 32-bit dengan alpha channel utuh (anti latar hitam)
+              // Untuk Maskot / Logo (square): Selalu jaga transparansi penuh PNG 32-bit (anti background hitam)
+              if (isSquare && (isPng || isWebp)) {
                 const pngData = canvas.toDataURL("image/png");
                 onChange(pngData, file.name);
                 return;
               }
 
-              if (isWebp) {
-                const webpData = canvas.toDataURL("image/webp", 0.85);
-                onChange(webpData, file.name);
-                return;
-              }
-
-              const compressed = canvas.toDataURL("image/jpeg", 0.78);
+              // Untuk Banner Poster: Ekspor JPEG resolusi tinggi teroptimasi (~70-90 KB)
+              // Ini mencegah banner ditolak atau ditimpa default karena ukuran base64 terlalu besar
+              const compressed = canvas.toDataURL("image/jpeg", 0.82);
               onChange(compressed, file.name);
               return;
             }

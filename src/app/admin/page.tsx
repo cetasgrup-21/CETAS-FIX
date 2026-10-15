@@ -1231,6 +1231,58 @@ export default function AdminDashboardPage() {
     } catch {}
   };
 
+  const handleVerifyAttendee = async (
+    id: string,
+    newStatus: "CONFIRMED" | "WAITLIST" | "CANCELLED"
+  ) => {
+    setAttendees((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: newStatus } : a))
+    );
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendeeId: id,
+          action: "UPDATE_STATUS",
+          status: newStatus,
+          verifiedBy: "Admin CETAS",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSyncToast(
+          newStatus === "CONFIRMED"
+            ? "✓ Akun pelatih berhasil diverifikasi & akses dibuka!"
+            : "Akses akun pelatih ditangguhkan."
+        );
+      }
+    } catch {
+      showSyncToast("Gagal memperbarui status verifikasi");
+    }
+  };
+
+  const handleDeleteAttendee = async (id: string, name: string) => {
+    if (!confirm(`Hapus pendaftaran peserta "${name}"? Kuota pendaftaran akan dikembalikan otomatis.`)) return;
+    setAttendees((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendeeId: id,
+          action: "DELETE_ATTENDEE",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSyncToast(`Peserta "${name}" berhasil dihapus.`);
+      }
+    } catch {
+      showSyncToast("Gagal menghapus peserta");
+    }
+  };
+
   const syncVotingsToBackend = async (nextVotings: EventVotingConfig[]) => {
     saveStoredEventVotings(nextVotings);
     try {
@@ -4040,9 +4092,9 @@ export default function AdminDashboardPage() {
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-semibold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                          <th className="p-4">Kode E-Badge & Nama Peserta</th>
+                          <th className="p-4">Kode E-Badge & Nama Pasukan</th>
                           <th className="p-4">Instansi & Kategori</th>
-                          <th className="p-4">Waktu Daftar</th>
+                          <th className="p-4">Status Akun Pelatih</th>
                           <th className="p-4">Status Kehadiran</th>
                           <th className="p-4 text-right">Aksi</th>
                         </tr>
@@ -4080,9 +4132,42 @@ export default function AdminDashboardPage() {
                                 <span className="inline-block text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                                   {atd.category}
                                 </span>
+                                <div className="text-[10px] text-slate-400">
+                                  Daftar: {formatDateTime(atd.registeredAt)}
+                                </div>
                               </td>
-                              <td className="p-4 text-slate-500 text-[11px]">
-                                {formatDateTime(atd.registeredAt)}
+                              <td className="p-4">
+                                <div className="space-y-1">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
+                                      atd.status === "CONFIRMED"
+                                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
+                                        : atd.status === "CANCELLED"
+                                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300"
+                                        : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 animate-pulse"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`h-1.5 w-1.5 rounded-full ${
+                                        atd.status === "CONFIRMED"
+                                          ? "bg-emerald-500"
+                                          : atd.status === "CANCELLED"
+                                          ? "bg-rose-500"
+                                          : "bg-amber-500"
+                                      }`}
+                                    />
+                                    {atd.status === "CONFIRMED"
+                                      ? "TERVERIFIKASI (AKSES BUKA)"
+                                      : atd.status === "CANCELLED"
+                                      ? "DITOLAK / BATAL"
+                                      : "MENUNGGU VERIFIKASI"}
+                                  </span>
+                                  {atd.coachName && (
+                                    <div className="text-[10px] text-slate-500">
+                                      Pelatih: <span className="font-bold text-slate-700 dark:text-slate-300">{atd.coachName}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td className="p-4">
                                 <span
@@ -4100,12 +4185,36 @@ export default function AdminDashboardPage() {
                                   {atd.isPresent ? "HADIR" : "BELUM HADIR"}
                                 </span>
                               </td>
-                              <td className="p-4 text-right">
+                              <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                                {atd.status !== "CONFIRMED" ? (
+                                  <button
+                                    onClick={() => handleVerifyAttendee(atd.id, "CONFIRMED")}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black shadow-xs transition inline-flex items-center gap-1"
+                                    title="Setujui pendaftaran dan buka akses portal pelatih"
+                                  >
+                                    ✓ Buka Akses
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleVerifyAttendee(atd.id, "WAITLIST")}
+                                    className="px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 text-[11px] font-bold transition inline-flex items-center gap-1"
+                                    title="Kunci kembali akses portal pelatih"
+                                  >
+                                    Tangguhkan
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleToggleAttendeePresence(atd.id)}
                                   className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-bold hover:bg-slate-100 transition"
                                 >
-                                  {atd.isPresent ? "Batalkan Hadir" : "Tandai Hadir"}
+                                  {atd.isPresent ? "Batal Hadir" : "Tandai Hadir"}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteAttendee(atd.id, atd.fullName)}
+                                  className="px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-[11px] font-bold transition"
+                                  title="Hapus peserta"
+                                >
+                                  Hapus
                                 </button>
                               </td>
                             </tr>

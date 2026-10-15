@@ -43,6 +43,12 @@ export interface RegisteredAttendee {
   registeredAt: string;
   isPresent: boolean;
   status: "CONFIRMED" | "WAITLIST" | "CANCELLED";
+  coachName?: string;
+  coachPhone?: string;
+  dantonName?: string;
+  teamMembersCount?: number;
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 
 // Data awal registrasi bersih

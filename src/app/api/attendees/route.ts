@@ -29,6 +29,11 @@ const registrationSchema = z.object({
   category: z.string().min(1, "Kategori peserta wajib dipilih"),
   notes: z.string().optional(),
   portfolioUrl: z.string().optional(),
+  coachName: z.string().optional(),
+  coachPhone: z.string().optional(),
+  dantonName: z.string().optional(),
+  teamMembersCount: z.number().optional(),
+  status: z.enum(["CONFIRMED", "WAITLIST", "CANCELLED"]).optional(),
 });
 
 function mapLevelCodeToPrismaLevel(levelCode: string, fallbackName: string) {
@@ -204,6 +209,43 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Cari satu peserta secara spesifik berdasarkan badgeCode / email / phone untuk Portal Pelatih
+  const badgeQuery = (searchParams.get("badgeCode") || searchParams.get("code") || searchParams.get("query") || "").trim().toLowerCase();
+  if (badgeQuery) {
+    const matched = allAttendees.find(
+      (a) =>
+        a.badgeCode.toLowerCase() === badgeQuery ||
+        a.email.toLowerCase() === badgeQuery ||
+        a.phone.replace(/\D/g, "") === badgeQuery.replace(/\D/g, "") ||
+        a.id.toLowerCase() === badgeQuery
+    );
+
+    if (!matched) {
+      return NextResponse.json(
+        { success: false, message: "Akun pasukan / Kode E-Badge tidak ditemukan di database CETAS" },
+        { status: 404 }
+      );
+    }
+
+    const matchedEvent = events.find((e) => e.id === matched.eventId) || events[0];
+    const matchedTeam = (matchedEvent?.lkbbTeams || []).find(
+      (t) =>
+        (t.teamName && matched.fullName && t.teamName.toLowerCase().trim() === matched.fullName.toLowerCase().trim()) ||
+        (t.school && matched.institution && t.school.toLowerCase().trim() === matched.institution.toLowerCase().trim()) ||
+        (t.number && matched.candidateNumber && t.number === matched.candidateNumber)
+    ) || null;
+
+    return NextResponse.json(
+      {
+        success: true,
+        attendee: matched,
+        event: matchedEvent,
+        lkbbTeam: matchedTeam,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   const attendees = eventId
     ? allAttendees.filter((a) => a.eventId === eventId)
     : allAttendees;
@@ -330,10 +372,11 @@ export async function POST(req: NextRequest) {
     const nextNumberInt = sameCategoryTeams.length + 1;
     const candidateNumber = String(nextNumberInt).padStart(2, "0");
 
-    // 1. Buat Data E-Badge Attendee
+    // 1. Buat Data E-Badge Attendee (Status Awal = WAITLIST / Menunggu Verifikasi Admin CETAS)
     const randomDigits = Math.floor(10000 + Math.random() * 90000);
     const badgeCode = `CETAS-ATD-2026-${randomDigits}`;
-    const qrPayload = `${badgeCode}|${resolvedEventTitle}|${validated.fullName}|${categoryTitle}|CONFIRMED`;
+    const initialStatus = validated.status || "WAITLIST";
+    const qrPayload = `${badgeCode}|${resolvedEventTitle}|${validated.fullName}|${categoryTitle}|${initialStatus}`;
 
     const newAttendee: RegisteredAttendee = {
       id: `atd-${Date.now()}`,
@@ -352,7 +395,11 @@ export async function POST(req: NextRequest) {
       qrPayload,
       registeredAt: new Date().toISOString(),
       isPresent: false,
-      status: "CONFIRMED",
+      status: initialStatus,
+      coachName: validated.coachName || "",
+      coachPhone: validated.coachPhone || validated.phone,
+      dantonName: validated.dantonName || "",
+      teamMembersCount: validated.teamMembersCount || 16,
     };
 
     const nextAttendees = [newAttendee, ...attendees];
@@ -542,11 +589,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH: Update status kehadiran (Check-in di gate) atau hapus peserta
+// PATCH: Update status verifikasi, kehadiran (Check-in), atau hapus peserta
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, attendeeId, eventId, isOpenOnline } = body;
+    const { action, attendeeId, id, badgeCode, eventId, isOpenOnline, status, verifiedBy, coachName, coachPhone, dantonName } = body;
+    const targetLookup = attendeeId || id || badgeCode;
 
     if (action === "TOGGLE_EVENT_REGISTRATION" && eventId) {
       const events = await getEventsStore();
@@ -562,30 +610,129 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    if (action === "MARK_ATTENDANCE" && attendeeId) {
+    // Aksi 1: Verifikasi / Ubah Status Akun Pasukan (CONFIRMED / WAITLIST / CANCELLED)
+    if (action === "UPDATE_STATUS" || action === "VERIFY_ATTENDEE") {
+      const [attendees, events] = await Promise.all([
+        getAttendeesStore(),
+        getEventsStore(),
+      ]);
+
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const nextStatus = (status || "CONFIRMED") as "CONFIRMED" | "WAITLIST" | "CANCELLED";
+      attendees[idx].status = nextStatus;
+
+      if (nextStatus === "CONFIRMED") {
+        attendees[idx].verifiedAt = new Date().toISOString();
+        attendees[idx].verifiedBy = verifiedBy || "Admin CETAS";
+
+        // Pastikan terdaftar di lkbbTeams pada event terkait
+        const evIdx = events.findIndex((e) => e.id === attendees[idx].eventId);
+        if (evIdx !== -1) {
+          const lkbbList = events[evIdx].lkbbTeams ? [...events[evIdx].lkbbTeams] : [];
+          const alreadyExists = lkbbList.some(
+            (t) =>
+              t.teamName.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
+              t.school.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
+          );
+
+          if (!alreadyExists) {
+            lkbbList.push({
+              id: `team-verif-${Date.now()}`,
+              number: attendees[idx].candidateNumber || "01",
+              school: attendees[idx].institution,
+              teamName: attendees[idx].fullName,
+              level: attendees[idx].levelCode || "SMP",
+              categoryName: attendees[idx].category,
+              pbbMurni: 0,
+              variasiFormasi: 0,
+              danton: 0,
+              kostum: 0,
+              penalty: 0,
+              totalScore: 0,
+              status: "BELUM_TAMPIL",
+            });
+            events[evIdx].lkbbTeams = lkbbList;
+            await saveEventsStore(events);
+          }
+        }
+      }
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message:
+          nextStatus === "CONFIRMED"
+            ? `Akun pasukan "${attendees[idx].fullName}" berhasil DIVERIFIKASI! Akses portal pelatih kini telah terbuka.`
+            : `Status akun pasukan "${attendees[idx].fullName}" diubah menjadi: ${nextStatus}`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 2: Check-in Kehadiran di Gate (Tandai Hadir / Batal Hadir)
+    if (action === "CHECK_IN" || action === "MARK_ATTENDANCE") {
       const attendees = await getAttendeesStore();
-      const idx = attendees.findIndex((a) => a.id === attendeeId);
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+
       if (idx !== -1) {
-        attendees[idx].isPresent = !attendees[idx].isPresent;
+        if (body.isPresent !== undefined) {
+          attendees[idx].isPresent = Boolean(body.isPresent);
+        } else {
+          attendees[idx].isPresent = !attendees[idx].isPresent;
+        }
+
         await saveAttendeesStore(attendees);
         return NextResponse.json({
           success: true,
           message: `Status kehadiran ${attendees[idx].fullName} diubah menjadi: ${
-            attendees[idx].isPresent ? "HADIR (Check-in)" : "BELUM HADIR"
+            attendees[idx].isPresent ? "HADIR (Check-in Gate)" : "BELUM HADIR"
           }`,
           attendee: attendees[idx],
         });
       }
     }
 
-    if (action === "DELETE_ATTENDEE" && attendeeId) {
+    // Aksi 3: Perbarui Data Pelatih / Pasukan
+    if (action === "UPDATE_COACH_INFO") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+
+      if (idx !== -1) {
+        if (coachName) attendees[idx].coachName = coachName;
+        if (coachPhone) attendees[idx].coachPhone = coachPhone;
+        if (dantonName) attendees[idx].dantonName = dantonName;
+        await saveAttendeesStore(attendees);
+        return NextResponse.json({
+          success: true,
+          message: "Data pelatih berhasil diperbarui",
+          attendee: attendees[idx],
+        });
+      }
+    }
+
+    // Aksi 4: Hapus Peserta & Kembalikan Kuota
+    if (action === "DELETE_ATTENDEE" && targetLookup) {
       const [attendees, events, votings] = await Promise.all([
         getAttendeesStore(),
         getEventsStore(),
         getVotingsStore(),
       ]);
-      const target = attendees.find((a) => a.id === attendeeId);
-      const next = attendees.filter((a) => a.id !== attendeeId);
+      const target = attendees.find((a) => a.id === targetLookup || a.badgeCode === targetLookup);
+      const next = attendees.filter((a) => a.id !== targetLookup && a.badgeCode !== targetLookup);
       await saveAttendeesStore(next);
 
       if (target) {
@@ -658,4 +805,9 @@ export async function PATCH(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// PUT: Terhubung ke handler PATCH agar kompatibel dengan pemanggilan PUT maupun PATCH
+export async function PUT(req: NextRequest) {
+  return PATCH(req);
 }

@@ -455,6 +455,15 @@ export default function RegisterEventPage() {
               </button>
 
               <Link
+                href={`/pelatih?code=${encodeURIComponent(badgeResult.attendee.badgeCode)}`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black px-5 py-3 text-xs shadow-md shadow-purple-600/30 transition"
+              >
+                <ShieldCheck className="h-4 w-4 text-cyan-300" />
+                Buka Portal Pelatih & Rekap Pasukan
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+
+              <Link
                 href={`/vote?eventId=${badgeResult.event.id}&tab=VOTE`}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black px-5 py-3 text-xs shadow-md transition"
               >
@@ -465,7 +474,7 @@ export default function RegisterEventPage() {
 
               <Link
                 href="/#pusat-peringkat-event"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black px-5 py-3 text-xs shadow-md transition"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-black px-5 py-3 text-xs shadow-md transition"
               >
                 <Award className="h-4 w-4" />
                 Lihat di Klasemen Score

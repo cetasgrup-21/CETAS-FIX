@@ -26,6 +26,7 @@ export interface EventVotingConfig {
   eventTitle: string;
   eventDate: string;
   bannerUrl: string;
+  mascotUrl?: string;
   themePreset?: EventThemePreset;
   categories: VoteCategory[];
 }
@@ -36,6 +37,7 @@ export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
     eventTitle: "LKBB CEMARA 2026",
     eventDate: "2026-11-28",
     bannerUrl: "/lkbb-cemara-2026.jpg",
+    mascotUrl: "/mascot/ceti_transparent.png",
     themePreset: "EMERALD",
     categories: [
       {

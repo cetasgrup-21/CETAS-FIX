@@ -18,6 +18,7 @@ import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-securi
 import { DokuPaymentModal } from "@/components/doku-payment-modal";
 import {
   INITIAL_UNIFIED_EVENTS,
+  DEFAULT_MASCOT_URL,
   UnifiedEvent,
   getStoredEvents,
   saveStoredEvents,
@@ -39,6 +40,7 @@ interface EventItem {
   date: string;
   location: string;
   bannerUrl: string;
+  mascotUrl?: string;
   description: string;
   themePreset?: EventThemePreset;
   tiers: TicketTier[];
@@ -89,6 +91,7 @@ function mapToTicketingEvents(list: UnifiedEvent[]): EventItem[] {
         date: e.date,
         location: e.location,
         bannerUrl: e.bannerUrl,
+        mascotUrl: e.mascotUrl || DEFAULT_MASCOT_URL,
         description: e.description,
         themePreset: e.themePreset,
         tiers,
@@ -321,6 +324,17 @@ export default function EventsPage() {
                       Tema: {theme.name.split(" ")[0]}
                     </span>
                   </div>
+
+                  {/* Floating Mascot in Ticketing Card */}
+                  {event.mascotUrl && (
+                    <div className="absolute bottom-2 right-2 z-10 pointer-events-none select-none">
+                      <img
+                        src={event.mascotUrl}
+                        alt="Maskot Event"
+                        className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)]"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Event Details & Tiers */}
@@ -401,14 +415,23 @@ export default function EventsPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start bg-black/60 backdrop-blur-sm">
           <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 my-4 sm:my-8 max-h-[92vh] flex flex-col">
             <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4 shrink-0">
-              <div>
-                <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                  Konfirmasi Pembelian Tiket
-                </span>
-                <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
-                  {selectedTier.tier.name}
-                </h3>
-                <p className="text-xs text-slate-500">{selectedTier.event.title}</p>
+              <div className="flex items-center gap-3">
+                {selectedTier.event.mascotUrl && (
+                  <img
+                    src={selectedTier.event.mascotUrl}
+                    alt="Maskot"
+                    className="w-11 h-11 object-contain drop-shadow bg-slate-50 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200 dark:border-slate-700 shrink-0"
+                  />
+                )}
+                <div>
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+                    Konfirmasi Pembelian Tiket
+                  </span>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                    {selectedTier.tier.name}
+                  </h3>
+                  <p className="text-xs text-slate-500">{selectedTier.event.title}</p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedTier(null)}

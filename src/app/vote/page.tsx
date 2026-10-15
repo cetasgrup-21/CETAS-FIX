@@ -48,6 +48,7 @@ import {
 } from "@/lib/vote-unified-data";
 import {
   INITIAL_UNIFIED_EVENTS,
+  DEFAULT_MASCOT_URL,
   UnifiedEvent,
   UnifiedTicketTier,
   RegistrationCategoryQuota,
@@ -222,6 +223,7 @@ function VotePageContent() {
     id: string;
     title: string;
     bannerUrl: string;
+    mascotUrl?: string;
     themePreset: EventThemePreset;
     date: string;
     time: string;
@@ -257,6 +259,7 @@ function VotePageContent() {
       id: ue.id,
       title: ue.title,
       bannerUrl: ue.bannerUrl,
+      mascotUrl: ue.mascotUrl || DEFAULT_MASCOT_URL,
       themePreset: ue.themePreset || "FLAME",
       date: ue.date,
       time: ue.time || "09:00 - 17:00 WIB",
@@ -283,12 +286,14 @@ function VotePageContent() {
     if (existing) {
       existing.categories = ev.categories || [];
       if (ev.bannerUrl && !existing.bannerUrl) existing.bannerUrl = ev.bannerUrl;
+      if (ev.mascotUrl && !existing.mascotUrl) existing.mascotUrl = ev.mascotUrl;
       if (ev.themePreset) existing.themePreset = ev.themePreset;
     } else {
       allEventsMap.set(ev.eventId, {
         id: ev.eventId,
         title: ev.eventTitle,
         bannerUrl: ev.bannerUrl,
+        mascotUrl: ev.mascotUrl || DEFAULT_MASCOT_URL,
         themePreset: ev.themePreset || "GOLDEN",
         date: ev.eventDate,
         time: "09:00 - 17:00 WIB",
@@ -756,6 +761,15 @@ function VotePageContent() {
                           </span>
                         )}
                       </div>
+
+                      {/* Floating Mascot */}
+                      {ev.mascotUrl && (
+                        <img
+                          src={ev.mascotUrl}
+                          alt="Maskot Event"
+                          className="absolute -bottom-1 right-2 w-14 h-14 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] z-10 pointer-events-none group-hover:scale-110 transition-transform duration-300"
+                        />
+                      )}
                     </div>
 
                     {/* Card Content */}
@@ -839,7 +853,7 @@ function VotePageContent() {
           </div>
 
           {/* Hero Banner Dashboard Event */}
-          <div className="relative rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 text-white shadow-xl">
+          <div className="relative rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 text-white shadow-xl min-h-[260px] sm:min-h-[300px]">
             <div className="relative h-64 sm:h-72 w-full overflow-hidden">
               <img
                 src={activeEvent.bannerUrl}
@@ -849,7 +863,18 @@ function VotePageContent() {
               <div className={`absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent`} />
             </div>
 
-            <div className="absolute inset-0 p-6 sm:p-10 flex flex-col justify-end space-y-3">
+            {/* FLOATING HERO MASCOT (Referenced from cetas.id hero-mascot) */}
+            {activeEvent.mascotUrl && (
+              <div className="absolute right-4 sm:right-8 md:right-12 bottom-0 z-10 pointer-events-none select-none flex items-end">
+                <img
+                  src={activeEvent.mascotUrl}
+                  alt="Maskot Event"
+                  className="w-32 h-32 sm:w-44 sm:h-44 md:w-56 md:h-56 lg:w-64 lg:h-64 object-contain object-bottom drop-shadow-[0_15px_30px_rgba(0,0,0,0.65)] hover:scale-105 transition-transform"
+                />
+              </div>
+            )}
+
+            <div className="absolute inset-0 p-6 sm:p-10 flex flex-col justify-end space-y-3 pr-28 sm:pr-48 md:pr-64">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-[10px] font-extrabold uppercase px-3 py-1 rounded-full shadow-md ${activeTheme.badgeClass}`}>
                   {activeTheme.name}

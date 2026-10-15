@@ -48,10 +48,12 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
       const targetBanner = safeBanner(matchedEv.bannerUrl);
       if (
         v.eventTitle !== matchedEv.title ||
-        v.bannerUrl !== targetBanner
+        v.bannerUrl !== targetBanner ||
+        v.mascotUrl !== matchedEv.mascotUrl
       ) {
         v.eventTitle = matchedEv.title;
         v.bannerUrl = targetBanner;
+        v.mascotUrl = matchedEv.mascotUrl || v.mascotUrl || "/mascot/ceti_transparent.png";
         v.eventDate = matchedEv.date;
         v.themePreset = matchedEv.themePreset || v.themePreset;
         updated = true;
@@ -75,6 +77,7 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
         eventTitle: ev.title,
         eventDate: ev.date,
         bannerUrl: safeBanner(ev.bannerUrl),
+        mascotUrl: ev.mascotUrl || "/mascot/ceti_transparent.png",
         themePreset: ev.themePreset || "EMERALD",
         categories: [
           {
@@ -387,6 +390,7 @@ export async function POST(req: NextRequest) {
         eventTitle: eventTitle || "Event Baru Cetas Vote",
         eventDate: eventDate || new Date().toISOString().split("T")[0],
         bannerUrl: safeBanner(bannerUrl),
+        mascotUrl: body.mascotUrl || "/mascot/ceti_transparent.png",
         themePreset: themePreset || "EMERALD",
         categories: [
           {

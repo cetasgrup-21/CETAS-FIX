@@ -35,6 +35,7 @@ import {
 import { AntmanMascot } from "@/components/antman-mascot";
 import {
   INITIAL_UNIFIED_EVENTS,
+  DEFAULT_MASCOT_URL,
   UnifiedEvent,
   LKBBTeamScore,
   getEffectiveRegistrationCategories,
@@ -485,7 +486,7 @@ export default function HomePage() {
                               </span>
                             </div>
 
-                            <div className="absolute bottom-3.5 left-3.5 right-3.5">
+                            <div className="absolute bottom-3.5 left-3.5 right-3.5 pr-16 sm:pr-20">
                               <div className="text-[11px] font-bold text-purple-200 mb-0.5">
                                 {ev.organizer}
                               </div>
@@ -493,6 +494,15 @@ export default function HomePage() {
                                 {ev.title}
                               </h3>
                             </div>
+
+                            {/* Floating Event Mascot on Card */}
+                            {(ev.mascotUrl || DEFAULT_MASCOT_URL) && (
+                              <img
+                                src={ev.mascotUrl || DEFAULT_MASCOT_URL}
+                                alt="Maskot Event"
+                                className="absolute -bottom-1 right-2.5 w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)] z-10 pointer-events-none group-hover:scale-110 transition-transform duration-300"
+                              />
+                            )}
                           </div>
 
                           {/* Event Info & Feature Badges */}
@@ -597,22 +607,31 @@ export default function HomePage() {
               {/* Banner Ringkas Event Terpilih + Link Pintas Utama */}
               <div className="rounded-2xl border border-purple-200 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 p-5 sm:p-6 text-white space-y-5">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-500 text-white">
-                        {activeHomeEvent.category}
-                      </span>
-                      <span className="text-xs text-purple-200 font-semibold">
-                        📅 {activeHomeEvent.date} ({activeHomeEvent.time}) • 📍{" "}
-                        {activeHomeEvent.location}
-                      </span>
+                  <div className="flex items-start gap-4">
+                    {(activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL) && (
+                      <img
+                        src={activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL}
+                        alt="Maskot Event"
+                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.6)] shrink-0 bg-white/5 rounded-2xl p-1 border border-white/10"
+                      />
+                    )}
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-500 text-white">
+                          {activeHomeEvent.category}
+                        </span>
+                        <span className="text-xs text-purple-200 font-semibold">
+                          📅 {activeHomeEvent.date} ({activeHomeEvent.time}) • 📍{" "}
+                          {activeHomeEvent.location}
+                        </span>
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-black text-white">
+                        {activeHomeEvent.title}
+                      </h3>
+                      <p className="text-xs text-slate-300 max-w-3xl">
+                        {activeHomeEvent.description}
+                      </p>
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-black text-white">
-                      {activeHomeEvent.title}
-                    </h3>
-                    <p className="text-xs text-slate-300 max-w-3xl">
-                      {activeHomeEvent.description}
-                    </p>
                   </div>
 
                   {/* Quick Switch Event Dropdown / Button */}

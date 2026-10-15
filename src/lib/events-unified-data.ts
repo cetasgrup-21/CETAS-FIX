@@ -65,7 +65,76 @@ export interface UnifiedEvent {
   // Data Peserta & Peringkat LKBB (Cetas.Score)
   lkbbTeams?: LKBBTeamScore[];
   updatedAt?: number;
+
+  // Maskot Resmi Event
+  mascotUrl?: string;
 }
+
+export interface MascotOption {
+  id: string;
+  name: string;
+  url: string;
+  tagline: string;
+}
+
+export const CETAS_MASCOT_PRESETS: MascotOption[] = [
+  {
+    id: "ceti-transparent",
+    name: "Ceti (Maskot Resmi Transparan)",
+    url: "/mascot/ceti_transparent.png",
+    tagline: "Maskot robot semut cerdas ikonik CETAS dengan latar transparan",
+  },
+  {
+    id: "ceti-classic",
+    name: "Ceti Original",
+    url: "/mascot/ceti.png",
+    tagline: "Pose standar Ceti CETAS Official",
+  },
+  {
+    id: "cetas-ant-thumbsup",
+    name: "Cetas Ant (Jempol Juara)",
+    url: "/mascot/cetas_ant_thumbsup.png",
+    tagline: "Semut juara memberi acungan jempol",
+  },
+  {
+    id: "cetas-ant-waving",
+    name: "Cetas Ant (Melambaikan Tangan)",
+    url: "/mascot/cetas_ant_waving.png",
+    tagline: "Semut ceria menyambut seluruh peserta & penonton",
+  },
+  {
+    id: "anty-purple-thumbsup",
+    name: "Anty Purple (Pose Jempol)",
+    url: "/mascot/anty_purple_thumbsup.png",
+    tagline: "Anty edisi ungu elegan dengan pose jempol",
+  },
+  {
+    id: "anty-purple-waving",
+    name: "Anty Purple (Melambai Ramah)",
+    url: "/mascot/anty_purple_waving.png",
+    tagline: "Anty edisi ungu menyapa para hadirin event",
+  },
+  {
+    id: "anty-purple-full",
+    name: "Anty Purple (Full Body)",
+    url: "/mascot/anty_purple_full.png",
+    tagline: "Pose lengkap Anty Purple berdiri tegak",
+  },
+  {
+    id: "antman-thumbsup",
+    name: "Ant-Man Champion",
+    url: "/mascot/antman_thumbsup.png",
+    tagline: "Karakter Ant-Man tangguh untuk kompetisi & kejuaraan",
+  },
+  {
+    id: "antman-waving",
+    name: "Ant-Man Ranger",
+    url: "/mascot/antman_waving.png",
+    tagline: "Ant-Man ramah memandu peserta lomba",
+  },
+];
+
+export const DEFAULT_MASCOT_URL = "/mascot/ceti_transparent.png";
 
 export function normalizeCategoryLevelCode(rawName: string): string {
   const s = String(rawName || "").toUpperCase().trim();
@@ -138,6 +207,7 @@ export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
     location: "SMK BUDI MURNI 2 JAKARTA",
     locationType: "OFFLINE",
     bannerUrl: "/lkbb-cemara-2026.jpg",
+    mascotUrl: "/mascot/ceti_transparent.png",
     description:
       "Kejuaraan Lomba Keterampilan Baris-Berbaris (LKBB) CEMARA 2026 di SMK Budi Murni 2 Jakarta. Terintegrasi dengan sistem penilaian digital real-time Cetas.Score, E-Voting Juara Favorit (Cetas Vote), dan E-Ticketing resmi.",
     status: "PUBLISHED",
@@ -261,6 +331,7 @@ export function mergeEventsWithLocal(
           Array.isArray(loc.lkbbTeams) && loc.lkbbTeams.length >= (srv.lkbbTeams?.length || 0)
             ? loc.lkbbTeams
             : srv.lkbbTeams,
+        mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
       };
     }
     if (
@@ -272,9 +343,13 @@ export function mergeEventsWithLocal(
         ...srv,
         tiers: loc.tiers,
         isOpenTicketing: loc.isOpenTicketing ?? srv.isOpenTicketing,
+        mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
       };
     }
-    return srv;
+    return {
+      ...srv,
+      mascotUrl: srv.mascotUrl || loc?.mascotUrl || DEFAULT_MASCOT_URL,
+    };
   });
 
   for (const loc of localEvents) {

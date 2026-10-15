@@ -65,6 +65,8 @@ import {
   getStoredEvents,
   saveStoredEvents,
   mergeEventsWithLocal,
+  CETAS_MASCOT_PRESETS,
+  DEFAULT_MASCOT_URL,
 } from "@/lib/events-unified-data";
 import {
   INITIAL_UNIFIED_PRODUCTS,
@@ -118,6 +120,94 @@ const EVENT_CATEGORY_OPTIONS = [
   { value: "CUSTOM", label: "+ Ketik Kategori Lainnya (Bebas / Kustom Tanpa Batas)..." },
 ];
 
+function MascotSelector({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const currentMascot = CETAS_MASCOT_PRESETS.find((m) => m.url === value);
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <label className="block text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+            <span>🎭</span>
+            <span>Pilih Maskot Event (Maskot Resmi Cetas / Kustom)</span>
+          </label>
+          <p className="text-[11px] text-slate-500">
+            Maskot akan tampil mengambang resmi di bilik Cetas Vote, Cetas Ticketing, dan banner event.
+          </p>
+        </div>
+        {value && (
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold shrink-0">
+            <span className="text-[10px] text-slate-400">Maskot Terpilih:</span>
+            <img
+              src={value}
+              alt="Maskot"
+              className="h-6 w-6 object-contain drop-shadow"
+            />
+            <span className="text-slate-800 dark:text-slate-200 truncate max-w-[130px]">
+              {currentMascot?.name || "Kustom"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        {CETAS_MASCOT_PRESETS.map((m) => {
+          const isSelected = value === m.url;
+          return (
+            <div
+              key={m.id}
+              onClick={() => onChange(m.url)}
+              className={`p-2.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between group relative ${
+                isSelected
+                  ? "border-orange-500 bg-orange-50/70 dark:bg-orange-950/40 shadow-md ring-2 ring-orange-500/20 scale-[1.02]"
+                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
+              }`}
+            >
+              <div className="h-16 w-full flex items-center justify-center p-1 bg-white/70 dark:bg-slate-800/70 rounded-xl mb-1.5 shadow-inner">
+                <img
+                  src={m.url}
+                  alt={m.name}
+                  className="h-14 w-14 object-contain filter drop-shadow group-hover:scale-105 transition-transform"
+                />
+              </div>
+              {isSelected && (
+                <span className="text-[9px] bg-orange-500 text-white font-extrabold px-1.5 py-0.5 rounded-full absolute top-2 right-2 shadow">
+                  Dipilih ✓
+                </span>
+              )}
+              <div className="text-center pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                <div className="text-[11px] font-black text-slate-900 dark:text-white leading-tight truncate">
+                  {m.name}
+                </div>
+                <div className="text-[9px] text-slate-500 line-clamp-1 mt-0.5">
+                  {m.tagline}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pt-1">
+        <FileUpload
+          label="Atau Upload File Gambar Maskot Kustom Sendiri"
+          description="Format PNG transparan sangat direkomendasikan (Maks. 5 MB)"
+          accept="image/*"
+          value={value}
+          onChange={(dataUrl) => onChange(dataUrl)}
+          aspectRatio="square"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboardPage() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
@@ -160,6 +250,7 @@ export default function AdminDashboardPage() {
     location: "",
     locationType: "OFFLINE" as UnifiedEvent["locationType"],
     bannerUrl: "",
+    mascotUrl: DEFAULT_MASCOT_URL,
     description: "",
     status: "PUBLISHED" as UnifiedEvent["status"],
     isOpenTicketing: true,
@@ -309,6 +400,7 @@ export default function AdminDashboardPage() {
       location: ev.location,
       locationType: ev.locationType,
       bannerUrl: ev.bannerUrl,
+      mascotUrl: ev.mascotUrl || DEFAULT_MASCOT_URL,
       description: ev.description,
       status: ev.status,
       isOpenTicketing: ev.isOpenTicketing,
@@ -525,6 +617,7 @@ export default function AdminDashboardPage() {
       location: "Jakarta Convention Center",
       locationType: "OFFLINE",
       bannerUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80",
+      mascotUrl: DEFAULT_MASCOT_URL,
       description: "Deskripsi acara spektakuler Cetas.",
       status: "PUBLISHED",
       isOpenTicketing: true,
@@ -587,6 +680,7 @@ export default function AdminDashboardPage() {
       location: ev.location,
       locationType: ev.locationType,
       bannerUrl: ev.bannerUrl,
+      mascotUrl: ev.mascotUrl || DEFAULT_MASCOT_URL,
       description: ev.description,
       status: ev.status,
       isOpenTicketing: ev.isOpenTicketing,
@@ -727,6 +821,7 @@ export default function AdminDashboardPage() {
       location: eventForm.location,
       locationType: eventForm.locationType,
       bannerUrl: eventForm.bannerUrl,
+      mascotUrl: eventForm.mascotUrl || DEFAULT_MASCOT_URL,
       description: eventForm.description,
       status: eventForm.status,
       isOpenTicketing: effectiveOpenTicketing,
@@ -2141,6 +2236,15 @@ export default function AdminDashboardPage() {
                           <div className="absolute bottom-2.5 left-3 text-[11px] font-bold text-white/90 drop-shadow">
                             Oleh {ev.organizer}
                           </div>
+
+                          {/* Event Mascot Floating on Card Banner */}
+                          {ev.mascotUrl && (
+                            <img
+                              src={ev.mascotUrl}
+                              alt="Maskot Event"
+                              className="absolute -bottom-1 right-2 w-14 h-14 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] z-10 pointer-events-none group-hover:scale-110 transition-transform duration-300"
+                            />
+                          )}
                         </div>
 
                         {/* Card Content */}
@@ -2284,6 +2388,18 @@ export default function AdminDashboardPage() {
                       <ArrowLeft className="h-4 w-4 text-orange-500" />
                       Semua Event
                     </button>
+                    {selectedEvent.mascotUrl && (
+                      <div className="relative group shrink-0">
+                        <img
+                          src={selectedEvent.mascotUrl}
+                          alt="Maskot"
+                          className="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-2xl p-1 bg-gradient-to-br from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-200 dark:border-orange-900/60 shadow-sm drop-shadow group-hover:scale-105 transition-transform"
+                        />
+                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] font-black text-white shadow">
+                          ✓
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300">
@@ -2578,6 +2694,13 @@ export default function AdminDashboardPage() {
                         value={eventForm.bannerUrl}
                         onChange={(dataUrl) => setEventForm({ ...eventForm, bannerUrl: dataUrl })}
                         aspectRatio="banner"
+                      />
+                    </div>
+
+                    <div>
+                      <MascotSelector
+                        value={eventForm.mascotUrl}
+                        onChange={(val) => setEventForm({ ...eventForm, mascotUrl: val })}
                       />
                     </div>
 
@@ -4997,6 +5120,14 @@ export default function AdminDashboardPage() {
                     onChange={(dataUrl) => setEventForm({ ...eventForm, bannerUrl: dataUrl })}
                     aspectRatio="banner"
                     required
+                  />
+                </div>
+
+                {/* PILIH MASKOT EVENT (CETI, ANTY, DLL) */}
+                <div className="sm:col-span-2">
+                  <MascotSelector
+                    value={eventForm.mascotUrl}
+                    onChange={(val) => setEventForm({ ...eventForm, mascotUrl: val })}
                   />
                 </div>
 

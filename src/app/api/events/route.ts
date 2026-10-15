@@ -57,6 +57,7 @@ function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
   return {
     ...ev,
     bannerUrl: safeBanner(ev.bannerUrl),
+    mascotUrl: ev.mascotUrl || "/mascot/ceti_transparent.png",
     tiers: normalizedTiers,
     registrationCategories: regCats,
     categoryOptions: regCats.map((c) => c.name),
@@ -160,6 +161,7 @@ export async function POST(req: NextRequest) {
       location: body.location || "Jakarta",
       locationType: body.locationType || "OFFLINE",
       bannerUrl: safeBanner(body.bannerUrl),
+      mascotUrl: body.mascotUrl || "/mascot/ceti_transparent.png",
       description: body.description || "Deskripsi resmi event Cetas.",
       status: body.status || "PUBLISHED",
       isOpenTicketing:
@@ -233,6 +235,7 @@ export async function POST(req: NextRequest) {
         eventTitle: newEvent.title,
         eventDate: newEvent.date,
         bannerUrl: newEvent.bannerUrl,
+        mascotUrl: newEvent.mascotUrl || "/mascot/ceti_transparent.png",
         themePreset: newEvent.themePreset || "EMERALD",
         categories: regCats.map((rc) => ({
           id: `cat-${newEvent.id}-${rc.code.toLowerCase()}`,
@@ -319,6 +322,7 @@ export async function PUT(req: NextRequest) {
         location: updates.location || "Jakarta",
         locationType: updates.locationType || "OFFLINE",
         bannerUrl: safeBanner(updates.bannerUrl),
+        mascotUrl: updates.mascotUrl || "/mascot/ceti_transparent.png",
         description: updates.description || "Deskripsi resmi event Cetas.",
         status: updates.status || "PUBLISHED",
         isOpenTicketing:
@@ -349,6 +353,10 @@ export async function PUT(req: NextRequest) {
           updates.bannerUrl !== undefined
             ? safeBanner(updates.bannerUrl)
             : existing.bannerUrl,
+        mascotUrl:
+          updates.mascotUrl !== undefined
+            ? updates.mascotUrl
+            : existing.mascotUrl || "/mascot/ceti_transparent.png",
         tiers:
           Array.isArray(updates.tiers) && updates.tiers.length > 0
             ? updates.tiers.map(
@@ -420,6 +428,7 @@ export async function PUT(req: NextRequest) {
         eventTitle: updatedEvent.title,
         eventDate: updatedEvent.date,
         bannerUrl: safeBanner(updatedEvent.bannerUrl),
+        mascotUrl: updatedEvent.mascotUrl || votings[voteIdx].mascotUrl || "/mascot/ceti_transparent.png",
         themePreset: updatedEvent.themePreset || votings[voteIdx].themePreset,
         categories: existingVoteCats,
       };
@@ -430,6 +439,7 @@ export async function PUT(req: NextRequest) {
         eventTitle: updatedEvent.title,
         eventDate: updatedEvent.date,
         bannerUrl: safeBanner(updatedEvent.bannerUrl),
+        mascotUrl: updatedEvent.mascotUrl || "/mascot/ceti_transparent.png",
         themePreset: updatedEvent.themePreset || "EMERALD",
         categories: regCats.map((rc) => ({
           id: `cat-${updatedEvent.id}-${rc.code.toLowerCase()}`,

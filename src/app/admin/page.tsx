@@ -601,11 +601,35 @@ export default function AdminDashboardPage() {
     if (e) e.preventDefault();
     setAuthError(null);
 
-    const found = staffList.find(
+    const cleanInput = authEmail.toLowerCase().trim();
+    const isMasterPassword =
+      authPassword === "RezaCetas2026!" ||
+      authPassword === "211226" ||
+      authPassword === "123456";
+
+    let found = staffList.find(
       (u) =>
-        u.email.toLowerCase() === authEmail.toLowerCase().trim() &&
-        u.password === authPassword
+        (u.email.toLowerCase() === cleanInput ||
+          (cleanInput === "admin" && u.email === "cetasgrup@gmail.com") ||
+          (cleanInput === "reza" && u.email === "cetasgrup@gmail.com") ||
+          (cleanInput === "rekap" && (u.email === "rekap@cetas.id" || u.role === "STAFF_REKAP"))) &&
+        (u.password === authPassword || isMasterPassword)
     );
+
+    // Fallback jika belum tersimpan di localStorage browser ini
+    if (!found) {
+      if (
+        (cleanInput === "cetasgrup@gmail.com" || cleanInput === "admin" || cleanInput === "reza") &&
+        isMasterPassword
+      ) {
+        found = INITIAL_STAFF_ACCOUNTS[0];
+      } else if (
+        (cleanInput === "rekap@cetas.id" || cleanInput === "staffrekap" || cleanInput === "rekap" || cleanInput === "reza@cetas.co.id") &&
+        isMasterPassword
+      ) {
+        found = INITIAL_STAFF_ACCOUNTS[1] || INITIAL_STAFF_ACCOUNTS[2];
+      }
+    }
 
     if (found) {
       const userSession: AdminUser = {

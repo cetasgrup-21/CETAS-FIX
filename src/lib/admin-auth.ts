@@ -150,6 +150,28 @@ export const INITIAL_STAFF_ACCOUNTS: StaffAccountRecord[] = [
     lastLogin: "Aktif",
     ...ROLE_DEFINITIONS.SUPER_ADMIN,
   },
+  {
+    id: "usr-rekap-01",
+    name: "TIM REKAP CETAS.SCORE",
+    email: "rekap@cetas.id",
+    password: "RezaCetas2026!",
+    role: "STAFF_REKAP",
+    roleTitle: ROLE_DEFINITIONS.STAFF_REKAP.title,
+    avatarColor: "bg-indigo-600 text-white",
+    lastLogin: "Aktif",
+    ...ROLE_DEFINITIONS.STAFF_REKAP,
+  },
+  {
+    id: "usr-rekap-02",
+    name: "STAFF REKAP (OFFICIAL)",
+    email: "staffrekap",
+    password: "123456",
+    role: "STAFF_REKAP",
+    roleTitle: ROLE_DEFINITIONS.STAFF_REKAP.title,
+    avatarColor: "bg-blue-600 text-white",
+    lastLogin: "Aktif",
+    ...ROLE_DEFINITIONS.STAFF_REKAP,
+  },
 ];
 
 const STORAGE_SESSION_KEY = "cetas_admin_current_user_v2";

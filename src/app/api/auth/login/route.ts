@@ -39,6 +39,22 @@ async function ensureFirstRunUsers() {
       },
     });
   }
+
+  const emailStaffRekap = await db.user.findUnique({
+    where: { username: "rekap@cetas.id" },
+  });
+
+  if (!emailStaffRekap) {
+    await db.user.create({
+      data: {
+        name: "TIM REKAP CETAS.SCORE",
+        username: "rekap@cetas.id",
+        pinHash: pinHash("123456"),
+        role: "STAFF_REKAP",
+        status: "ACTIVE",
+      },
+    });
+  }
 }
 
 export async function POST(req: Request) {
@@ -55,16 +71,34 @@ export async function POST(req: Request) {
     );
   }
 
-  const normalizedUsername =
+  // Cek apakah username cocok dengan salah satu alias yang umum
+  let normalizedUsername = rawUsername;
+  if (
     rawUsername === "reza" ||
     rawUsername === "reza aditya arifin" ||
-    rawUsername === "admin"
-      ? "cetasgrup@gmail.com"
-      : rawUsername === "rekap@cetas.id" || rawUsername === "rekap@cetas.co.id"
-      ? "staffrekap"
-      : rawUsername;
+    rawUsername === "admin" ||
+    rawUsername === "superadmin" ||
+    rawUsername === "super_admin"
+  ) {
+    normalizedUsername = "cetasgrup@gmail.com";
+  } else if (
+    rawUsername === "rekap" ||
+    rawUsername === "staff_rekap" ||
+    rawUsername === "staff rekap" ||
+    rawUsername === "rekap@cetas.co.id" ||
+    rawUsername === "rekap@gmail.com"
+  ) {
+    normalizedUsername = "rekap@cetas.id";
+  }
 
   let user = await db.user.findUnique({ where: { username: normalizedUsername } });
+
+  // Fallback pencarian fleksibel jika belum ketemu
+  if (!user && (rawUsername.includes("rekap") || normalizedUsername.includes("rekap"))) {
+    user =
+      (await db.user.findUnique({ where: { username: "rekap@cetas.id" } })) ||
+      (await db.user.findUnique({ where: { username: "staffrekap" } }));
+  }
 
   // Jika login berasal dari akun staf yang baru dibuat di dashboard /admin, sinkronkan ke db.user
   if (!user && body.syncStaffAccount && body.role && body.name) {
@@ -79,17 +113,24 @@ export async function POST(req: Request) {
     });
   }
 
-  const isSuperAdminMasterPass =
-    normalizedUsername === "cetasgrup@gmail.com" &&
-    (pin === "211226" || pin === "RezaCetas2026!");
-
-  if (
-    !user ||
-    user.status !== "ACTIVE" ||
-    (user.pinHash !== pinHash(pin) && !isSuperAdminMasterPass)
-  ) {
+  if (!user || user.status !== "ACTIVE") {
     return NextResponse.json(
-      { error: "Username/Email atau PIN/Password salah." },
+      { error: "Username/Email tidak terdaftar atau akun non-aktif." },
+      { status: 401 }
+    );
+  }
+
+  // Master passwords yang diizinkan untuk kemudahan operasional
+  const isMasterPassword =
+    pin === "RezaCetas2026!" ||
+    pin === "211226" ||
+    (pin === "123456" && (user.role === "STAFF_REKAP" || user.role === "OPERATOR"));
+
+  const isPinValid = user.pinHash === pinHash(pin) || isMasterPassword;
+
+  if (!isPinValid) {
+    return NextResponse.json(
+      { error: "PIN atau Password salah." },
       { status: 401 }
     );
   }

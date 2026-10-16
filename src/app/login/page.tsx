@@ -383,6 +383,21 @@ function LoginForm() {
               ← Kembali ke CETAS.SCORE
             </Link>
 
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-600 space-y-1.5">
+              <div className="font-black text-slate-800 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <span>🔑</span> Kredensial Resmi CETAS.SCORE:
+              </div>
+              <div className="text-[11px] space-y-1">
+                <div>
+                  • <strong>Staff Rekap</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-indigo-700">rekap@cetas.id</code> atau <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-indigo-700">staffrekap</code>
+                  <br />PIN / Password: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">123456</code> atau <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">RezaCetas2026!</code>
+                </div>
+                <div>
+                  • <strong>Super Admin</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-amber-700">cetasgrup@gmail.com</code>
+                  <br />PIN / Password: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">211226</code> atau <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">RezaCetas2026!</code>
+                </div>
+              </div>
+            </div>
           </form>
 
         </div>

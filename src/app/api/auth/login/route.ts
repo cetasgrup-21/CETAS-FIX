@@ -24,32 +24,16 @@ async function ensureFirstRunUsers() {
     });
   }
 
-  const defaultStaffRekap = await db.user.findUnique({
-    where: { username: "staffrekap" },
+  const staffRekapUser = await db.user.findUnique({
+    where: { username: "reza@cetas.co.id" },
   });
 
-  if (!defaultStaffRekap) {
+  if (!staffRekapUser) {
     await db.user.create({
       data: {
-        name: "TIM REKAP CETAS.SCORE",
-        username: "staffrekap",
-        pinHash: pinHash("123456"),
-        role: "STAFF_REKAP",
-        status: "ACTIVE",
-      },
-    });
-  }
-
-  const emailStaffRekap = await db.user.findUnique({
-    where: { username: "rekap@cetas.id" },
-  });
-
-  if (!emailStaffRekap) {
-    await db.user.create({
-      data: {
-        name: "TIM REKAP CETAS.SCORE",
-        username: "rekap@cetas.id",
-        pinHash: pinHash("123456"),
+        name: "Reza",
+        username: "reza@cetas.co.id",
+        pinHash: pinHash("RezaCetas2026!"),
         role: "STAFF_REKAP",
         status: "ACTIVE",
       },
@@ -83,21 +67,22 @@ export async function POST(req: Request) {
     normalizedUsername = "cetasgrup@gmail.com";
   } else if (
     rawUsername === "rekap" ||
+    rawUsername === "staffrekap" ||
     rawUsername === "staff_rekap" ||
     rawUsername === "staff rekap" ||
+    rawUsername === "rekap@cetas.id" ||
     rawUsername === "rekap@cetas.co.id" ||
-    rawUsername === "rekap@gmail.com"
+    rawUsername === "rekap@gmail.com" ||
+    rawUsername === "reza@cetas.co.id"
   ) {
-    normalizedUsername = "rekap@cetas.id";
+    normalizedUsername = "reza@cetas.co.id";
   }
 
   let user = await db.user.findUnique({ where: { username: normalizedUsername } });
 
   // Fallback pencarian fleksibel jika belum ketemu
-  if (!user && (rawUsername.includes("rekap") || normalizedUsername.includes("rekap"))) {
-    user =
-      (await db.user.findUnique({ where: { username: "rekap@cetas.id" } })) ||
-      (await db.user.findUnique({ where: { username: "staffrekap" } }));
+  if (!user && (rawUsername.includes("rekap") || rawUsername.includes("staff"))) {
+    user = await db.user.findUnique({ where: { username: "reza@cetas.co.id" } });
   }
 
   // Jika login berasal dari akun staf yang baru dibuat di dashboard /admin, sinkronkan ke db.user

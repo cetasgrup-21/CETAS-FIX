@@ -301,8 +301,8 @@ export default function ScoreStaffAuthGate({
               </div>
               <div className="text-[11px] space-y-1">
                 <div>
-                  • <strong>Staff Rekap</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-indigo-700">rekap@cetas.id</code> atau <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-indigo-700">staffrekap</code>
-                  <br />PIN / Password: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">123456</code> atau <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">RezaCetas2026!</code>
+                  • <strong>Staff Rekap</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-indigo-700">reza@cetas.co.id</code>
+                  <br />PIN / Password: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">RezaCetas2026!</code>
                 </div>
                 <div>
                   • <strong>Super Admin</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-amber-700">cetasgrup@gmail.com</code>

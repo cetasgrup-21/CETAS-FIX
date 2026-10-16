@@ -612,7 +612,7 @@ export default function AdminDashboardPage() {
         (u.email.toLowerCase() === cleanInput ||
           (cleanInput === "admin" && u.email === "cetasgrup@gmail.com") ||
           (cleanInput === "reza" && u.email === "cetasgrup@gmail.com") ||
-          (cleanInput === "rekap" && (u.email === "rekap@cetas.id" || u.role === "STAFF_REKAP"))) &&
+          (cleanInput === "rekap" && (u.email === "reza@cetas.co.id" || u.role === "STAFF_REKAP"))) &&
         (u.password === authPassword || isMasterPassword)
     );
 
@@ -624,10 +624,10 @@ export default function AdminDashboardPage() {
       ) {
         found = INITIAL_STAFF_ACCOUNTS[0];
       } else if (
-        (cleanInput === "rekap@cetas.id" || cleanInput === "staffrekap" || cleanInput === "rekap" || cleanInput === "reza@cetas.co.id") &&
+        (cleanInput === "reza@cetas.co.id" || cleanInput === "rekap") &&
         isMasterPassword
       ) {
-        found = INITIAL_STAFF_ACCOUNTS[1] || INITIAL_STAFF_ACCOUNTS[2];
+        found = INITIAL_STAFF_ACCOUNTS[1];
       }
     }
 

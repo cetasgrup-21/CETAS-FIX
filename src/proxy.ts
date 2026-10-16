@@ -65,10 +65,15 @@ export async function proxy(request: NextRequest) {
     const role = String(payload.role || "");
 
     if (isAdminSubPage || isProtectedAdminApi) {
-      if (role !== "SUPER_ADMIN" && role !== "OPERATOR") {
+      if (
+        role !== "SUPER_ADMIN" &&
+        role !== "OPERATOR" &&
+        role !== "ADMIN" &&
+        role !== "STAFF_REKAP"
+      ) {
         if (isProtectedApi) {
           return NextResponse.json(
-            { success: false, error: "Akses ditolak: Khusus Super Admin / Operator." },
+            { success: false, error: "Akses ditolak: Khusus Super Admin / Operator / Staff Rekap." },
             { status: 403 }
           );
         }
@@ -80,7 +85,9 @@ export async function proxy(request: NextRequest) {
       if (
         role !== "JUDGE" &&
         role !== "OPERATOR" &&
-        role !== "SUPER_ADMIN"
+        role !== "SUPER_ADMIN" &&
+        role !== "ADMIN" &&
+        role !== "STAFF_REKAP"
       ) {
         if (isProtectedApi) {
           return NextResponse.json(

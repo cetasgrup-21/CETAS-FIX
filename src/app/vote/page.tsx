@@ -1876,11 +1876,46 @@ function VotePageContent() {
             ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh Xendit Gateway dan langsung masuk ke leaderboard realtime.`
             : `E-tiket resmi acara telah terbit dan siap digunakan.`
         }
-        onSuccess={() => {
+        onSuccess={async (verifiedTickets?: any[]) => {
           if (simulatorData?.orderType === "VOTE") {
             applySuccessfulVote();
           } else if (simulatorData?.orderType === "TICKET") {
-            applySuccessfulTicket();
+            try {
+              if (verifiedTickets && verifiedTickets.length > 0) {
+                const vTicket = verifiedTickets[0];
+                setIssuedTicket({
+                  ticketCode: vTicket.ticketCode,
+                  eventName: vTicket.eventName || activeEvent?.title || "CETAS Event",
+                  tierName: `${vTicket.tierName || selectedTier?.name} (${verifiedTickets.length} Tiket)`,
+                  holderName: vTicket.holderName || buyerName,
+                  holderEmail: vTicket.holderEmail || buyerEmail,
+                  date: activeEvent?.date || "-",
+                  location: activeEvent?.location || "-",
+                  qrDataUrl: vTicket.qrDataUrl,
+                });
+              } else if (simulatorData?.orderNumber) {
+                const res = await fetch(`/api/orders/${encodeURIComponent(simulatorData.orderNumber)}/status`);
+                const data = await res.json();
+                if (data.success && data.isPaid && data.tickets && data.tickets.length > 0) {
+                  const vTicket = data.tickets[0];
+                  setIssuedTicket({
+                    ticketCode: vTicket.ticketCode,
+                    eventName: vTicket.eventName || activeEvent?.title || "CETAS Event",
+                    tierName: `${vTicket.tierName || selectedTier?.name} (${data.tickets.length} Tiket)`,
+                    holderName: vTicket.holderName || buyerName,
+                    holderEmail: vTicket.holderEmail || buyerEmail,
+                    date: activeEvent?.date || "-",
+                    location: activeEvent?.location || "-",
+                    qrDataUrl: vTicket.qrDataUrl,
+                  });
+                }
+              }
+            } catch (ticketErr) {
+              console.error("Error setting verified ticket pass:", ticketErr);
+            } finally {
+              setSelectedTier(null);
+              setSimulatorData(null);
+            }
           }
         }}
       />

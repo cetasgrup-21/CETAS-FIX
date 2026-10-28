@@ -156,34 +156,6 @@ export function XenditPaymentModal({
   const seconds = timeLeft % 60;
   const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
-  // Handle simulation strictly via backend endpoint in Test Mode
-  const handleSimulatePayment = async () => {
-    setIsPaying(true);
-    setStatusMessage("Mengirim simulasi pembayaran ke Xendit Sandbox Engine...");
-    setStatusSeverity("info");
-
-    try {
-      const res = await fetch("/api/checkout/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        // Double check status from server to ensure tickets are issued
-        await verifyPaymentStatus(true);
-      } else {
-        alert(data.message || "Simulasi gagal dijalankan");
-      }
-    } catch (err) {
-      console.error("Error simulation:", err);
-      alert("Gagal menghubungi server simulasi");
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
   const handleCompleteSuccess = () => {
     setIsSuccessView(false);
     onSuccess(verifiedTickets);
@@ -497,52 +469,41 @@ export function XenditPaymentModal({
               </div>
             )}
 
-            {/* Hosted Invoice Link if available */}
-            {invoiceUrl && (
-              <div className="pt-1">
+            {/* ACTION BUTTONS (SECURE REAL-TIME VERIFICATION & OFFICIAL CHECKOUT) */}
+            <div className="pt-2 border-t border-slate-100 space-y-2.5">
+              {/* Primary Action: Hosted Checkout via Xendit */}
+              {invoiceUrl && (
                 <a
                   href={invoiceUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 text-xs transition"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3 text-xs shadow-md shadow-blue-500/25 transition active:scale-95"
                 >
-                  <span>Buka Halaman Checkout Resmi Xendit (VA / Multi-Metode)</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Buka Halaman Checkout Resmi Xendit (Bayar QRIS / VA / E-Wallet)</span>
+                  <ExternalLink className="h-4 w-4" />
                 </a>
-              </div>
-            )}
+              )}
 
-            {/* ACTION BUTTONS (SECURE REAL-TIME VERIFICATION) */}
-            <div className="pt-2 border-t border-slate-100 space-y-2">
-              {/* Primary: Real-Time Status Check Button */}
+              {/* Status Check Button */}
               <button
                 type="button"
                 onClick={() => verifyPaymentStatus(true)}
                 disabled={isChecking}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3 text-xs shadow-md shadow-blue-500/20 transition active:scale-95 disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 text-xs transition active:scale-95 disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 ${isChecking ? "animate-spin" : ""}`} />
-                <span>{isChecking ? "Memverifikasi dengan Xendit..." : "Cek Status Pembayaran (Real-Time)"}</span>
+                <RefreshCw className={`h-3.5 w-3.5 ${isChecking ? "animate-spin text-blue-600" : ""}`} />
+                <span>{isChecking ? "Memverifikasi dengan Xendit Gateway..." : "Cek Status Pembayaran (Real-Time)"}</span>
               </button>
 
-              {/* Sandbox Test Mode Simulation Button */}
-              <div className="p-2 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex flex-col items-center gap-1 text-center">
-                <div className="flex items-center gap-1 text-[10px] font-bold text-amber-800">
+              {/* Test Mode Guidance Banner */}
+              <div className="p-2.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-amber-800">
                   <FlaskConical className="h-3.5 w-3.5 text-amber-600" />
                   <span>Xendit Sandbox Test Mode</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSimulatePayment}
-                  disabled={isPaying || isChecking}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 text-[11px] shadow-xs transition active:scale-95 disabled:opacity-50"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  <span>{isPaying ? "Menghubungi Simulator..." : "🧪 Simulasi Bayar Xendit (Khusus Mode Demo)"}</span>
-                </button>
-                <span className="text-[9px] text-amber-700/80">
-                  Memproses pembayaran uji coba resmi melalui Xendit Sandbox Engine
-                </span>
+                <p className="text-[10px] text-amber-700/90 leading-relaxed max-w-sm mx-auto">
+                  Untuk menguji simulasi pembayaran resmi, klik tombol <strong>Buka Halaman Checkout Resmi Xendit</strong> di atas, lalu klik banner merah simulasi di halaman Xendit untuk memicu Webhook & pelunasan resmi.
+                </p>
               </div>
 
               <div className="text-center text-[10px] text-slate-400 mt-1 flex items-center justify-center gap-1">

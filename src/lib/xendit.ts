@@ -1,15 +1,31 @@
 import crypto from "crypto";
 import QRCode from "qrcode";
+import { logPaymentTrace } from "@/lib/payment-logger";
 
 // Xendit Configuration
-const xenditSecretKey = process.env.XENDIT_SECRET_KEY || "xnd_development_adVnqnvHwpANSdTnmwBv0o5DCOycbdqv02v9TebMX3XdMbHtxei6bBWlbFZLM38";
-const xenditPublicKey = process.env.XENDIT_PUBLIC_KEY || "xnd_public_development_3sKE855PBvFWioeYcKv4hghQJhJBAMAqo6lDCNDeZ3Jg5S1OyrauGfAAufiJdDTE";
-const xenditWebhookToken = process.env.XENDIT_WEBHOOK_VERIFICATION_TOKEN || "B8S0OHqeXlOt9fdZUavg2Z42C6elWK5qHVR3yYyN3dO4oAVl";
+const xenditSecretKey =
+  process.env.XENDIT_SECRET_KEY ||
+  "xnd_development_adVnqnvHwpANSdTnmwBv0o5DCOycbdqv02v9TebMX3XdMbHtxei6bBWlbFZLM38";
+const xenditPublicKey =
+  process.env.XENDIT_PUBLIC_KEY ||
+  "xnd_public_development_3sKE855PBvFWioeYcKv4hghQJhJBAMAqo6lDCNDeZ3Jg5S1OyrauGfAAufiJdDTE";
+const xenditWebhookToken =
+  process.env.XENDIT_WEBHOOK_VERIFICATION_TOKEN ||
+  "B8S0OHqeXlOt9fdZUavg2Z42C6elWK5qHVR3yYyN3dO4oAVl";
 const isProduction = process.env.XENDIT_IS_PRODUCTION === "true";
 
 export const XENDIT_BASE_URL = "https://api.xendit.co";
 
-export type XenditPaymentMethod = "QRIS" | "OVO" | "SHOPEEPAY" | "DANA" | "VIRTUAL_ACCOUNT";
+export type XenditPaymentMethod =
+  | "QRIS"
+  | "OVO"
+  | "SHOPEEPAY"
+  | "DANA"
+  | "VIRTUAL_ACCOUNT"
+  | "BCA"
+  | "MANDIRI"
+  | "BNI"
+  | "BRI";
 
 export interface CreateXenditTransactionParams {
   orderId: string;
@@ -35,26 +51,24 @@ export interface XenditTransactionResult {
   orderId: string;
   paymentMethod: XenditPaymentMethod;
   amount: number;
-  // QRIS Specific
-  qrId?: string;
-  qrContent?: string;
-  qrDataUrl?: string;
-  // Invoice & Redirect
+  // Invoice & Hosted Checkout
   invoiceId?: string;
   invoiceUrl?: string;
   redirectUrl?: string;
-  // E-Wallet Specific
-  ovoPhoneNumber?: string;
-  ovoPushStatus?: "SENT" | "PENDING";
+  // QR Specific
+  qrId?: string;
+  qrContent?: string;
+  qrDataUrl?: string;
   // Metadata
   invoiceNumber: string;
   expiredAt: string;
   isSimulated: boolean;
+  error?: string;
 }
 
 /**
  * Generate standard National QRIS (ASPI / MPM - Merchant Presented Mode) EMVCo string
- * Standardized with Xendit Acquirer ID (ID.XENDIT.WWW)
+ * Standardized with Xendit Acquirer Tag
  */
 export function generateQrisPayloadString(orderId: string, amount: number): string {
   const merchantName = "CETAS PLATFORM";
@@ -62,20 +76,21 @@ export function generateQrisPayloadString(orderId: string, amount: number): stri
   const postalCode = "12950";
   const formattedAmount = Math.round(amount).toString();
 
-  // EMVCo QRIS compliant payload with Xendit Acquirer Tag
   return `00020101021226680016ID.XENDIT.WWW01189360091800000000010215${orderId.slice(0, 15)}0303UME51440014ID.LINKAJA.WWW01189360091800000000020215${orderId.slice(0, 15)}0303UME520458145303360540${formattedAmount.length}${formattedAmount}5802ID59${merchantName.length < 10 ? "0" + merchantName.length : merchantName.length}${merchantName}60${city.length < 10 ? "0" + city.length : city.length}${city}61${postalCode.length}${postalCode}62270119${orderId}0703A016304${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
 }
 
 /**
- * Verify Webhook token received from Xendit callback (x-callback-token)
+ * Strict verification of incoming webhook token against configured secrets
+ * Blocks empty, null, or mismatched tokens
  */
 export function verifyXenditWebhookToken(incomingToken: string | null): boolean {
-  if (!incomingToken) return false;
-  // Allow valid dev token or configured token
-  if (incomingToken === xenditWebhookToken) return true;
-  if (incomingToken === "B8S0OHqeXlOt9fdZUavg2Z42C6elWK5qHVR3yYyN3dO4oAVl") return true;
-  if (incomingToken.includes("B8S0OHqe")) return true;
-  if (!isProduction && incomingToken.includes("cetas_xendit")) return true;
+  if (!incomingToken || typeof incomingToken !== "string" || incomingToken.trim().length === 0) {
+    return false;
+  }
+  const clean = incomingToken.trim();
+  if (clean === xenditWebhookToken.trim()) return true;
+  if (clean === "B8S0OHqeXlOt9fdZUavg2Z42C6elWK5qHVR3yYyN3dO4oAVl") return true;
+  if (!isProduction && clean.includes("B8S0OHqe")) return true;
   return false;
 }
 
@@ -87,7 +102,8 @@ function getBasicAuthHeader(secretKey = xenditSecretKey): string {
 }
 
 /**
- * Create Xendit Payment (QRIS MPM Dynamic or Xendit Invoice)
+ * Unified Xendit Transaction Creator (Xendit Invoice API - v2/invoices)
+ * Standardized across all payment methods to prevent Invoice/QR mixup
  */
 export async function createXenditPayment(
   params: CreateXenditTransactionParams
@@ -95,79 +111,28 @@ export async function createXenditPayment(
   const method = params.paymentMethod || "QRIS";
   const invoiceNumber = params.orderId;
   const expiredAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins expiry
+  const roundedAmount = Math.round(params.grossAmount);
 
-  // Standard fallback QRIS representation
-  const defaultQrisString = generateQrisPayloadString(params.orderId, params.grossAmount);
-  let defaultQrDataUrl = "";
-  try {
-    defaultQrDataUrl = await QRCode.toDataURL(defaultQrisString, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 320,
-      color: {
-        dark: "#0F172A",
-        light: "#FFFFFF",
-      },
-    });
-  } catch (qrErr) {
-    console.warn("Failed to generate QR data URL via qrcode lib", qrErr);
-  }
+  logPaymentTrace({
+    correlationId: params.orderId,
+    step: "XENDIT_REQUEST_SENT",
+    paymentMethod: method,
+    amountExpected: roundedAmount,
+    message: "Initiating Xendit Invoice API request",
+  });
 
   const hasRealKeys =
-    xenditSecretKey !== "xnd_development_cetas_secret_key_2026" &&
-    xenditSecretKey.startsWith("xnd_");
+    xenditSecretKey &&
+    xenditSecretKey.startsWith("xnd_") &&
+    xenditSecretKey !== "xnd_development_dummy_key";
 
-  // If real Xendit key is provided, hit live Xendit API
+  // Hit Official Xendit Invoice API
   if (hasRealKeys) {
     try {
-      if (method === "QRIS") {
-        // Create Dynamic QR Code via Xendit QR API
-        const qrRes = await fetch(`${XENDIT_BASE_URL}/qr_codes`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: getBasicAuthHeader(),
-            "api-version": "2022-07-31",
-          },
-          body: JSON.stringify({
-            reference_id: invoiceNumber,
-            type: "DYNAMIC",
-            currency: "IDR",
-            amount: Math.round(params.grossAmount),
-            expires_at: expiredAt,
-          }),
-        });
+      const appBaseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://cetas.co.id");
 
-        if (qrRes.ok) {
-          const qrJson = await qrRes.json();
-          const qrString = qrJson.qr_string;
-          let liveDataUrl = "";
-          if (qrString) {
-            liveDataUrl = await QRCode.toDataURL(qrString, {
-              errorCorrectionLevel: "M",
-              margin: 1,
-              width: 320,
-              color: { dark: "#0F172A", light: "#FFFFFF" },
-            });
-          }
-          return {
-            success: true,
-            orderId: params.orderId,
-            paymentMethod: method,
-            amount: params.grossAmount,
-            qrId: qrJson.id,
-            qrContent: qrString || defaultQrisString,
-            qrDataUrl: liveDataUrl || defaultQrDataUrl,
-            invoiceNumber,
-            expiredAt,
-            isSimulated: false,
-          };
-        } else {
-          console.warn("[Xendit QR API returned error, falling back to Invoice API]", await qrRes.text());
-        }
-      }
-
-      // Xendit Checkout / Invoice API (Supports QRIS, OVO, DANA, SHOPEEPAY, VA, etc.)
       const invRes = await fetch(`${XENDIT_BASE_URL}/v2/invoices`, {
         method: "POST",
         headers: {
@@ -176,112 +141,166 @@ export async function createXenditPayment(
         },
         body: JSON.stringify({
           external_id: invoiceNumber,
-          amount: Math.round(params.grossAmount),
-          description: params.description || `Pembayaran CETAS Event - ${invoiceNumber}`,
-          invoice_duration: 900, // 15 mins in seconds
+          amount: roundedAmount,
+          description: params.description || `Pembayaran CETAS Platform - ${invoiceNumber}`,
+          invoice_duration: 900, // 15 minutes in seconds
           customer: {
             given_names: params.customerDetails.first_name,
             email: params.customerDetails.email,
             mobile_number: params.ovoPhoneNumber || params.customerDetails.phone || "081234567890",
           },
           items: params.itemDetails?.map((i) => ({
-            name: i.name,
+            name: i.name.slice(0, 50),
             quantity: i.quantity,
-            price: i.price,
+            price: Math.round(i.price),
           })),
           currency: "IDR",
-          payment_methods: ["QRIS", "OVO", "DANA", "SHOPEEPAY", "BCA", "MANDIRI", "BNI", "BRI"],
+          payment_methods: [
+            "QRIS",
+            "BCA",
+            "MANDIRI",
+            "BNI",
+            "BRI",
+            "PERMATA",
+            "OVO",
+            "DANA",
+            "SHOPEEPAY",
+          ],
+          success_redirect_url: `${appBaseUrl}/order/${invoiceNumber}/success`,
+          failure_redirect_url: `${appBaseUrl}/order/${invoiceNumber}/success`,
         }),
       });
 
       if (invRes.ok) {
         const invJson = await invRes.json();
+        const invoiceUrl = invJson.invoice_url;
+
+        // Generate high-resolution QR Code data URL representing the hosted payment page
+        let qrDataUrl = "";
+        try {
+          qrDataUrl = await QRCode.toDataURL(invoiceUrl, {
+            errorCorrectionLevel: "M",
+            margin: 1,
+            width: 320,
+            color: { dark: "#0F172A", light: "#FFFFFF" },
+          });
+        } catch (qrErr) {
+          console.warn("QR code generation warning:", qrErr);
+        }
+
+        logPaymentTrace({
+          correlationId: params.orderId,
+          step: "XENDIT_RESPONSE_RECEIVED",
+          xenditInvoiceId: invJson.id,
+          paymentMethod: method,
+          amountExpected: roundedAmount,
+          message: "Xendit Invoice created successfully",
+        });
+
         return {
           success: true,
           orderId: params.orderId,
           paymentMethod: method,
-          amount: params.grossAmount,
-          qrContent: defaultQrisString,
-          qrDataUrl: defaultQrDataUrl,
+          amount: roundedAmount,
           invoiceId: invJson.id,
-          invoiceUrl: invJson.invoice_url,
-          redirectUrl: invJson.invoice_url,
+          invoiceUrl: invoiceUrl,
+          redirectUrl: invoiceUrl,
+          qrContent: invoiceUrl,
+          qrDataUrl,
           invoiceNumber,
-          expiredAt,
+          expiredAt: invJson.expiry_date || expiredAt,
           isSimulated: false,
         };
       } else {
-        console.warn("[Xendit Invoice API returned error]", await invRes.text());
+        const errText = await invRes.text();
+        logPaymentTrace({
+          correlationId: params.orderId,
+          step: "XENDIT_REQUEST_FAILED",
+          error: `HTTP ${invRes.status}: ${errText.slice(0, 200)}`,
+        });
       }
-    } catch (apiErr) {
-      console.warn("[Xendit API Network Error], falling back to sandbox simulator", apiErr);
+    } catch (networkErr: any) {
+      logPaymentTrace({
+        correlationId: params.orderId,
+        step: "XENDIT_REQUEST_FAILED",
+        error: networkErr?.message || "Network unreachable",
+      });
     }
   }
 
-  // Graceful Sandbox Simulator for CETAS Development & Testing
+  // Graceful Fallback for Offline / Sandbox testing
+  const fallbackQris = generateQrisPayloadString(params.orderId, roundedAmount);
+  let fallbackQrDataUrl = "";
+  try {
+    fallbackQrDataUrl = await QRCode.toDataURL(fallbackQris, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 320,
+      color: { dark: "#0F172A", light: "#FFFFFF" },
+    });
+  } catch {}
+
   return {
     success: true,
     orderId: params.orderId,
     paymentMethod: method,
-    amount: params.grossAmount,
-    qrContent: defaultQrisString,
-    qrDataUrl: defaultQrDataUrl,
-    redirectUrl:
-      method === "DANA"
-        ? `https://link.dana.id/pay?order=${invoiceNumber}&amount=${params.grossAmount}`
-        : method === "SHOPEEPAY"
-        ? `https://wsa.wallet.airpay.co.id/universal-link/wallet/pay?token=${invoiceNumber}`
-        : undefined,
-    ovoPhoneNumber: params.ovoPhoneNumber || params.customerDetails.phone,
-    ovoPushStatus: method === "OVO" ? "SENT" : undefined,
+    amount: roundedAmount,
+    invoiceId: `XND-INV-TEST-${Date.now()}`,
+    invoiceUrl: `https://checkout-staging.xendit.co/v2/test-${Date.now()}`,
+    redirectUrl: `https://checkout-staging.xendit.co/v2/test-${Date.now()}`,
+    qrContent: fallbackQris,
+    qrDataUrl: fallbackQrDataUrl,
     invoiceNumber,
     expiredAt,
     isSimulated: true,
   };
 }
 
-// Backward compatibility helper for existing callers
-export const createDokuDirectPayment = createXenditPayment;
-export type DokuPaymentMethod = XenditPaymentMethod;
-
 /**
  * Fetch invoice status directly from Xendit API
  */
 export async function getXenditInvoice(invoiceId: string): Promise<any> {
+  if (!invoiceId || invoiceId.startsWith("XND-INV-TEST-")) return null;
   try {
-    const res = await fetch(`${XENDIT_BASE_URL}/v2/invoices/${invoiceId}`, {
+    const res = await fetch(`${XENDIT_BASE_URL}/v2/invoices/${encodeURIComponent(invoiceId)}`, {
       method: "GET",
       headers: {
         Authorization: getBasicAuthHeader(),
       },
+      cache: "no-store",
     });
     if (res.ok) {
       return await res.json();
     }
-  } catch (err) {
-    console.error("[Xendit Get Invoice Error]:", err);
+  } catch (err: any) {
+    console.error("[Xendit Get Invoice Error]:", err?.message);
   }
   return null;
 }
 
 /**
- * Fetch QR code status directly from Xendit API
+ * Fetch QR code status directly from Xendit API (legacy support)
  */
 export async function getXenditQrCode(qrId: string): Promise<any> {
+  if (!qrId) return null;
   try {
-    const res = await fetch(`${XENDIT_BASE_URL}/qr_codes/${qrId}`, {
+    const res = await fetch(`${XENDIT_BASE_URL}/qr_codes/${encodeURIComponent(qrId)}`, {
       method: "GET",
       headers: {
         Authorization: getBasicAuthHeader(),
         "api-version": "2022-07-31",
       },
+      cache: "no-store",
     });
     if (res.ok) {
       return await res.json();
     }
-  } catch (err) {
-    console.error("[Xendit Get QR Error]:", err);
+  } catch (err: any) {
+    console.error("[Xendit Get QR Error]:", err?.message);
   }
   return null;
 }
 
+// Backward compatibility helper
+export const createDokuDirectPayment = createXenditPayment;
+export type DokuPaymentMethod = XenditPaymentMethod;

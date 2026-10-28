@@ -5,9 +5,10 @@ import {
   validateAndCalculateItems,
   createOrderRecord,
   markOrderAsPaid,
-  ensureOrderTables,
 } from "@/lib/order-store";
-import { prisma } from "@/lib/prisma";
+import { logPaymentTrace } from "@/lib/payment-logger";
+
+export const dynamic = "force-dynamic";
 
 const checkoutSchema = z.object({
   orderType: z.enum(["TICKET", "VOTE", "PRODUCTION", "REGISTRATION"]),
@@ -19,15 +20,17 @@ const checkoutSchema = z.object({
     .transform((val) => (val && val.trim().length >= 8 ? val.trim() : "081234567890")),
   paymentMethod: z.enum(["QRIS", "OVO", "SHOPEEPAY", "DANA"]).optional().default("QRIS"),
   ovoPhoneNumber: z.string().optional(),
-  items: z.array(
-    z.object({
-      id: z.string(), // tierId, productId, or candidateId
-      name: z.string().optional(),
-      quantity: z.number().int().positive("Jumlah tiket/item minimal 1"),
-      price: z.number().nonnegative().optional(),
-      eventId: z.string().optional(),
-    })
-  ).min(1, "Minimal 1 item pesanan"),
+  items: z
+    .array(
+      z.object({
+        id: z.string(), // tierId, productId, or candidateId
+        name: z.string().optional(),
+        quantity: z.number().int().positive("Jumlah tiket/item minimal 1"),
+        price: z.number().nonnegative().optional(),
+        eventId: z.string().optional(),
+      })
+    )
+    .min(1, "Minimal 1 item pesanan"),
 });
 
 export async function POST(req: NextRequest) {
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = checkoutSchema.parse(body);
 
-    // 1. Validasi harga dan ketersediaan kuota secara ketat di sisi server (mencegah manipulasi harga dari browser)
+    // 1. Validasi harga dan ketersediaan kuota secara ketat di sisi server
     const calculation = await validateAndCalculateItems(
       validatedData.orderType,
       validatedData.items
@@ -55,6 +58,14 @@ export async function POST(req: NextRequest) {
     const timestamp = Date.now().toString().slice(-6);
     const randomHex = Math.random().toString(36).substring(2, 6).toUpperCase();
     const orderNumber = `CETAS-${validatedData.orderType.slice(0, 3)}-${timestamp}-${randomHex}`;
+
+    logPaymentTrace({
+      correlationId: orderNumber,
+      step: "ORDER_CREATED",
+      orderNumber,
+      amountExpected: totalAmount,
+      message: `Order created for ${validatedData.orderType}`,
+    });
 
     // 3. Jika transaksi gratis (Rp0), langsung selesaikan secara atomik di database
     if (totalAmount === 0) {
@@ -85,7 +96,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Buat transaksi resmi di Xendit Payment Gateway
+    // 4. Buat transaksi resmi di Xendit Payment Gateway (Invoice API)
     const xenditResult = await createXenditPayment({
       orderId: orderNumber,
       grossAmount: totalAmount,
@@ -105,7 +116,7 @@ export async function POST(req: NextRequest) {
       description: `CETAS ${validatedData.orderType} - ${orderNumber}`,
     });
 
-    // 5. Simpan pesanan ke database PostgreSQL dengan status PENDING
+    // 5. Simpan pesanan ke database PostgreSQL Supabase dengan status PENDING
     await createOrderRecord({
       orderNumber,
       orderType: validatedData.orderType,
@@ -138,11 +149,14 @@ export async function POST(req: NextRequest) {
       qrContent: xenditResult?.qrContent,
       expiredAt: xenditResult?.expiredAt,
     });
-  } catch (error) {
-    console.error("[Checkout API Error]:", error);
+  } catch (error: any) {
+    console.error("[Checkout API Error]:", error?.message);
     if (error instanceof z.ZodError) {
       const firstIssue = error.issues[0]?.message || "Data formulir tidak valid";
-      return NextResponse.json({ success: false, message: firstIssue, errors: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: firstIssue, errors: error.issues },
+        { status: 400 }
+      );
     }
     return NextResponse.json({ success: false, message: "Gagal memproses pesanan" }, { status: 500 });
   }

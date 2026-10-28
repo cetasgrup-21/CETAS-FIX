@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyXenditWebhookToken } from "@/lib/xendit";
 import { findOrder, markOrderAsPaid, ensureOrderTables } from "@/lib/order-store";
 import { prisma } from "@/lib/prisma";
+import { logPaymentTrace } from "@/lib/payment-logger";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,13 +18,20 @@ export async function POST(req: NextRequest) {
 
     const callbackToken = req.headers.get("x-callback-token");
 
-    // 1. Verifikasi Xendit Webhook Token (Signature/Security Token)
-    if (callbackToken && !verifyXenditWebhookToken(callbackToken)) {
-      console.warn(`[Xendit Webhook] Unauthorized callback token: ${callbackToken}`);
-      return NextResponse.json({ message: "Unauthorized callback token" }, { status: 401 });
+    // 1. Verifikasi Autentikasi Webhook Xendit secara Ketat
+    if (!callbackToken || !verifyXenditWebhookToken(callbackToken)) {
+      logPaymentTrace({
+        correlationId: notification.external_id || notification.id || "UNKNOWN_REQ",
+        step: "WEBHOOK_AUTH_FAILED",
+        error: "Missing or invalid x-callback-token header",
+      });
+      return NextResponse.json(
+        { message: "Unauthorized: Missing or invalid x-callback-token" },
+        { status: 401 }
+      );
     }
 
-    // 2. Ekstrak data transaksi Xendit (Invoice format, QR Code event, atau eWallet event)
+    // 2. Ekstraksi Payload Webhook Xendit (Standard Invoice Callback & QR / Ewallet fallback)
     let orderNumber = "";
     let status = "";
     let amountPaid = 0;
@@ -41,7 +51,7 @@ export async function POST(req: NextRequest) {
       paymentChannel = notification.data.channel_code || "EWALLET";
       gatewayTxId = notification.data.id || `XND-EW-${Date.now()}`;
     } else {
-      // Standard Xendit Invoice format
+      // Standard Official Xendit Invoice format
       orderNumber = notification.external_id || notification.order_id || "";
       status = (notification.status || "").toUpperCase();
       amountPaid = Number(notification.paid_amount || notification.amount || 0);
@@ -49,47 +59,58 @@ export async function POST(req: NextRequest) {
       gatewayTxId = notification.id || `XND-INV-${Date.now()}`;
     }
 
+    logPaymentTrace({
+      correlationId: orderNumber || gatewayTxId,
+      step: "WEBHOOK_AUTHENTICATED",
+      xenditInvoiceId: gatewayTxId,
+      statusBefore: status,
+      amountReceived: amountPaid,
+      paymentMethod: paymentChannel,
+      message: `Webhook received for ${orderNumber || "Dashboard Ping"} with status ${status}`,
+    });
+
     if (!orderNumber) {
-      console.log("[Xendit Webhook] No order reference found (likely a dashboard test ping), returning 200 OK");
-      return NextResponse.json({ success: true, message: "Test webhook received and acknowledged" }, { status: 200 });
+      return NextResponse.json(
+        { success: true, message: "Ping webhook diterima tanpa referensi order" },
+        { status: 200 }
+      );
     }
 
-    // Check if this is a dummy test order from Xendit Dashboard "Tes dan simpan"
+    // 3. Deteksi Uji Coba dari Dashboard Xendit ("Tes dan Simpan")
     const isDashboardTest =
       orderNumber.includes("123124123") ||
       orderNumber.includes("testing_id") ||
       orderNumber.startsWith("test-");
 
     if (isDashboardTest) {
-      console.log(`[Xendit Webhook] Dashboard test ping detected for order: ${orderNumber}, returning 200 OK`);
-      return NextResponse.json({
-        success: true,
-        message: "Xendit dashboard test ping verified successfully",
-        orderNumber,
-        status,
-      }, { status: 200 });
-    }
-
-    // 3. Cari pesanan di tabel CetasOrder database PostgreSQL
-    const order = await findOrder(orderNumber);
-
-    if (!order) {
-      console.warn(`[Xendit Webhook] Order ${orderNumber} not found in database, acknowledging to prevent retry loop`);
-      return NextResponse.json({ success: true, message: "Order not found in database, acknowledged" }, { status: 200 });
-    }
-
-    // 4. Verifikasi nominal pembayaran: pastikan jumlah yang dibayar tidak kurang dari total tagihan pesanan
-    if (amountPaid > 0 && amountPaid < order.totalAmount) {
-      console.error(
-        `[Xendit Webhook Security Alert] Underpayment detected for ${orderNumber}: expected ${order.totalAmount}, received ${amountPaid}`
-      );
       return NextResponse.json(
-        { success: false, message: "Nominal pembayaran tidak sesuai (underpayment)" },
+        {
+          success: true,
+          message: "Xendit dashboard webhook test ping acknowledged",
+          orderNumber,
+          status,
+        },
         { status: 200 }
       );
     }
 
-    // 5. Tentukan status pembayaran
+    // 4. Cari Pesanan di Database PostgreSQL Supabase
+    const order = await findOrder(orderNumber);
+
+    if (!order) {
+      logPaymentTrace({
+        correlationId: orderNumber,
+        step: "TRANSACTION_MISMATCH",
+        message: `Order ${orderNumber} not found in database`,
+      });
+      // Berikan respons 200 agar Xendit tidak terus melakukan retry loop untuk data yang memang tidak ada
+      return NextResponse.json(
+        { success: true, message: "Order tidak ditemukan di sistem, acknowledged" },
+        { status: 200 }
+      );
+    }
+
+    // 5. Evaluasi Status Pembayaran
     const isPaid =
       status === "PAID" ||
       status === "SETTLED" ||
@@ -97,6 +118,29 @@ export async function POST(req: NextRequest) {
       status === "SUCCEEDED";
 
     if (isPaid) {
+      // Validasi Nominal Pembayaran (Mencegah Underpayment & Tampering)
+      if (order.totalAmount > 0 && amountPaid < order.totalAmount) {
+        logPaymentTrace({
+          correlationId: orderNumber,
+          step: "TRANSACTION_MISMATCH",
+          amountExpected: order.totalAmount,
+          amountReceived: amountPaid,
+          error: `Underpayment detected: expected ${order.totalAmount}, got ${amountPaid}`,
+        });
+        return NextResponse.json(
+          { success: false, message: "Nominal pembayaran tidak sesuai dengan total tagihan" },
+          { status: 200 }
+        );
+      }
+
+      logPaymentTrace({
+        correlationId: orderNumber,
+        step: "TRANSACTION_MATCHED",
+        amountExpected: order.totalAmount,
+        amountReceived: amountPaid,
+        statusBefore: order.paymentStatus,
+      });
+
       // Tandai order sebagai PAID dan terbitkan e-tiket secara atomik & idempoten
       const settlement = await markOrderAsPaid(order.orderNumber, {
         gatewayTxId,
@@ -105,15 +149,36 @@ export async function POST(req: NextRequest) {
         rawPayload: rawBody,
       });
 
-      console.log(
-        `[Xendit Webhook] Order ${orderNumber} verified and marked as PAID. Tickets issued: ${settlement.tickets.length}. Already paid previously: ${settlement.alreadyPaid}`
-      );
+      logPaymentTrace({
+        correlationId: orderNumber,
+        step: "DATABASE_UPDATED",
+        statusBefore: order.paymentStatus,
+        statusAfter: "PAID",
+        ticketsCount: settlement.tickets.length,
+        message: settlement.alreadyPaid
+          ? "Order already paid previously, idempotency preserved"
+          : "Order successfully marked as PAID",
+      });
+
+      if (settlement.tickets.length > 0) {
+        logPaymentTrace({
+          correlationId: orderNumber,
+          step: "TICKETS_ISSUED",
+          ticketsCount: settlement.tickets.length,
+        });
+      }
     } else if (status === "EXPIRED") {
       await ensureOrderTables();
       await prisma.$executeRawUnsafe(
         `UPDATE "CetasOrder" SET "paymentStatus" = 'EXPIRED', "updatedAt" = CURRENT_TIMESTAMP WHERE "orderNumber" = $1`,
         order.orderNumber
       );
+      logPaymentTrace({
+        correlationId: orderNumber,
+        step: "ORDER_EXPIRED",
+        statusBefore: order.paymentStatus,
+        statusAfter: "EXPIRED",
+      });
     } else if (status === "FAILED" || status === "CANCELLED") {
       await ensureOrderTables();
       await prisma.$executeRawUnsafe(
@@ -128,8 +193,8 @@ export async function POST(req: NextRequest) {
       status: isPaid ? "PAID" : status,
       paymentGateway: "XENDIT",
     });
-  } catch (error) {
-    console.error("[Xendit Webhook Processing Error]:", error);
+  } catch (error: any) {
+    console.error("[Xendit Webhook Processing Error]:", error?.message);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

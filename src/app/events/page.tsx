@@ -136,6 +136,7 @@ export default function EventsPage() {
     orderNumber: string;
     grossAmount: number;
     customerName: string;
+    invoiceUrl?: string;
   } | null>(null);
 
   const generateTicketPass = async (
@@ -255,6 +256,7 @@ export default function EventsPage() {
         orderNumber: data.orderNumber,
         grossAmount: selectedTier.tier.price * ticketQty,
         customerName: buyerName,
+        invoiceUrl: data.invoiceUrl || data.xendit?.invoiceUrl,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
@@ -639,6 +641,7 @@ export default function EventsPage() {
           grossAmount={simulatorData.grossAmount}
           customerName={simulatorData.customerName}
           customerEmail={buyerEmail}
+          invoiceUrl={simulatorData.invoiceUrl}
           onClose={() => setSimulatorData(null)}
           onSuccess={async (verifiedTickets?: any[]) => {
             try {

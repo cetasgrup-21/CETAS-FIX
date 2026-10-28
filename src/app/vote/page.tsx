@@ -428,6 +428,7 @@ function VotePageContent() {
         orderType: "VOTE",
         candidate: cand,
         voteCount: count,
+        invoiceUrl: data.invoiceUrl || data.xendit?.invoiceUrl,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
@@ -609,6 +610,7 @@ function VotePageContent() {
         grossAmount: selectedTier.price * ticketQty,
         customerName: buyerName,
         orderType: "TICKET",
+        invoiceUrl: data.invoiceUrl || data.xendit?.invoiceUrl,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
@@ -1862,6 +1864,7 @@ function VotePageContent() {
         orderNumber={simulatorData?.orderNumber || ""}
         grossAmount={simulatorData?.grossAmount || 0}
         customerName={simulatorData?.customerName || ""}
+        invoiceUrl={(simulatorData as any)?.invoiceUrl}
         successTitle={
           simulatorData?.orderType === "VOTE"
             ? `${simulatorData?.voteCount || voteCount} Vote Telah Berhasil Ditambahkan!`

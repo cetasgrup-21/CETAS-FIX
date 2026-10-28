@@ -60,6 +60,7 @@ export default function ProductionPage() {
     orderNumber: string;
     grossAmount: number;
     customerName: string;
+    invoiceUrl?: string;
   } | null>(null);
 
   const filteredProducts =
@@ -142,6 +143,7 @@ export default function ProductionPage() {
         orderNumber: data.orderNumber,
         grossAmount: cartTotal,
         customerName: customer.name,
+        invoiceUrl: data.invoiceUrl || data.xendit?.invoiceUrl,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan sistem";
@@ -637,6 +639,7 @@ export default function ProductionPage() {
           grossAmount={simulatorData.grossAmount}
           customerName={simulatorData.customerName}
           customerPhone={customer.phone}
+          invoiceUrl={simulatorData.invoiceUrl}
           onClose={() => setSimulatorData(null)}
           onSuccess={() => {
             // Kurangi stok produk secara otomatis setelah pembayaran berhasil

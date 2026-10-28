@@ -19,7 +19,12 @@ export type PaymentLifecycleStep =
   | "TICKETS_ISSUED"
   | "STATUS_CHECK_POLL"
   | "DOUBLE_VERIFY_SUCCESS"
-  | "ORDER_EXPIRED";
+  | "ORDER_EXPIRED"
+  | "WHATSAPP_DISPATCH_SKIPPED"
+  | "WHATSAPP_DISPATCH_SUCCESS"
+  | "WHATSAPP_DISPATCH_FAILED"
+  | "WHATSAPP_DISPATCH_ERROR"
+  | "WHATSAPP_DISPATCH_READY";
 
 export interface PaymentLogPayload {
   correlationId: string;

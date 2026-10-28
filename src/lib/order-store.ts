@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createTicketQRString } from "@/lib/ticket-security";
 import { getEventsStore, saveEventsStore } from "@/lib/cetas-store";
 import { UnifiedEvent } from "@/lib/events-unified-data";
+import { sendTicketWhatsAppNotification } from "@/lib/whatsapp";
 
 export interface OrderItem {
   id: string; // tierId, productId, or candidateId
@@ -398,6 +399,15 @@ export async function markOrderAsPaid(
 
     if (events.length > 0) {
       await saveEventsStore(events);
+    }
+
+    // Otomatis kirim notifikasi E-Tiket ke WhatsApp Pelanggan dari Admin CETAS (OTP / Transactional Push)
+    if (tickets.length > 0 && order.customerPhone) {
+      try {
+        await sendTicketWhatsAppNotification(order, tickets);
+      } catch (err) {
+        console.error("Gagal mengirim WhatsApp otomatis dari Admin CETAS:", err);
+      }
     }
   }
 

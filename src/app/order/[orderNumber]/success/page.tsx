@@ -58,6 +58,29 @@ export default function OrderSuccessPage({
   const [orderData, setOrderData] = useState<OrderStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [waSending, setWaSending] = useState(false);
+  const [waSentNotice, setWaSentNotice] = useState<string | null>(null);
+
+  const handleResendWhatsApp = async () => {
+    setWaSending(true);
+    setWaSentNotice(null);
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderNumber)}/send-whatsapp`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWaSentNotice("E-Tiket berhasil dikirim ulang dari Admin CETAS!");
+      } else {
+        setWaSentNotice(data.message || "Gagal mengirim WhatsApp");
+      }
+    } catch {
+      setWaSentNotice("Gagal menghubungi server pengirim WhatsApp.");
+    } finally {
+      setWaSending(false);
+      setTimeout(() => setWaSentNotice(null), 6000);
+    }
+  };
 
   const fetchStatus = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -233,6 +256,34 @@ export default function OrderSuccessPage({
                 </div>
               </div>
 
+              {/* Automated WhatsApp Push Notice from Admin CETAS */}
+              {tickets.length > 0 && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5 text-center sm:text-left">
+                    <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <Smartphone className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-black text-emerald-900">
+                        {waSentNotice || "E-Tiket & Rincian Dikirim Otomatis oleh Admin CETAS"}
+                      </div>
+                      <p className="text-[11px] text-emerald-700">
+                        Pesan notifikasi tiket resmi terkirim langsung ke nomor WhatsApp pembeli.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleResendWhatsApp}
+                    disabled={waSending}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-[11px] shadow-sm transition active:scale-95"
+                  >
+                    <span>{waSending ? "Mengirim..." : "Kirim Ulang WhatsApp"}</span>
+                  </button>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
@@ -243,28 +294,6 @@ export default function OrderSuccessPage({
                   <Printer className="h-4 w-4" />
                   <span>Cetak / Simpan PDF Tiket</span>
                 </button>
-
-                {tickets.length > 0 && (
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(
-                      `*CETAS E-TIKET RESMI* 🎟️\n` +
-                        `Halo *${tickets[0]?.holderName || "Pemesan"}*,\n\n` +
-                        `Berikut tautan E-Ticket resmi Anda:\n` +
-                        `📍 Acara: *${tickets[0]?.eventName || "Event CETAS"}*\n` +
-                        `🎫 Kategori: *${tickets[0]?.tierName || "Reguler"}* (${tickets.length} Tiket)\n` +
-                        `🔢 No. Pesanan: *${orderNumber}*\n\n` +
-                        `Buka dan simpan QR Code tiket masuk Anda pada tautan berikut:\n` +
-                        `🔗 https://cetas.co.id/order/${orderNumber}/success\n\n` +
-                        `Tunjukkan QR Code pada tautan di atas kepada petugas scan di pintu masuk venue. Terima kasih!`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-3 text-xs shadow-md shadow-emerald-600/20 transition active:scale-95"
-                  >
-                    <Smartphone className="h-4 w-4" />
-                    <span>Kirim ke WhatsApp</span>
-                  </a>
-                )}
 
                 <Link
                   href="/events"

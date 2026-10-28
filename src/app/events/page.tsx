@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
-import { DokuPaymentModal } from "@/components/doku-payment-modal";
+import { XenditPaymentModal } from "@/components/xendit-payment-modal";
 import {
   INITIAL_UNIFIED_EVENTS,
   DEFAULT_MASCOT_URL,
@@ -250,7 +250,7 @@ export default function EventsPage() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      // Tampilkan DOKU Direct API Modal (QRIS & E-Wallet)
+      // Tampilkan Xendit Gateway Modal (QRIS & E-Wallet)
       setSimulatorData({
         orderNumber: data.orderNumber,
         grossAmount: selectedTier.tier.price * ticketQty,
@@ -518,10 +518,10 @@ export default function EventsPage() {
                 <button
                   type="submit"
                   disabled={isBuying}
-                  className="rounded-xl bg-[#E1251B] hover:bg-red-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-red-500/25 transition active:scale-95 flex items-center gap-1.5"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  {isBuying ? "Memproses..." : "Bayar via DOKU (QRIS / E-Wallet)"}
+                  {isBuying ? "Memproses..." : "Bayar via Xendit (QRIS / E-Wallet)"}
                 </button>
               </div>
             </form>
@@ -631,9 +631,9 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
+      {/* Xendit Gateway Modal (QRIS & E-Wallet) */}
       {simulatorData && selectedTier && (
-        <DokuPaymentModal
+        <XenditPaymentModal
           isOpen={!!simulatorData}
           orderNumber={simulatorData.orderNumber}
           grossAmount={simulatorData.grossAmount}

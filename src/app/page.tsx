@@ -135,7 +135,7 @@ export default function HomePage() {
       title: "Cetas Ticketing",
       badge: "Anti-Fraud HMAC",
       description:
-        "Sistem e-tiket berenkripsi dinamis dengan validasi instan di gerbang masuk via Mobile Gate Scanner. Terhubung langsung dengan payment gateway resmi DOKU Direct API (QRIS, OVO, ShopeePay, DANA).",
+        "Sistem e-tiket berenkripsi dinamis dengan validasi instan di gerbang masuk via Mobile Gate Scanner. Terhubung langsung dengan payment gateway resmi Xendit (QRIS, OVO, ShopeePay, DANA, Virtual Account).",
       icon: Ticket,
       href: "/events",
       accent: "from-purple-600 to-indigo-600",
@@ -270,7 +270,7 @@ export default function HomePage() {
                 </div>
                 <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
                   <div className="text-xl font-black text-slate-900">QRIS & E-Wallet</div>
-                  <div className="text-[11px] text-slate-500 font-medium">DOKU Direct API</div>
+                  <div className="text-[11px] text-slate-500 font-medium">Xendit Gateway</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
                   <div className="text-xl font-black text-blue-700">Satu Atap</div>
@@ -1591,7 +1591,7 @@ export default function HomePage() {
                   <td className="p-3.5 font-bold text-slate-800">E-Voting Juara Favorit</td>
                   <td className="p-3.5 text-slate-500">Kupon kertas manual</td>
                   <td className="p-3.5 text-slate-500">Sering bot / manipulasi</td>
-                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">DOKU QRIS & E-Wallet Terverifikasi</td>
+                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">Xendit QRIS & E-Wallet Terverifikasi</td>
                 </tr>
                 <tr>
                   <td className="p-3.5 font-bold text-slate-800">Penyediaan Sound & Videotron</td>

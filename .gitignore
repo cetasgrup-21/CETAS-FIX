@@ -45,4 +45,8 @@ next-env.d.ts
 *.db
 *.db-journal
 /al-istirhami
+scratch/
+*.tmp
+cropped_client_id.png
+
 

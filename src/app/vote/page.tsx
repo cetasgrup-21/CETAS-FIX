@@ -34,7 +34,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
-import { DokuPaymentModal } from "@/components/doku-payment-modal";
+import { XenditPaymentModal } from "@/components/xendit-payment-modal";
 import { playVoteNotificationSound } from "@/lib/sound";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
@@ -309,7 +309,7 @@ function VotePageContent() {
         isOpenOnlineRegistration: false,
         quotaRemaining: 0,
         registrationCategories: [],
-        facilities: ["Bilik Voting Digital", "Verifikasi DOKU Direct API Realtime"],
+        facilities: ["Bilik Voting Digital", "Verifikasi Xendit Gateway Realtime"],
       });
     }
   });
@@ -377,7 +377,7 @@ function VotePageContent() {
   };
 
   // -------------------------------------------------------------
-  // LOGIKA PEMBAYARAN VOTE (DOKU DIRECT API - TANPA DISKON)
+  // LOGIKA PEMBAYARAN VOTE (XENDIT GATEWAY - TANPA DISKON)
   // -------------------------------------------------------------
   const pricePerVote = activeCategory?.pricePerVote || 2000;
   const safeVoteCount = Math.max(1, voteCount);
@@ -417,7 +417,7 @@ function VotePageContent() {
         throw new Error(data.message || data.errors?.[0]?.message || "Gagal memproses checkout pembayaran");
       }
 
-      // Sukses: Tutup form voter dan langsung buka DOKU Direct API Modal (QRIS & E-Wallet)
+      // Sukses: Tutup form voter dan langsung buka Xendit Modal (QRIS & E-Wallet)
       const cand = selectedCandidate;
       const count = safeVoteCount;
       setSelectedCandidate(null);
@@ -603,7 +603,7 @@ function VotePageContent() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      // Tampilkan DOKU Direct API Modal (QRIS & E-Wallet)
+      // Tampilkan Xendit Modal (QRIS & E-Wallet)
       setSimulatorData({
         orderNumber: data.orderNumber,
         grossAmount: selectedTier.price * ticketQty,
@@ -1226,7 +1226,7 @@ function VotePageContent() {
                                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-black text-white shadow-md flex items-center justify-center gap-1.5 transition active:scale-95 ${activeTheme.buttonClass}`}
                                 >
                                   <Heart className="h-4 w-4" />
-                                  Vote Sekarang (DOKU QRIS)
+                                  Vote Sekarang (QRIS Xendit)
                                 </button>
                               </div>
                             </div>
@@ -1786,7 +1786,7 @@ function VotePageContent() {
                     disabled={isBuyingTicket}
                     className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition"
                   >
-                    {isBuyingTicket ? "Memproses..." : "Bayar Tiket (DOKU QRIS / E-Wallet) →"}
+                    {isBuyingTicket ? "Memproses..." : "Bayar Tiket (QRIS Xendit / E-Wallet) →"}
                   </button>
                 </div>
               </div>
@@ -1855,8 +1855,8 @@ function VotePageContent() {
         </div>
       )}
 
-      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
-      <DokuPaymentModal
+      {/* Xendit Gateway Modal (QRIS & E-Wallet) */}
+      <XenditPaymentModal
         isOpen={Boolean(simulatorData)}
         onClose={() => setSimulatorData(null)}
         orderNumber={simulatorData?.orderNumber || ""}
@@ -1869,7 +1869,7 @@ function VotePageContent() {
         }
         successSubtitle={
           simulatorData?.orderType === "VOTE"
-            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh DOKU Direct API dan langsung masuk ke leaderboard realtime.`
+            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh Xendit Gateway dan langsung masuk ke leaderboard realtime.`
             : `E-tiket resmi acara telah terbit dan siap digunakan.`
         }
         onSuccess={() => {

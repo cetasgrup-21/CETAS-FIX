@@ -17,7 +17,7 @@ import {
   Eye,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/utils";
-import { DokuPaymentModal } from "@/components/doku-payment-modal";
+import { XenditPaymentModal } from "@/components/xendit-payment-modal";
 import {
   INITIAL_UNIFIED_PRODUCTS,
   UnifiedProduct,
@@ -610,18 +610,18 @@ export default function ProductionPage() {
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-500">Total Tagihan DOKU Direct</div>
-                  <div className="text-base font-black text-purple-700">
+                  <div className="text-[10px] text-slate-500">Total Tagihan Xendit</div>
+                  <div className="text-base font-black text-blue-700">
                     {formatRupiah(cartTotal)}
                   </div>
                 </div>
                 <button
                   type="submit"
                   disabled={isProcessing}
-                  className="rounded-xl bg-gradient-to-r from-[#E1251B] to-rose-600 hover:from-red-700 hover:to-rose-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-red-500/25 transition active:scale-95 flex items-center gap-1.5"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  {isProcessing ? "Menyiapkan Invoice..." : "Bayar via DOKU (QRIS / E-Wallet)"}
+                  {isProcessing ? "Menyiapkan Invoice..." : "Bayar via Xendit (QRIS / E-Wallet)"}
                 </button>
               </div>
             </form>
@@ -629,9 +629,9 @@ export default function ProductionPage() {
         </div>
       )}
 
-      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
+      {/* Xendit Gateway Modal (QRIS & E-Wallet) */}
       {simulatorData && (
-        <DokuPaymentModal
+        <XenditPaymentModal
           isOpen={!!simulatorData}
           orderNumber={simulatorData.orderNumber}
           grossAmount={simulatorData.grossAmount}

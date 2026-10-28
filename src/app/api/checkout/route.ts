@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createDokuDirectPayment, DokuPaymentMethod } from "@/lib/doku";
+import { createXenditPayment, XenditPaymentMethod } from "@/lib/xendit";
 import { createTicketQRString } from "@/lib/ticket-security";
 
 const checkoutSchema = z.object({
@@ -128,14 +128,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Generate DOKU Direct API Payment (QRIS MPM & E-Wallet: OVO, ShopeePay, DANA)
-    let dokuResult = null;
+    // 3. Generate Xendit Payment Gateway (QRIS MPM Dynamic, E-Wallet: OVO, ShopeePay, DANA & Invoice)
+    let xenditResult = null;
 
     try {
-      dokuResult = await createDokuDirectPayment({
+      xenditResult = await createXenditPayment({
         orderId: orderNumber,
         grossAmount: totalAmount,
-        paymentMethod: validatedData.paymentMethod as DokuPaymentMethod,
+        paymentMethod: validatedData.paymentMethod as XenditPaymentMethod,
         ovoPhoneNumber: validatedData.ovoPhoneNumber,
         customerDetails: {
           first_name: validatedData.customerName,
@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
           quantity: i.quantity,
           name: i.name.slice(0, 50),
         })),
+        description: `CETAS ${validatedData.orderType} - ${orderNumber}`,
       });
 
       // Simpan data payment jika DB aktif
@@ -155,27 +156,32 @@ export async function POST(req: NextRequest) {
         await (prisma as any).payment.create({
           data: {
             orderId: orderId,
-            snapToken: dokuResult.invoiceNumber,
-            redirectUrl: dokuResult.redirectUrl || `/order/${orderNumber}/doku`,
+            snapToken: xenditResult.invoiceNumber,
+            redirectUrl: xenditResult.redirectUrl || xenditResult.invoiceUrl || `/order/${orderNumber}/xendit`,
             status: "PENDING",
+            paymentType: `XENDIT_${validatedData.paymentMethod}`,
           },
         });
       }
-    } catch (dokuErr) {
-      console.warn("[DOKU Dev Mode]: Fallback simulator aktif", dokuErr);
+    } catch (xenditErr) {
+      console.warn("[Xendit Dev Mode]: Fallback simulator aktif", xenditErr);
     }
 
     return NextResponse.json({
       success: true,
       orderNumber: orderNumber,
-      paymentGateway: "DOKU_DIRECT_API",
+      paymentGateway: "XENDIT",
       paymentMethod: validatedData.paymentMethod || "QRIS",
       grossAmount: totalAmount,
-      doku: dokuResult,
-      isSimulated: !isDbConnected || dokuResult?.isSimulated,
+      xendit: xenditResult,
+      isSimulated: !isDbConnected || xenditResult?.isSimulated,
       // Backward compatibility fields for legacy frontend callers
-      snapToken: dokuResult?.invoiceNumber || orderNumber,
-      redirectUrl: dokuResult?.redirectUrl || `/order/${orderNumber}`,
+      doku: xenditResult,
+      snapToken: xenditResult?.invoiceNumber || orderNumber,
+      redirectUrl: xenditResult?.redirectUrl || xenditResult?.invoiceUrl || `/order/${orderNumber}`,
+      invoiceUrl: xenditResult?.invoiceUrl,
+      qrDataUrl: xenditResult?.qrDataUrl,
+      qrContent: xenditResult?.qrContent,
     });
   } catch (error) {
     console.error("[Checkout API Error]:", error);

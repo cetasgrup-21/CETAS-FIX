@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Pakta Integritas - CETAS</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 25mm 20mm 20mm 20mm;
+    }
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    .page-container {
+      background: #fff;
+      max-width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 25mm 20mm 20mm 20mm;
+      box-shadow: 0 0 10px rgba(0,0,0,0.15);
+      box-sizing: border-box;
+      position: relative;
+    }
+    .print-btn-bar {
+      max-width: 210mm;
+      margin: 0 auto 15px auto;
+      text-align: right;
+    }
+    .btn {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .btn:hover {
+      background: #0369a1;
+    }
+    h1 {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: bold;
+      text-decoration: underline;
+      margin-bottom: 25px;
+      letter-spacing: 0.5px;
+    }
+    p {
+      text-align: justify;
+      margin: 8px 0;
+    }
+    .identity-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+    }
+    .identity-table td {
+      padding: 4px 0;
+      vertical-align: top;
+      font-size: 12pt;
+    }
+    .identity-table td.col-label {
+      width: 38%;
+    }
+    .identity-table td.col-sep {
+      width: 3%;
+      text-align: center;
+    }
+    .identity-table td.col-val {
+      width: 59%;
+      text-align: justify;
+    }
+    .system-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 16px 0;
+    }
+    .system-table th, .system-table td {
+      border: 1px solid #000;
+      padding: 6px 10px;
+      font-size: 12pt;
+    }
+    .system-table th {
+      background-color: #f2f2f2;
+      text-align: center;
+    }
+    ol {
+      margin: 8px 0;
+      padding-left: 22px;
+      text-align: justify;
+    }
+    ol li {
+      margin-bottom: 8px;
+    }
+    .signature-section {
+      margin-top: 35px;
+      float: right;
+      width: 250px;
+      text-align: center;
+    }
+    .signature-space {
+      height: 75px;
+    }
+    .signature-name {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    .clear {
+      clear: both;
+    }
+    @media print {
+      body {
+        background: transparent;
+        padding: 0;
+      }
+      .page-container {
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        max-width: 100%;
+        min-height: auto;
+      }
+      .print-btn-bar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="print-btn-bar">
+    <button class="btn" onclick="window.print()">🖨️ Cetak / Simpan sebagai PDF (Ctrl + P)</button>
+  </div>
+
+  <div class="page-container">
+    <h1>PAKTA INTEGRITAS</h1>
+
+    <p>Saya yang bertanda tangan di bawah ini:</p>
+
+    <table class="identity-table">
+      <tr>
+        <td class="col-label">Nama Penanggung Jawab</td>
+        <td class="col-sep">:</td>
+        <td class="col-val"><strong>Reza Aditya Arifin</strong></td>
+      </tr>
+      <tr>
+        <td class="col-label">Jabatan</td>
+        <td class="col-sep">:</td>
+        <td class="col-val">Direktur</td>
+      </tr>
+      <tr>
+        <td class="col-label">Alamat Perusahaan</td>
+        <td class="col-sep">:</td>
+        <td class="col-val">PESING GOT KEDOYA, RT 001, RW 007, Kedoya Utara, Kebon Jeruk, Kota Administrasi Jakarta Barat, Daerah Khusus Ibukota Jakarta 11517</td>
+      </tr>
+      <tr>
+        <td class="col-label">Nama Penyelenggara Sistem Elektronik</td>
+        <td class="col-sep">:</td>
+        <td class="col-val"><strong>CENTRALIZED ELECTRONIC TOURNAMENT &amp; AWARD SYSTEM</strong></td>
+      </tr>
+    </table>
+
+    <p style="margin-top: 14px; margin-bottom: 6px;">Informasi Sistem Elektronik:</p>
+    <table class="system-table">
+      <thead>
+        <tr>
+          <th style="width: 10%;">No</th>
+          <th style="width: 90%;">Nama Sistem Elektronik</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="text-align: center;">1.</td>
+          <td>Centralized Electronic Tournament &amp; Award System (CETAS)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>bertindak untuk dan atas nama Penyelenggara Sistem Elektronik, dalam rangka memastikan kepatuhan terhadap peraturan perundang-undangan yang berlaku di Wilayah Hukum Negara Kesatuan Republik Indonesia, menyatakan komitmen untuk:</p>
+
+    <ol>
+      <li>Melakukan pemeriksaan, pengawasan, dan segala bentuk mekanisme pencegahan maupun mitigasi risiko yang diperlukan, baik dari aspek sumber daya manusia, tata kelola teknologi, dan kebijakan di lingkungan Penyelenggara Sistem Elektronik, secara berkala untuk memastikan Sistem Elektronik yang diselenggarakan tidak memfasilitasi kegiatan perjudian dalam jaringan dalam bentuk apa pun;</li>
+      <li>Melaksanakan kampanye, edukasi, dan peningkatan kesadaran terhadap bahaya kegiatan perjudian daring sesuai anjuran Pemerintah kepada seluruh karyawan, staf, dan pihak-pihak terkait lain yang berhubungan dengan aktivitas penyelenggaraan Sistem Elektronik; dan</li>
+      <li>Mendukung penuh upaya Pemerintah dalam pencegahan serta pemberantasan konten dan muatan perjudian daring sesuai ketentuan peraturan perundang-undangan.</li>
+    </ol>
+
+    <p>Demikian Pakta Integritas ini dibuat, tanpa adanya paksaan dari pihak manapun dan untuk dapat dipergunakan sebagaimana mestinya.</p>
+
+    <div class="signature-section">
+      <p style="margin-bottom: 0;">Jakarta Barat, 27 Oktober 2026</p>
+      <div class="signature-space"></div>
+      <p class="signature-name" style="margin: 0;">Reza Aditya Arifin</p>
+      <p style="margin: 0;">Direktur</p>
+    </div>
+    <div class="clear"></div>
+  </div>
+
+</body>
+</html>

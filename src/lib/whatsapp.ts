@@ -94,20 +94,21 @@ export async function sendTicketWhatsAppNotification(
 
       const resJson = await res.json().catch(() => null);
 
-      if (res.ok) {
+      if (res.ok && resJson && resJson.status !== false) {
         logPaymentTrace({
           correlationId: order.orderNumber,
           step: "WHATSAPP_DISPATCH_SUCCESS",
           message: `E-tiket berhasil dikirim ke WhatsApp pembeli (${recipientPhone}) dari Admin CETAS`,
         });
-        return { success: true, message: "Pesan WhatsApp berhasil dikirim" };
+        return { success: true, message: "Pesan WhatsApp berhasil dikirim oleh Admin CETAS" };
       } else {
+        const errorReason = resJson?.reason || resJson?.message || "Gateway WhatsApp menolak pesan";
         logPaymentTrace({
           correlationId: order.orderNumber,
           step: "WHATSAPP_DISPATCH_FAILED",
-          error: JSON.stringify(resJson || "HTTP Error"),
+          error: errorReason,
         });
-        return { success: false, message: "Gateway WhatsApp gagal mengirim pesan" };
+        return { success: false, message: errorReason };
       }
     } catch (err: any) {
       logPaymentTrace({

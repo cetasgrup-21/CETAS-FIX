@@ -18,6 +18,7 @@ import {
   Search,
   ArrowUpRight,
   Lock,
+  Camera,
   LogOut,
   KeyRound,
   Sparkles,
@@ -2170,6 +2171,336 @@ export default function AdminDashboardPage() {
   const currentEventFinances = selectedEvent
     ? eventFinancesData.find((f: any) => f.eventId === selectedEvent.id) || null
     : null;
+
+  // =========================================================================
+  // KHUSUS ROLE SCANNER_STAFF: WORKSPACE TERKUNCI & EKSKLUSIF
+  // Hanya bisa akses: 1. Scan Barcode Masuk (/scanner) & 2. Daftar Hadir Penonton Gate
+  // Tidak bisa membuka modul acara, keuangan, scoring, voting, dll.
+  // =========================================================================
+  if (isScannerStaff) {
+    const activeEv = selectedEvent || (eventsList.length > 0 ? (eventsList.find(e => e.id === "ev-343802") || eventsList[0]) : null);
+
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+        {/* Top Header Gatekeeper */}
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-orange-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+              🚪
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                  {currentUser.name}
+                </h2>
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border bg-orange-100 text-orange-900 border-orange-300 dark:bg-orange-950/70 dark:text-orange-300">
+                  {ROLE_DEFINITIONS.SCANNER_STAFF.title}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {currentUser.email} • Wewenang Khusus: Pintu Gate Masuk & Absensi Penonton
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-bold transition active:scale-95 shrink-0"
+          >
+            <LogOut className="h-4 w-4" />
+            Keluar Sesi
+          </button>
+        </div>
+
+        {/* Quick Launch Card Kamera Scanner */}
+        <div className="rounded-3xl border-2 border-blue-500/40 bg-gradient-to-r from-blue-600/10 via-indigo-600/5 to-transparent p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 shrink-0">
+              <Camera className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                Pemindai E-Tiket Gatekeeper (Kamera Scanner)
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+                Buka kamera scanner untuk validasi QR e-tiket pengunjung di gerbang masuk. Status tiket penonton akan otomatis tersinkronisasi menjadi SUDAH HADIR di daftar bawah.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/scanner${activeEv ? `?eventId=${activeEv.id}` : ""}`}
+            target="_blank"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-xl shadow-blue-600/25 transition active:scale-95 shrink-0"
+          >
+            <Ticket className="h-5 w-5" />
+            Buka Kamera Scanner Gate &rarr;
+          </Link>
+        </div>
+
+        {/* Event Selector */}
+        {eventsList.length > 1 && (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <Calendar className="h-4 w-4 text-orange-500 shrink-0" />
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Pilih Acara / Event:</span>
+            <select
+              value={selectedEventId || (activeEv?.id || "")}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSelectedEventId(id);
+                fetchEventTickets(id);
+              }}
+              className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white max-w-xs"
+            >
+              {eventsList.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Live Attendance Board (Daftar Hadir Penonton) */}
+        {activeEv && (
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm space-y-6 p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Ticket className="h-5 w-5 text-emerald-500" />
+                  Daftar Hadir Penonton Gate: {activeEv.title}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Data e-tiket penonton dan status kehadiran hasil pemindaian pintu gerbang secara real-time.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (activeEv) fetchEventTickets(activeEv.id);
+                  showSyncToast("✓ Data kehadiran penonton berhasil diperbarui.");
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold hover:bg-slate-100 transition shadow-sm"
+              >
+                🔄 Refresh Hadir Real-Time
+              </button>
+            </div>
+
+            {/* Metric Cards Kehadiran Penonton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
+                <div className="text-xs text-slate-500 font-semibold">Total Tiket Penonton</div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                  {eventTicketsSummary.totalTickets}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Penonton terdaftar di sistem</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+                <div className="text-xs text-emerald-800 dark:text-emerald-300 font-semibold">Sudah Hadir di Venue</div>
+                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                  {eventTicketsSummary.attendedCount}
+                </div>
+                <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">Berhasil di-scan di gate</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
+                <div className="text-xs text-amber-800 dark:text-amber-300 font-semibold">Belum Hadir di Pintu Gate</div>
+                <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+                  {eventTicketsSummary.pendingCount}
+                </div>
+                <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">Menunggu kedatangan penonton</div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60">
+                <div className="text-xs text-blue-800 dark:text-blue-300 font-semibold">Persentase Kehadiran</div>
+                <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">
+                  {eventTicketsSummary.attendanceRate}%
+                </div>
+                <div className="text-[11px] text-blue-700 dark:text-blue-400 mt-0.5">Tingkat kehadiran penonton</div>
+              </div>
+            </div>
+
+            {/* Search & Filter Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setTicketStatusFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                    ticketStatusFilter === "ALL"
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                  }`}
+                >
+                  Semua Tiket ({eventTickets.length})
+                </button>
+                <button
+                  onClick={() => setTicketStatusFilter("USED")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                    ticketStatusFilter === "USED"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  }`}
+                >
+                  <CheckCircle className="h-3 w-3" />
+                  Sudah Hadir ({eventTicketsSummary.attendedCount})
+                </button>
+                <button
+                  onClick={() => setTicketStatusFilter("ACTIVE")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 ${
+                    ticketStatusFilter === "ACTIVE"
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  }`}
+                >
+                  <Clock className="h-3 w-3" />
+                  Belum Hadir ({eventTicketsSummary.pendingCount})
+                </button>
+              </div>
+
+              <div className="relative max-w-xs w-full">
+                <input
+                  type="text"
+                  placeholder="Cari kode tiket / nama / WhatsApp..."
+                  value={ticketSearchQuery}
+                  onChange={(e) => setTicketSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-white"
+                />
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              </div>
+            </div>
+
+            {/* Table Daftar Tiket Penonton */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3.5">Kode Tiket &amp; Order</th>
+                    <th className="p-3.5">Nama Pemegang Tiket</th>
+                    <th className="p-3.5">Kontak WhatsApp / Email</th>
+                    <th className="p-3.5">Kategori / Tier</th>
+                    <th className="p-3.5">Status Kehadiran Gate</th>
+                    <th className="p-3.5 text-right">Aksi Gate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {eventTickets
+                    .filter((t) => {
+                      if (ticketStatusFilter === "USED") return t.status === "USED" || t.checkedInAt !== null;
+                      if (ticketStatusFilter === "ACTIVE") return t.status === "ACTIVE" && t.checkedInAt === null;
+                      return true;
+                    })
+                    .filter((t) => {
+                      if (!ticketSearchQuery.trim()) return true;
+                      const q = ticketSearchQuery.toLowerCase();
+                      return (
+                        (t.ticketCode && t.ticketCode.toLowerCase().includes(q)) ||
+                        (t.holderName && t.holderName.toLowerCase().includes(q)) ||
+                        (t.holderPhone && t.holderPhone.toLowerCase().includes(q)) ||
+                        (t.holderEmail && t.holderEmail.toLowerCase().includes(q)) ||
+                        (t.tierName && t.tierName.toLowerCase().includes(q)) ||
+                        (t.orderNumber && t.orderNumber.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((t) => {
+                      const isAttended = t.status === "USED" || t.checkedInAt !== null;
+                      const cleanPhone = (t.holderPhone || "").replace(/^0/, "62").replace(/[^0-9]/g, "");
+                      const formattedWIB = t.checkedInAt
+                        ? new Date(t.checkedInAt).toLocaleTimeString("id-ID", {
+                            timeZone: "Asia/Jakarta",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            hour12: false,
+                          }) + " WIB"
+                        : "-";
+
+                      return (
+                        <tr key={t.id || t.ticketCode} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
+                          <td className="p-3.5">
+                            <span className="font-mono font-black text-xs text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 block w-max">
+                              {t.ticketCode}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5 block truncate max-w-[150px]">
+                              {t.orderNumber}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-black text-slate-900 dark:text-white text-xs">{t.holderName}</div>
+                            <div className="text-[10px] text-slate-400">Pembelian: {formatDateTime(t.createdAt)}</div>
+                          </td>
+                          <td className="p-3.5">
+                            {t.holderPhone ? (
+                              <a
+                                href={`https://wa.me/${cleanPhone}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-mono text-emerald-600 hover:underline font-bold text-xs flex items-center gap-1"
+                              >
+                                📱 {t.holderPhone}
+                              </a>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                            <span className="text-[10px] text-slate-400 block">{t.holderEmail || "-"}</span>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200">
+                              {t.tierName || "Regular Ticket"}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            {isAttended ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-xs font-black">
+                                  <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                                  SUDAH HADIR
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                                  Scan: {formattedWIB}
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700 text-xs font-black">
+                                  <Clock className="h-3.5 w-3.5 text-amber-600" />
+                                  BELUM HADIR
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">
+                                  Menunggu scan di gate
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => handleToggleTicketAttendance(t.ticketCode, t.status)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                                isAttended
+                                  ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 hover:bg-slate-100"
+                                  : "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                              }`}
+                            >
+                              {isAttended ? "Batal Hadir" : "✓ Tandai Hadir"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {eventTickets.length === 0 && (
+              <div className="text-center py-12 text-slate-400 text-xs italic">
+                Belum ada tiket penonton yang diterbitkan untuk event ini.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">

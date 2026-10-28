@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { createTicketQRString } from "@/lib/ticket-security";
 import { Html5Qrcode } from "html5-qrcode";
-import { getStoredAdminSession, getStoredStaffList } from "@/lib/admin-auth";
+import { getStoredAdminSession, getStoredStaffList, saveStoredStaffList } from "@/lib/admin-auth";
 
 export default function GateScannerPage() {
   // Staff Gatekeeper Authentication
@@ -76,6 +76,16 @@ export default function GateScannerPage() {
       setIsStaffAuthenticated(true);
       setStaffName(sessionStorage.getItem("cetas_staff_name") || "Petugas Gatekeeper");
     }
+
+    // Sinkronkan daftar akun staf terbaru dari database PostgreSQL
+    fetch("/api/admin/staff", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.staff)) {
+          saveStoredStaffList(data.staff);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleStaffLogin = (e: React.FormEvent) => {

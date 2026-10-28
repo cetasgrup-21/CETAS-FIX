@@ -29,7 +29,11 @@ export async function proxy(request: NextRequest) {
     pathname === "/timer" || pathname.startsWith("/timer/");
 
   const isProtectedAdminApi =
-    pathname.startsWith("/api/admin/") || pathname === "/api/judges";
+    (pathname.startsWith("/api/admin/") &&
+      !pathname.startsWith("/api/admin/finances") &&
+      !pathname.startsWith("/api/admin/staff") &&
+      !pathname.startsWith("/api/admin/tickets")) ||
+    pathname === "/api/judges";
   const isProtectedJudgeApi = pathname.startsWith("/api/judge/");
   const isProtectedRekapApi = pathname.startsWith("/api/rekap/");
   const isProtectedTimerApi = pathname.startsWith("/api/timer/");

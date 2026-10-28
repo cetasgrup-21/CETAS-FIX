@@ -2222,10 +2222,76 @@ export default function AdminDashboardPage() {
       ? eventsList.filter((e) => e.id === currentUser.assignedEventId)
       : eventsList;
 
-  // Keuangan event saat ini dari live breakdown
+  // Keuangan event saat ini dari live breakdown & tier kuota
   const currentEventFinances = selectedEvent
     ? eventFinancesData.find((f: any) => f.eventId === selectedEvent.id) || null
     : null;
+
+  const eventTierCalculatedRevenue = (selectedEvent?.tiers || []).reduce((sum, t) => {
+    const tierStat = currentEventFinances?.tiers?.find(
+      (x: any) => x.tierName?.toLowerCase().trim() === t.name?.toLowerCase().trim()
+    );
+    const sold = Number(tierStat?.sold) > 0 
+      ? Number(tierStat?.sold) 
+      : Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
+    return sum + sold * (Number(t.price) || 0);
+  }, 0);
+
+  const eventCalculatedTicketsSold = (selectedEvent?.tiers || []).reduce((sum, t) => {
+    const tierStat = currentEventFinances?.tiers?.find(
+      (x: any) => x.tierName?.toLowerCase().trim() === t.name?.toLowerCase().trim()
+    );
+    const sold = Number(tierStat?.sold) > 0 
+      ? Number(tierStat?.sold) 
+      : Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
+    return sum + sold;
+  }, 0);
+
+  const effectiveCurrentEventTicketRevenue = Math.max(
+    Number(currentEventFinances?.ticketRevenue) || 0,
+    eventTierCalculatedRevenue
+  );
+
+  const effectiveCurrentEventTicketsSold = Math.max(
+    Number(currentEventFinances?.ticketsSold) || 0,
+    eventCalculatedTicketsSold
+  );
+
+  const effectiveCurrentEventTotalRevenue = Math.max(
+    Number(currentEventFinances?.totalRevenue) || 0,
+    effectiveCurrentEventTicketRevenue + (Number(currentEventFinances?.voteRevenue) || 0)
+  );
+
+  const currentEventRecentOrders = (currentEventFinances?.recentOrders && currentEventFinances.recentOrders.length > 0)
+    ? currentEventFinances.recentOrders
+    : globalRecentOrders.filter((ord: any) => ord.eventId === selectedEvent?.id || ord.eventName?.toLowerCase().includes("baravos"));
+
+  // Computed live / fallback finances across all events:
+  const effectiveTicketOmzet = Math.max(
+    Number(finances.ticketOmzet) || 0,
+    eventFinancesData.reduce((sum, ev) => sum + (Number(ev.ticketRevenue) || 0), 0),
+    eventsList.reduce((sum, ev) => {
+      return sum + (ev.tiers || []).reduce((tsum, t) => {
+        const sold = Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
+        return tsum + sold * (Number(t.price) || 0);
+      }, 0);
+    }, 0)
+  );
+
+  const effectiveTicketsSold = Math.max(
+    Number(finances.ticketsSold) || 0,
+    eventFinancesData.reduce((sum, ev) => sum + (Number(ev.ticketsSold) || 0), 0),
+    eventsList.reduce((sum, ev) => {
+      return sum + (ev.tiers || []).reduce((tsum, t) => {
+        return tsum + Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
+      }, 0);
+    }, 0)
+  );
+
+  const effectiveTotalOmzet = Math.max(
+    Number(finances.totalOmzet) || 0,
+    effectiveTicketOmzet + Number(finances.voteOmzet || 0) + Number(finances.prodOmzet || 0)
+  );
 
   // =========================================================================
   // KHUSUS ROLE SCANNER_STAFF: WORKSPACE TERKUNCI & EKSKLUSIF
@@ -2695,10 +2761,10 @@ export default function AdminDashboardPage() {
               <TrendingUp className="h-4 w-4 text-emerald-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {formatRupiah(finances.totalOmzet)}
+              {formatRupiah(effectiveTotalOmzet)}
             </div>
             <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3" /> {finances.totalOmzet > 0 ? "+18.4% bulan ini" : "Mulai pencatatan baru"}
+              <ArrowUpRight className="h-3 w-3" /> {effectiveTotalOmzet > 0 ? "+18.4% bulan ini" : "Mulai pencatatan baru"}
             </div>
           </div>
 
@@ -2708,9 +2774,9 @@ export default function AdminDashboardPage() {
               <Ticket className="h-4 w-4 text-blue-500" />
             </div>
             <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {formatRupiah(finances.ticketOmzet)}
+              {formatRupiah(effectiveTicketOmzet)}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">{finances.ticketsSold} tiket terjual</div>
+            <div className="text-[11px] text-slate-400 mt-1">{effectiveTicketsSold} tiket terjual</div>
           </div>
 
           <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
@@ -4899,7 +4965,7 @@ export default function AdminDashboardPage() {
                     <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
                       <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Total Omzet Event Ini</div>
                       <div className="text-2xl font-black text-emerald-950 dark:text-white mt-1">
-                        {formatRupiah(currentEventFinances?.totalRevenue || 0)}
+                        {formatRupiah(effectiveCurrentEventTotalRevenue)}
                       </div>
                       <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
                         100% Settlement Xendit Masuk
@@ -4909,10 +4975,10 @@ export default function AdminDashboardPage() {
                     <div className="p-5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60">
                       <div className="text-xs font-semibold text-blue-800 dark:text-blue-300">Pendapatan Tiket Masuk</div>
                       <div className="text-2xl font-black text-blue-950 dark:text-white mt-1">
-                        {formatRupiah(currentEventFinances?.ticketRevenue || 0)}
+                        {formatRupiah(effectiveCurrentEventTicketRevenue)}
                       </div>
                       <div className="text-[11px] text-blue-700 dark:text-blue-400 mt-1">
-                        {currentEventFinances?.ticketsSold || 0} tiket resmi terjual
+                        {effectiveCurrentEventTicketsSold} tiket resmi terjual
                       </div>
                     </div>
 
@@ -4929,12 +4995,12 @@ export default function AdminDashboardPage() {
                     <div className="p-5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60">
                       <div className="text-xs font-semibold text-purple-800 dark:text-purple-300">Tingkat Kehadiran Penonton</div>
                       <div className="text-2xl font-black text-purple-950 dark:text-white mt-1">
-                        {currentEventFinances?.ticketsSold > 0
-                          ? Math.round((currentEventFinances.ticketsCheckedIn / currentEventFinances.ticketsSold) * 100)
+                        {effectiveCurrentEventTicketsSold > 0
+                          ? Math.round(((currentEventFinances?.ticketsCheckedIn || 0) / effectiveCurrentEventTicketsSold) * 100)
                           : 0}%
                       </div>
                       <div className="text-[11px] text-purple-700 dark:text-purple-400 mt-1">
-                        {currentEventFinances?.ticketsCheckedIn || 0} hadir dari {currentEventFinances?.ticketsSold || 0} tiket
+                        {currentEventFinances?.ticketsCheckedIn || 0} hadir dari {effectiveCurrentEventTicketsSold} tiket
                       </div>
                     </div>
                   </div>
@@ -4958,8 +5024,12 @@ export default function AdminDashboardPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {(selectedEvent.tiers || []).map((t, idx) => {
-                            const tierStat = currentEventFinances?.tiers?.find((x: any) => x.tierName === t.name);
-                            const sold = tierStat?.sold || 0;
+                            const tierStat = currentEventFinances?.tiers?.find(
+                              (x: any) => x.tierName?.toLowerCase().trim() === t.name?.toLowerCase().trim()
+                            );
+                            const sold = Number(tierStat?.sold) > 0
+                              ? Number(tierStat?.sold)
+                              : Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
                             const checkedIn = tierStat?.checkedIn || 0;
                             const tierRevenue = sold * (Number(t.price) || 0);
                             return (
@@ -4999,14 +5069,14 @@ export default function AdminDashboardPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {(!currentEventFinances?.recentOrders || currentEventFinances.recentOrders.length === 0) ? (
+                          {(!currentEventRecentOrders || currentEventRecentOrders.length === 0) ? (
                             <tr>
                               <td colSpan={7} className="p-8 text-center text-slate-400 italic">
                                 Belum ada transaksi pembayaran yang tercatat untuk event ini.
                               </td>
                             </tr>
                           ) : (
-                            currentEventFinances.recentOrders.map((ord: any, idx: number) => (
+                            currentEventRecentOrders.map((ord: any, idx: number) => (
                               <tr key={ord.orderNumber || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                                 <td className="p-3.5 font-mono font-bold text-blue-600">{ord.orderNumber}</td>
                                 <td className="p-3.5 font-bold text-slate-900 dark:text-white">{ord.customerName}</td>
@@ -5504,7 +5574,7 @@ export default function AdminDashboardPage() {
             <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
               <div className="text-xs text-slate-500 font-semibold mb-1">Total Omzet Masuk</div>
               <div className="text-2xl font-black text-slate-900 dark:text-white">
-                {formatRupiah(finances.totalOmzet)}
+                {formatRupiah(effectiveTotalOmzet)}
               </div>
               <div className="text-[11px] text-emerald-600 font-semibold mt-1">
                 ✓ Dana bersih terverifikasi Xendit
@@ -5514,10 +5584,10 @@ export default function AdminDashboardPage() {
             <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
               <div className="text-xs text-slate-500 font-semibold mb-1">Penjualan Tiket Masuk</div>
               <div className="text-2xl font-black text-slate-900 dark:text-white">
-                {formatRupiah(finances.ticketOmzet)}
+                {formatRupiah(effectiveTicketOmzet)}
               </div>
               <div className="text-[11px] text-blue-600 font-semibold mt-1">
-                {finances.ticketsSold} tiket penonton lunas
+                {effectiveTicketsSold} tiket penonton lunas
               </div>
             </div>
 
@@ -5561,7 +5631,29 @@ export default function AdminDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {eventFinancesData.map((ev: any) => (
+                  {(eventFinancesData.length > 0
+                    ? eventFinancesData
+                    : accessibleEvents.map((ev) => {
+                        const sTiers = (ev.tiers || []).map((t) => {
+                          const s = Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
+                          return { tierName: t.name, sold: s, checkedIn: 0 };
+                        });
+                        const tRev = (ev.tiers || []).reduce((sum, t) => {
+                          const s = Math.max(0, (Number(t.quotaTotal) || 0) - (Number(t.quotaRemaining) || 0));
+                          return sum + s * (Number(t.price) || 0);
+                        }, 0);
+                        const tSold = sTiers.reduce((sum, t) => sum + t.sold, 0);
+                        return {
+                          eventId: ev.id,
+                          eventName: ev.title,
+                          ticketRevenue: tRev,
+                          totalRevenue: tRev,
+                          ticketsSold: tSold,
+                          ticketsCheckedIn: 0,
+                          tiers: sTiers,
+                        };
+                      })
+                  ).map((ev: any) => (
                     <tr key={ev.eventId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
                       <td className="p-3.5 font-bold text-slate-900 dark:text-white">
                         {ev.eventName}
@@ -5589,7 +5681,7 @@ export default function AdminDashboardPage() {
                       </td>
                     </tr>
                   ))}
-                  {eventFinancesData.length === 0 && (
+                  {eventFinancesData.length === 0 && accessibleEvents.length === 0 && (
                     <tr>
                       <td colSpan={5} className="p-6 text-center text-slate-400 italic">
                         Belum ada transaksi tiket yang masuk ke sistem.

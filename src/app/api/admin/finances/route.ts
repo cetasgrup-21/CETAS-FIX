@@ -123,6 +123,34 @@ export async function GET(req: NextRequest) {
       recentOrders: Array<any>;
     }>();
 
+    // Pre-seed eventMap dengan seluruh event terdaftar di database
+    try {
+      const eventStoreRow = await prisma.$queryRawUnsafe<Array<{ value: any }>>(`
+        SELECT "value" FROM "CetasStore" WHERE "key" = 'cetas_events_v1' LIMIT 1
+      `).catch(() => []);
+
+      if (eventStoreRow.length > 0 && eventStoreRow[0].value) {
+        const raw = eventStoreRow[0].value;
+        const events = Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : []);
+        for (const ev of events) {
+          if (ev.id && !eventMap.has(ev.id)) {
+            eventMap.set(ev.id, {
+              eventId: ev.id,
+              eventName: ev.title || "Event Cetas",
+              ticketRevenue: 0,
+              voteRevenue: 0,
+              totalRevenue: 0,
+              ticketsSold: 0,
+              ticketsCheckedIn: 0,
+              ticketsPending: 0,
+              tiers: [],
+              recentOrders: [],
+            });
+          }
+        }
+      }
+    } catch {}
+
     // Map tiket
     for (const t of ticketsPerEvent) {
       if (!t.eventId) continue;
@@ -141,6 +169,9 @@ export async function GET(req: NextRequest) {
         });
       }
       const ev = eventMap.get(t.eventId)!;
+      if (t.eventName && (ev.eventName === "Event Cetas" || !ev.eventName)) {
+        ev.eventName = t.eventName;
+      }
       ev.ticketsSold += Number(t.totalCount) || 0;
       ev.ticketsCheckedIn += Number(t.usedCount) || 0;
       ev.ticketsPending += Math.max(0, (Number(t.totalCount) || 0) - (Number(t.usedCount) || 0));
@@ -169,6 +200,9 @@ export async function GET(req: NextRequest) {
         });
       }
       const ev = eventMap.get(o.eventId)!;
+      if (o.eventName && (ev.eventName === "Event Cetas" || !ev.eventName)) {
+        ev.eventName = o.eventName;
+      }
       const amt = Number(o.totalAmount) || 0;
       if (o.orderType === "TICKET") {
         ev.ticketRevenue += amt;

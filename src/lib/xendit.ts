@@ -36,6 +36,7 @@ export interface XenditTransactionResult {
   paymentMethod: XenditPaymentMethod;
   amount: number;
   // QRIS Specific
+  qrId?: string;
   qrContent?: string;
   qrDataUrl?: string;
   // Invoice & Redirect
@@ -154,6 +155,7 @@ export async function createXenditPayment(
             orderId: params.orderId,
             paymentMethod: method,
             amount: params.grossAmount,
+            qrId: qrJson.id,
             qrContent: qrString || defaultQrisString,
             qrDataUrl: liveDataUrl || defaultQrDataUrl,
             invoiceNumber,
@@ -241,3 +243,45 @@ export async function createXenditPayment(
 // Backward compatibility helper for existing callers
 export const createDokuDirectPayment = createXenditPayment;
 export type DokuPaymentMethod = XenditPaymentMethod;
+
+/**
+ * Fetch invoice status directly from Xendit API
+ */
+export async function getXenditInvoice(invoiceId: string): Promise<any> {
+  try {
+    const res = await fetch(`${XENDIT_BASE_URL}/v2/invoices/${invoiceId}`, {
+      method: "GET",
+      headers: {
+        Authorization: getBasicAuthHeader(),
+      },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error("[Xendit Get Invoice Error]:", err);
+  }
+  return null;
+}
+
+/**
+ * Fetch QR code status directly from Xendit API
+ */
+export async function getXenditQrCode(qrId: string): Promise<any> {
+  try {
+    const res = await fetch(`${XENDIT_BASE_URL}/qr_codes/${qrId}`, {
+      method: "GET",
+      headers: {
+        Authorization: getBasicAuthHeader(),
+        "api-version": "2022-07-31",
+      },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error("[Xendit Get QR Error]:", err);
+  }
+  return null;
+}
+

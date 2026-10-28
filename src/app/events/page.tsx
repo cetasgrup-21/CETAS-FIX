@@ -640,18 +640,40 @@ export default function EventsPage() {
           customerName={simulatorData.customerName}
           customerEmail={buyerEmail}
           onClose={() => setSimulatorData(null)}
-          onSuccess={async () => {
+          onSuccess={async (verifiedTickets?: any[]) => {
             try {
-              await generateTicketPass(
-                selectedTier.event,
-                selectedTier.tier,
-                buyerName,
-                buyerEmail,
-                buyerPhone,
-                ticketQty
-              );
+              if (verifiedTickets && verifiedTickets.length > 0) {
+                const vTicket = verifiedTickets[0];
+                setIssuedTicket({
+                  ticketCode: vTicket.ticketCode,
+                  eventName: vTicket.eventName || selectedTier.event.title,
+                  tierName: `${vTicket.tierName || selectedTier.tier.name} (${verifiedTickets.length} Tiket)`,
+                  holderName: vTicket.holderName || buyerName,
+                  holderEmail: vTicket.holderEmail || buyerEmail,
+                  date: selectedTier.event.date,
+                  location: selectedTier.event.location,
+                  qrDataUrl: vTicket.qrDataUrl,
+                });
+              } else {
+                // Fetch verified ticket data directly from backend
+                const res = await fetch(`/api/orders/${simulatorData.orderNumber}/status`);
+                const data = await res.json();
+                if (data.success && data.isPaid && data.tickets && data.tickets.length > 0) {
+                  const vTicket = data.tickets[0];
+                  setIssuedTicket({
+                    ticketCode: vTicket.ticketCode,
+                    eventName: vTicket.eventName || selectedTier.event.title,
+                    tierName: `${vTicket.tierName || selectedTier.tier.name} (${data.tickets.length} Tiket)`,
+                    holderName: vTicket.holderName || buyerName,
+                    holderEmail: vTicket.holderEmail || buyerEmail,
+                    date: selectedTier.event.date,
+                    location: selectedTier.event.location,
+                    qrDataUrl: vTicket.qrDataUrl,
+                  });
+                }
+              }
             } catch (err) {
-              console.error("Error generating ticket pass:", err);
+              console.error("Error setting verified ticket pass:", err);
             } finally {
               setSelectedTier(null);
               setSimulatorData(null);

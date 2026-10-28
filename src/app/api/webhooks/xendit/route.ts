@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { verifyXenditWebhookToken } from "@/lib/xendit";
+import { findOrder, markOrderAsPaid, ensureOrderTables } from "@/lib/order-store";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,14 +15,13 @@ export async function POST(req: NextRequest) {
 
     const callbackToken = req.headers.get("x-callback-token");
 
-    // 1. Verify Xendit Webhook Token
+    // 1. Verifikasi Xendit Webhook Token (Signature/Security Token)
     if (callbackToken && !verifyXenditWebhookToken(callbackToken)) {
       console.warn(`[Xendit Webhook] Unauthorized callback token: ${callbackToken}`);
       return NextResponse.json({ message: "Unauthorized callback token" }, { status: 401 });
     }
 
-    // 2. Extract Order Number & Payment Status
-    // Supports Invoice format, QR Code format (event: qr.payment), and E-Wallet format (event: ewallet.capture)
+    // 2. Ekstrak data transaksi Xendit (Invoice format, QR Code event, atau eWallet event)
     let orderNumber = "";
     let status = "";
     let amountPaid = 0;
@@ -70,101 +70,62 @@ export async function POST(req: NextRequest) {
       }, { status: 200 });
     }
 
-    // 3. Fetch Order from Database
-    const order = await (prisma as any).order.findUnique({
-      where: { orderNumber },
-      include: {
-        items: true,
-        payment: true,
-      },
-    });
+    // 3. Cari pesanan di tabel CetasOrder database PostgreSQL
+    const order = await findOrder(orderNumber);
 
     if (!order) {
       console.warn(`[Xendit Webhook] Order ${orderNumber} not found in database, acknowledging to prevent retry loop`);
       return NextResponse.json({ success: true, message: "Order not found in database, acknowledged" }, { status: 200 });
     }
 
-    // 4. Determine new payment status
-    let newPaymentStatus: "PAID" | "PENDING" | "CANCELLED" | "EXPIRED" = "PENDING";
-    if (
+    // 4. Verifikasi nominal pembayaran: pastikan jumlah yang dibayar tidak kurang dari total tagihan pesanan
+    if (amountPaid > 0 && amountPaid < order.totalAmount) {
+      console.error(
+        `[Xendit Webhook Security Alert] Underpayment detected for ${orderNumber}: expected ${order.totalAmount}, received ${amountPaid}`
+      );
+      return NextResponse.json(
+        { success: false, message: "Nominal pembayaran tidak sesuai (underpayment)" },
+        { status: 200 }
+      );
+    }
+
+    // 5. Tentukan status pembayaran
+    const isPaid =
       status === "PAID" ||
       status === "SETTLED" ||
       status === "COMPLETED" ||
-      status === "SUCCEEDED"
-    ) {
-      newPaymentStatus = "PAID";
+      status === "SUCCEEDED";
+
+    if (isPaid) {
+      // Tandai order sebagai PAID dan terbitkan e-tiket secara atomik & idempoten
+      const settlement = await markOrderAsPaid(order.orderNumber, {
+        gatewayTxId,
+        paymentChannel,
+        amountPaid: amountPaid || order.totalAmount,
+        rawPayload: rawBody,
+      });
+
+      console.log(
+        `[Xendit Webhook] Order ${orderNumber} verified and marked as PAID. Tickets issued: ${settlement.tickets.length}. Already paid previously: ${settlement.alreadyPaid}`
+      );
     } else if (status === "EXPIRED") {
-      newPaymentStatus = "EXPIRED";
+      await ensureOrderTables();
+      await prisma.$executeRawUnsafe(
+        `UPDATE "CetasOrder" SET "paymentStatus" = 'EXPIRED', "updatedAt" = CURRENT_TIMESTAMP WHERE "orderNumber" = $1`,
+        order.orderNumber
+      );
     } else if (status === "FAILED" || status === "CANCELLED") {
-      newPaymentStatus = "CANCELLED";
+      await ensureOrderTables();
+      await prisma.$executeRawUnsafe(
+        `UPDATE "CetasOrder" SET "paymentStatus" = 'CANCELLED', "updatedAt" = CURRENT_TIMESTAMP WHERE "orderNumber" = $1`,
+        order.orderNumber
+      );
     }
 
-    // 5. Update Database within transaction
-    await (prisma as any).$transaction(async (tx: any) => {
-      await tx.order.update({
-        where: { id: order.id },
-        data: { paymentStatus: newPaymentStatus },
-      });
-
-      await tx.payment.upsert({
-        where: { orderId: order.id },
-        create: {
-          orderId: order.id,
-          gatewayTransactionId: gatewayTxId,
-          paymentType: `XENDIT_${paymentChannel}`,
-          amountPaid: amountPaid || order.totalAmount,
-          status: newPaymentStatus,
-          payloadJson: rawBody,
-          settledAt: newPaymentStatus === "PAID" ? new Date() : null,
-        },
-        update: {
-          gatewayTransactionId: gatewayTxId,
-          paymentType: `XENDIT_${paymentChannel}`,
-          status: newPaymentStatus,
-          amountPaid: amountPaid || order.totalAmount,
-          payloadJson: rawBody,
-          settledAt: newPaymentStatus === "PAID" ? new Date() : null,
-        },
-      });
-
-      // Jika status PAID dan order TIKET, aktifkan tiket
-      if (newPaymentStatus === "PAID" && order.orderType === "TICKET") {
-        await tx.ticket.updateMany({
-          where: { orderId: order.id },
-          data: { status: "ACTIVE" },
-        });
-      }
-
-      // Jika status PAID dan order VOTE, masukkan poin/suara
-      if (newPaymentStatus === "PAID" && order.orderType === "VOTE") {
-        const voteLogs = await tx.voteLog.findMany({
-          where: { orderId: order.id },
-        });
-
-        for (const log of voteLogs) {
-          const candidate = await tx.participant.findUnique({
-            where: { id: log.candidateId },
-          });
-
-          if (candidate) {
-            await tx.participant.update({
-              where: { id: log.candidateId },
-              data: {
-                voteCount: {
-                  increment: log.voteCount,
-                },
-              },
-            });
-          }
-        }
-      }
-    });
-
-    console.log(`[Xendit Webhook] Order ${orderNumber} successfully updated to status: ${newPaymentStatus}`);
     return NextResponse.json({
       success: true,
       orderNumber,
-      status: newPaymentStatus,
+      status: isPaid ? "PAID" : status,
       paymentGateway: "XENDIT",
     });
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   ExternalLink,
   ShieldCheck,
   AlertCircle,
+  Smartphone,
 } from "lucide-react";
 import { AntmanMascot } from "@/components/antman-mascot";
 
@@ -242,6 +243,29 @@ export default function OrderSuccessPage({
                   <Printer className="h-4 w-4" />
                   <span>Cetak / Simpan PDF Tiket</span>
                 </button>
+
+                {tickets.length > 0 && (
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(
+                      `*CETAS E-TIKET RESMI* 🎟️\n` +
+                        `Halo *${tickets[0]?.holderName || "Pemesan"}*,\n\n` +
+                        `Berikut tautan E-Ticket resmi Anda:\n` +
+                        `📍 Acara: *${tickets[0]?.eventName || "Event CETAS"}*\n` +
+                        `🎫 Kategori: *${tickets[0]?.tierName || "Reguler"}* (${tickets.length} Tiket)\n` +
+                        `🔢 No. Pesanan: *${orderNumber}*\n\n` +
+                        `Buka dan simpan QR Code tiket masuk Anda pada tautan berikut:\n` +
+                        `🔗 https://cetas.co.id/order/${orderNumber}/success\n\n` +
+                        `Tunjukkan QR Code pada tautan di atas kepada petugas scan di pintu masuk venue. Terima kasih!`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-3 text-xs shadow-md shadow-emerald-600/20 transition active:scale-95"
+                  >
+                    <Smartphone className="h-4 w-4" />
+                    <span>Kirim ke WhatsApp</span>
+                  </a>
+                )}
+
                 <Link
                   href="/events"
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3 text-xs transition"

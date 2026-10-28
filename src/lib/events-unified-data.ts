@@ -228,7 +228,7 @@ export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
   },
 ];
 
-const EVENTS_STORAGE_KEY = "cetas_unified_events_v5";
+const EVENTS_STORAGE_KEY = "cetas_unified_events_v6";
 
 export function getStoredEvents(): UnifiedEvent[] {
   if (typeof window === "undefined") return INITIAL_UNIFIED_EVENTS;
@@ -237,6 +237,7 @@ export function getStoredEvents(): UnifiedEvent[] {
     localStorage.removeItem("cetas_unified_events_v2");
     localStorage.removeItem("cetas_unified_events_v3");
     localStorage.removeItem("cetas_unified_events_v4");
+    localStorage.removeItem("cetas_unified_events_v5");
     const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
     if (!raw) return INITIAL_UNIFIED_EVENTS;
     const parsed = JSON.parse(raw);
@@ -279,10 +280,11 @@ export function mergeEventsWithLocal(
         ...srv,
         ...loc,
         bannerUrl: effectiveBanner,
+        // Sisa kuota dan kategori tiket harus selalu merujuk pada data resmi dari server database
         tiers:
-          Array.isArray(loc.tiers) && loc.tiers.length > 0
-            ? loc.tiers
-            : (Array.isArray(srv.tiers) && srv.tiers.length > 0 ? srv.tiers : loc.tiers),
+          Array.isArray(srv.tiers) && srv.tiers.length > 0
+            ? srv.tiers
+            : (Array.isArray(loc.tiers) && loc.tiers.length > 0 ? loc.tiers : srv.tiers),
         registrationCategories:
           Array.isArray(loc.registrationCategories) &&
           loc.registrationCategories.length > 0

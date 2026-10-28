@@ -133,6 +133,17 @@ export async function createXenditPayment(
         process.env.NEXT_PUBLIC_APP_URL ||
         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://cetas.co.id");
 
+      // Normalisasi format telepon untuk Xendit (+62...)
+      let cleanPhone = (params.ovoPhoneNumber || params.customerDetails.phone || "").replace(/\D/g, "");
+      if (cleanPhone.startsWith("0")) {
+        cleanPhone = "+62" + cleanPhone.slice(1);
+      } else if (cleanPhone.startsWith("62")) {
+        cleanPhone = "+" + cleanPhone;
+      } else if (!cleanPhone.startsWith("+") && cleanPhone.length > 5) {
+        cleanPhone = "+62" + cleanPhone;
+      }
+      if (!cleanPhone) cleanPhone = "+6281234567890";
+
       const invRes = await fetch(`${XENDIT_BASE_URL}/v2/invoices`, {
         method: "POST",
         headers: {
@@ -147,7 +158,12 @@ export async function createXenditPayment(
           customer: {
             given_names: params.customerDetails.first_name,
             email: params.customerDetails.email,
-            mobile_number: params.ovoPhoneNumber || params.customerDetails.phone || "081234567890",
+            mobile_number: cleanPhone,
+          },
+          customer_notification_preference: {
+            invoice_created: ["whatsapp", "email"],
+            invoice_reminder: ["whatsapp", "email"],
+            invoice_paid: ["whatsapp", "email"],
           },
           items: params.itemDetails?.map((i) => ({
             name: i.name.slice(0, 50),

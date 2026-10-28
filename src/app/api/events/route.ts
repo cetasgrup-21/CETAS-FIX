@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import {
   UnifiedEvent,
   getEffectiveRegistrationCategories,
@@ -22,7 +23,10 @@ function safeBanner(url?: string): string {
   return url;
 }
 
-function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
+function normalizeEventCategoriesAndQuota(
+  ev: UnifiedEvent,
+  soldCountsMap?: Map<string, number>
+): UnifiedEvent {
   const regCats = getEffectiveRegistrationCategories(ev);
   const totalQ = regCats.reduce((sum, c) => sum + c.quotaTotal, 0);
   const remQ = regCats.reduce((sum, c) => sum + c.quotaRemaining, 0);
@@ -30,10 +34,19 @@ function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
     Array.isArray(ev.tiers) && ev.tiers.length > 0
       ? ev.tiers.map((t, idx) => {
           const qTotal = Math.max(1, Number(t.quotaTotal) > 0 ? Number(t.quotaTotal) : 100);
-          const qRem =
+          let qRem =
             t.quotaRemaining !== undefined && t.quotaRemaining !== null && Number(t.quotaRemaining) >= 0
               ? Number(t.quotaRemaining)
               : qTotal;
+
+          // Hitung pengurangan berdasarkan tiket aktif di database
+          if (soldCountsMap && t.id) {
+            const sold = soldCountsMap.get(t.id) || 0;
+            if (sold > 0) {
+              qRem = Math.min(qRem, Math.max(0, qTotal - sold));
+            }
+          }
+
           return {
             id: t.id || `tier-${ev.id || "ev"}-${idx + 1}`,
             name: (t.name || `Tier Tiket #${idx + 1}`).trim(),
@@ -72,7 +85,27 @@ function normalizeEventCategoriesAndQuota(ev: UnifiedEvent): UnifiedEvent {
 // GET: Ambil daftar seluruh event dari PostgreSQL CetasStore
 export async function GET() {
   const rawEvents = await getEventsStore();
-  const events = rawEvents.map(normalizeEventCategoriesAndQuota);
+  const soldCountsMap = new Map<string, number>();
+
+  try {
+    const soldRows = await prisma.$queryRawUnsafe<Array<{ tierId: string; count: number | bigint }>>(`
+      SELECT "tierId", COUNT(*)::int as count
+      FROM "CetasTicket"
+      WHERE "status" = 'ACTIVE'
+      GROUP BY "tierId"
+    `);
+    if (Array.isArray(soldRows)) {
+      for (const row of soldRows) {
+        if (row.tierId) {
+          soldCountsMap.set(row.tierId, Number(row.count) || 0);
+        }
+      }
+    }
+  } catch {
+    // Database fallback jika koneksi offline / initial bootstrap
+  }
+
+  const events = rawEvents.map((ev) => normalizeEventCategoriesAndQuota(ev, soldCountsMap));
   return NextResponse.json(
     {
       success: true,

@@ -392,6 +392,7 @@ export async function markOrderAsPaid(
         if (event.quotaRemaining !== undefined) {
           event.quotaRemaining = Math.max(0, Number(event.quotaRemaining) - item.quantity);
         }
+        event.updatedAt = Date.now();
       }
     }
 

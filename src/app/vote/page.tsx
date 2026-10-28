@@ -143,6 +143,7 @@ function VotePageContent() {
     orderType: "VOTE" | "TICKET";
     candidate?: VoteCandidate;
     voteCount?: number;
+    invoiceUrl?: string;
   } | null>(null);
 
   // Fetch initial data

@@ -296,6 +296,7 @@ export default function AdminDashboardPage() {
 
   // Per-Event & Global Finances Breakdown State
   const [eventFinancesData, setEventFinancesData] = useState<any[]>([]);
+  const [globalRecentOrders, setGlobalRecentOrders] = useState<any[]>([]);
   const [isLoadingEventFinances, setIsLoadingEventFinances] = useState(false);
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventCategoryFilter, setEventCategoryFilter] = useState("ALL");
@@ -348,7 +349,7 @@ export default function AdminDashboardPage() {
   };
 
   // Unified Products State (CRUD)
-  const [productsList, setProductsList] = useState<UnifiedProduct[]>(INITIAL_UNIFIED_PRODUCTS);
+  const [productsList, setProductsList] = useState<UnifiedProduct[]>([]);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [previewProductModal, setPreviewProductModal] = useState<UnifiedProduct | null>(null);
@@ -615,17 +616,38 @@ export default function AdminDashboardPage() {
           if (Array.isArray(data.eventBreakdowns)) {
             setEventFinancesData(data.eventBreakdowns);
           }
+          if (Array.isArray(data.recentOrders)) {
+            setGlobalRecentOrders(data.recentOrders);
+          }
         }
       })
       .catch(() => {});
 
-    // Fetch Database Staff Accounts (Solusi Hapus Permanen)
+    // Fetch Database Staff Accounts & Sync Active Session
     fetch("/api/admin/staff", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.staff)) {
           setStaffList(data.staff);
           saveStoredStaffList(data.staff);
+          // Sinkronkan data profil & wewenang terbaru akun staf yang sedang login
+          setCurrentUser((prev) => {
+            if (!prev) return null;
+            const updated = data.staff.find(
+              (s: any) => s.id === prev.id || s.email.toLowerCase() === prev.email.toLowerCase()
+            );
+            if (updated) {
+              const fullSession: AdminUser = {
+                ...prev,
+                ...updated,
+                roleTitle: ROLE_DEFINITIONS[updated.role as AdminRole]?.title || updated.roleTitle || "Petugas Cetas",
+                ...(ROLE_DEFINITIONS[updated.role as AdminRole] || {}),
+              };
+              saveAdminSession(fullSession);
+              return fullSession;
+            }
+            return prev;
+          });
         }
       })
       .catch(() => {});
@@ -652,7 +674,19 @@ export default function AdminDashboardPage() {
     } else if ((role === "EVENT_ADMIN" || role === "PANITIA") && activeTab !== "EVENTS") {
       setActiveTab("EVENTS");
     }
-  }, [currentUser, activeTab, eventSubTab]);
+
+    // Kunci langsung event workspace ke event yang ditugaskan (Singkronkan data Staff Admin & Panitia)
+    if ((role === "EVENT_ADMIN" || role === "PANITIA") && currentUser.assignedEventId) {
+      if (selectedEventId !== currentUser.assignedEventId) {
+        setSelectedEventId(currentUser.assignedEventId);
+        setSelectedVoteEventId(currentUser.assignedEventId);
+      }
+      const targetEv = eventsList.find((e) => e.id === currentUser.assignedEventId);
+      if (targetEv) {
+        hydrateFormAndTiersFromEvent(targetEv);
+      }
+    }
+  }, [currentUser, activeTab, eventSubTab, selectedEventId, eventsList]);
 
   useEffect(() => {
     if (eventVotings && eventVotings.length > 0) {
@@ -901,6 +935,7 @@ export default function AdminDashboardPage() {
     updater: (prev: UnifiedTicketTier[]) => UnifiedTicketTier[],
     autoEnableTicketing = false
   ) => {
+    if (currentUser?.role === "PANITIA") return;
     const targetId = selectedEventId || editingEventId;
     const now = Date.now();
     let computedTiers: UnifiedTicketTier[] = [];
@@ -1151,6 +1186,10 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteEvent = async (id: string) => {
+    if (currentUser?.role === "PANITIA") {
+      alert("Akun Panitia tidak diizinkan menghapus event.");
+      return;
+    }
     if (confirm("Apakah Anda yakin ingin menghapus event ini beserta bilik votingnya?")) {
       setEventsList((prev) => {
         const next = prev.filter((ev) => ev.id !== id);
@@ -1642,6 +1681,7 @@ export default function AdminDashboardPage() {
 
   // B. Tambah / Edit Kategori (SMP, SMA, Purna)
   const handleOpenCreateCategory = () => {
+    if (currentUser?.role === "PANITIA") return;
     setEditingCategoryId(null);
     setCategoryForm({
       title: "",
@@ -1652,6 +1692,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleOpenEditCategory = (cat: VoteCategory) => {
+    if (currentUser?.role === "PANITIA") return;
     setEditingCategoryId(cat.id);
     setCategoryForm({
       title: cat.title,
@@ -1663,6 +1704,10 @@ export default function AdminDashboardPage() {
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUser?.role === "PANITIA") {
+      alert("Akun Panitia hanya memiliki hak memantau (read-only).");
+      return;
+    }
     const cleanTitle = categoryForm.title.trim();
     if (!cleanTitle) return;
 
@@ -1742,6 +1787,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteCategory = async (catId: string) => {
+    if (currentUser?.role === "PANITIA") return;
     const targetEventId =
       selectedEventId || activeVoteEvent?.eventId || selectedVoteEventId;
     if (!targetEventId) return;
@@ -1766,6 +1812,7 @@ export default function AdminDashboardPage() {
 
   // C. Tambah / Edit Peserta di Kategori Terpilih
   const handleOpenCreateCandidate = () => {
+    if (currentUser?.role === "PANITIA") return;
     setEditingCandidateId(null);
     const nextNum = (activeCategoryCandidates.length + 1).toString().padStart(2, "0");
     const instansiPlaceholder = activeVoteCategory?.title.toLowerCase().includes("smp")
@@ -1786,6 +1833,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleOpenEditCandidate = (cand: VoteCandidate) => {
+    if (currentUser?.role === "PANITIA") return;
     setEditingCandidateId(cand.id);
     setCandidateForm({
       candidateNumber: cand.candidateNumber,
@@ -1800,6 +1848,10 @@ export default function AdminDashboardPage() {
 
   const handleSaveCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUser?.role === "PANITIA") {
+      alert("Akun Panitia hanya memiliki hak memantau (read-only).");
+      return;
+    }
     const cleanName = candidateForm.name.trim();
     if (!cleanName) return;
 
@@ -1928,6 +1980,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteCandidate = async (candId: string) => {
+    if (currentUser?.role === "PANITIA") return;
     const targetEventId =
       selectedEventId || activeVoteEvent?.eventId || selectedVoteEventId;
     const targetCategoryId = activeVoteCategory?.id || selectedVoteCategoryId;
@@ -2534,13 +2587,15 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Link
-            href="/scanner"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition"
-          >
-            <Ticket className="h-3.5 w-3.5" />
-            Buka Scanner Gate
-          </Link>
+          {isSuperAdmin && (
+            <Link
+              href="/scanner"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition"
+            >
+              <Ticket className="h-3.5 w-3.5" />
+              Buka Scanner Gate
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition"
@@ -3122,14 +3177,16 @@ export default function AdminDashboardPage() {
                       CETAS.SCORE Master
                     </Link>
 
-                    <Link
-                      href={`/scanner?eventId=${selectedEvent.id}`}
-                      target="_blank"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold hover:bg-blue-100 transition"
-                    >
-                      <Ticket className="h-3.5 w-3.5 text-blue-600" />
-                      Scanner Pintu Masuk
-                    </Link>
+                    {!isPanitia && (
+                      <Link
+                        href={`/scanner?eventId=${selectedEvent.id}`}
+                        target="_blank"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold hover:bg-blue-100 transition"
+                      >
+                        <Ticket className="h-3.5 w-3.5 text-blue-600" />
+                        Scanner Pintu Masuk
+                      </Link>
+                    )}
                   </div>
                 </div>
 
@@ -3232,6 +3289,12 @@ export default function AdminDashboardPage() {
               {/* ========================================================== */}
               {eventSubTab === "DETAILS" && (
                 <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 space-y-6 shadow-sm">
+                  {isPanitia && (
+                    <div className="rounded-2xl border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/60 p-4 text-xs font-bold text-teal-900 dark:text-teal-200 flex items-center gap-2.5 shadow-sm">
+                      <span className="text-lg">👁️</span>
+                      <span>Mode Pemantau Panitia Aktif: Anda hanya memiliki hak membaca data dan memantau jalannya event. Seluruh formulir terkunci (Read-Only).</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
                     <div>
                       <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -3269,9 +3332,12 @@ export default function AdminDashboardPage() {
                         <input
                           type="text"
                           required
+                          disabled={isPanitia}
                           value={eventForm.title}
                           onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         />
                       </div>
 
@@ -3282,9 +3348,12 @@ export default function AdminDashboardPage() {
                         <input
                           type="text"
                           required
+                          disabled={isPanitia}
                           value={eventForm.organizer}
                           onChange={(e) => setEventForm({ ...eventForm, organizer: e.target.value })}
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         />
                       </div>
                     </div>
@@ -3295,6 +3364,7 @@ export default function AdminDashboardPage() {
                           Kategori Event
                         </label>
                         <select
+                          disabled={isPanitia}
                           value={isCustomCategory ? "LAINNYA" : eventForm.category}
                           onChange={(e) => {
                             if (e.target.value === "LAINNYA") {
@@ -3304,7 +3374,9 @@ export default function AdminDashboardPage() {
                               setEventForm({ ...eventForm, category: e.target.value });
                             }
                           }}
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         >
                           {EVENT_CATEGORY_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -3316,6 +3388,7 @@ export default function AdminDashboardPage() {
                         {isCustomCategory && (
                           <input
                             type="text"
+                            disabled={isPanitia}
                             placeholder="Ketik kategori..."
                             value={customCategoryText}
                             onChange={(e) => setCustomCategoryText(e.target.value)}
@@ -3329,6 +3402,7 @@ export default function AdminDashboardPage() {
                           Preset Tema Visual
                         </label>
                         <select
+                          disabled={isPanitia}
                           value={eventForm.themePreset}
                           onChange={(e) =>
                             setEventForm({
@@ -3336,7 +3410,9 @@ export default function AdminDashboardPage() {
                               themePreset: e.target.value as EventThemePreset,
                             })
                           }
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         >
                           {Object.keys(EVENT_THEME_PRESETS).map((key) => (
                             <option key={key} value={key}>
@@ -3351,6 +3427,7 @@ export default function AdminDashboardPage() {
                           Status Tayang Event
                         </label>
                         <select
+                          disabled={isPanitia}
                           value={eventForm.status}
                           onChange={(e) =>
                             setEventForm({
@@ -3358,7 +3435,9 @@ export default function AdminDashboardPage() {
                               status: e.target.value as UnifiedEvent["status"],
                             })
                           }
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         >
                           <option value="PUBLISHED">🟢 PUBLISHED (Tayang Aktif)</option>
                           <option value="DRAFT">🟡 DRAFT (Konsep / Segera Hadir)</option>
@@ -3374,9 +3453,12 @@ export default function AdminDashboardPage() {
                         </label>
                         <input
                           type="date"
+                          disabled={isPanitia}
                           value={eventForm.date}
                           onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         />
                       </div>
 
@@ -3386,10 +3468,13 @@ export default function AdminDashboardPage() {
                         </label>
                         <input
                           type="text"
+                          disabled={isPanitia}
                           value={eventForm.time}
                           onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
                           placeholder="08:00 - 17:00 WIB"
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         />
                       </div>
 
@@ -3399,31 +3484,38 @@ export default function AdminDashboardPage() {
                         </label>
                         <input
                           type="text"
+                          disabled={isPanitia}
                           value={eventForm.location}
                           onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
                           placeholder="Nama Gedung / Kota"
-                          className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white"
+                          className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white ${
+                            isPanitia ? "cursor-not-allowed opacity-75" : ""
+                          }`}
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <FileUpload
-                        label="Banner Poster Acara"
-                        description="Upload gambar banner event (Format PNG, JPG, WEBP)"
-                        accept="image/*"
-                        value={eventForm.bannerUrl}
-                        onChange={(dataUrl) => setEventForm({ ...eventForm, bannerUrl: dataUrl })}
-                        aspectRatio="banner"
-                      />
-                    </div>
+                    {!isPanitia && (
+                      <div>
+                        <FileUpload
+                          label="Banner Poster Acara"
+                          description="Upload gambar banner event (Format PNG, JPG, WEBP)"
+                          accept="image/*"
+                          value={eventForm.bannerUrl}
+                          onChange={(dataUrl) => setEventForm({ ...eventForm, bannerUrl: dataUrl })}
+                          aspectRatio="banner"
+                        />
+                      </div>
+                    )}
 
-                    <div>
-                      <MascotSelector
-                        value={eventForm.mascotUrl}
-                        onChange={(val) => setEventForm({ ...eventForm, mascotUrl: val })}
-                      />
-                    </div>
+                    {!isPanitia && (
+                      <div>
+                        <MascotSelector
+                          value={eventForm.mascotUrl}
+                          onChange={(val) => setEventForm({ ...eventForm, mascotUrl: val })}
+                        />
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -3431,9 +3523,12 @@ export default function AdminDashboardPage() {
                       </label>
                       <textarea
                         rows={3}
+                        disabled={isPanitia}
                         value={eventForm.description}
                         onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                        className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3.5 text-xs text-slate-900 dark:text-white"
+                        className={`w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3.5 text-xs text-slate-900 dark:text-white ${
+                          isPanitia ? "cursor-not-allowed opacity-75" : ""
+                        }`}
                       />
                     </div>
 
@@ -3444,6 +3539,7 @@ export default function AdminDashboardPage() {
                           <label className="text-xs font-black text-blue-950 dark:text-blue-300 flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
+                              disabled={isPanitia}
                               checked={eventForm.isOpenTicketing}
                               onChange={(e) =>
                                 setEventForm({ ...eventForm, isOpenTicketing: e.target.checked })
@@ -3466,6 +3562,7 @@ export default function AdminDashboardPage() {
                               <span className="text-[10px] text-slate-500 font-bold block mb-1">Nama Tier Utama:</span>
                               <input
                                 type="text"
+                                disabled={isPanitia}
                                 value={eventForm.ticketTierName}
                                 onChange={(e) => {
                                   const val = e.target.value;
@@ -3485,13 +3582,16 @@ export default function AdminDashboardPage() {
                                         ]
                                   );
                                 }}
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold"
+                                className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold ${
+                                  isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                }`}
                               />
                             </div>
                             <div>
                               <span className="text-[10px] text-slate-500 font-bold block mb-1">Harga (Rp):</span>
                               <input
                                 type="number"
+                                disabled={isPanitia}
                                 value={eventForm.ticketPrice}
                                 onChange={(e) => {
                                   const val = Number(e.target.value);
@@ -3511,13 +3611,16 @@ export default function AdminDashboardPage() {
                                         ]
                                   );
                                 }}
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold"
+                                className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold ${
+                                  isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                }`}
                               />
                             </div>
                             <div>
                               <span className="text-[10px] text-slate-500 font-bold block mb-1">Kuota:</span>
                               <input
                                 type="number"
+                                disabled={isPanitia}
                                 value={eventForm.ticketQuota}
                                 onChange={(e) => {
                                   const val = Number(e.target.value);
@@ -3541,7 +3644,9 @@ export default function AdminDashboardPage() {
                                         ]
                                   );
                                 }}
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold"
+                                className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs font-bold ${
+                                  isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                }`}
                               />
                             </div>
                           </div>
@@ -3553,6 +3658,7 @@ export default function AdminDashboardPage() {
                           <label className="text-xs font-black text-emerald-950 dark:text-emerald-300 flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
+                              disabled={isPanitia}
                               checked={eventForm.isOpenOnlineRegistration}
                               onChange={(e) =>
                                 setEventForm({
@@ -3576,12 +3682,15 @@ export default function AdminDashboardPage() {
                               </span>
                               <input
                                 type="text"
+                                disabled={isPanitia}
                                 value={eventForm.facilitiesText}
                                 onChange={(e) =>
                                   setEventForm({ ...eventForm, facilitiesText: e.target.value })
                                 }
                                 placeholder="Sertifikat Digital, E-Badge Pass QR, Snack"
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 text-xs"
+                                className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2.5 text-xs ${
+                                  isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                }`}
                               />
                             </div>
 
@@ -3605,66 +3714,68 @@ export default function AdminDashboardPage() {
                               </div>
 
                               {/* Quick Add Preset Categories */}
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-[10px] font-bold text-slate-400 mr-1">
-                                  + Tambah Cepat:
-                                </span>
-                                {[
-                                  { name: "Tingkat SD/MI", code: "SD" as const, quota: 30 },
-                                  { name: "Tingkat SMP/MTs", code: "SMP" as const, quota: 35 },
-                                  { name: "Tingkat SMA/SMK/MA", code: "SMA" as const, quota: 35 },
-                                  { name: "Tingkat Purna/Umum", code: "PURNA" as const, quota: 25 },
-                                ].map((preset) => {
-                                  const exists = eventRegCategories.some(
-                                    (c) => c.name.toLowerCase() === preset.name.toLowerCase()
-                                  );
-                                  return (
-                                    <button
-                                      key={preset.name}
-                                      type="button"
-                                      onClick={() => {
-                                        if (exists) return;
-                                        setEventRegCategories((prev) => [
-                                          ...prev,
-                                          {
-                                            id: `regcat-${Date.now()}-${preset.code.toLowerCase()}`,
-                                            name: preset.name,
-                                            code: preset.code,
-                                            quotaTotal: preset.quota,
-                                            quotaRemaining: preset.quota,
-                                          },
-                                        ]);
-                                      }}
-                                      disabled={exists}
-                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
-                                        exists
-                                          ? "bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700 cursor-not-allowed"
-                                          : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
-                                      }`}
-                                    >
-                                      {exists ? `✓ ${preset.name}` : `+ ${preset.name}`}
-                                    </button>
-                                  );
-                                })}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setEventRegCategories((prev) => [
-                                      ...prev,
-                                      {
-                                        id: `regcat-${Date.now()}-${prev.length + 1}`,
-                                        name: `Kategori #${prev.length + 1}`,
-                                        code: "UMUM",
-                                        quotaTotal: 30,
-                                        quotaRemaining: 30,
-                                      },
-                                    ])
-                                  }
-                                  className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800 transition"
-                                >
-                                  + Tambah Kategori Kustom
-                                </button>
-                              </div>
+                              {!isPanitia && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[10px] font-bold text-slate-400 mr-1">
+                                    + Tambah Cepat:
+                                  </span>
+                                  {[
+                                    { name: "Tingkat SD/MI", code: "SD" as const, quota: 30 },
+                                    { name: "Tingkat SMP/MTs", code: "SMP" as const, quota: 35 },
+                                    { name: "Tingkat SMA/SMK/MA", code: "SMA" as const, quota: 35 },
+                                    { name: "Tingkat Purna/Umum", code: "PURNA" as const, quota: 25 },
+                                  ].map((preset) => {
+                                    const exists = eventRegCategories.some(
+                                      (c) => c.name.toLowerCase() === preset.name.toLowerCase()
+                                    );
+                                    return (
+                                      <button
+                                        key={preset.name}
+                                        type="button"
+                                        onClick={() => {
+                                          if (exists) return;
+                                          setEventRegCategories((prev) => [
+                                            ...prev,
+                                            {
+                                              id: `regcat-${Date.now()}-${preset.code.toLowerCase()}`,
+                                              name: preset.name,
+                                              code: preset.code,
+                                              quotaTotal: preset.quota,
+                                              quotaRemaining: preset.quota,
+                                            },
+                                          ]);
+                                        }}
+                                        disabled={exists}
+                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                                          exists
+                                            ? "bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700 cursor-not-allowed"
+                                            : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                        }`}
+                                      >
+                                        {exists ? `✓ ${preset.name}` : `+ ${preset.name}`}
+                                      </button>
+                                    );
+                                  })}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEventRegCategories((prev) => [
+                                        ...prev,
+                                        {
+                                          id: `regcat-${Date.now()}-${prev.length + 1}`,
+                                          name: `Kategori #${prev.length + 1}`,
+                                          code: "UMUM",
+                                          quotaTotal: 30,
+                                          quotaRemaining: 30,
+                                        },
+                                      ])
+                                    }
+                                    className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800 transition"
+                                  >
+                                    + Tambah Kategori Kustom
+                                  </button>
+                                </div>
+                              )}
 
                               {/* Editable Rows per Category */}
                               <div className="space-y-2.5">
@@ -3682,6 +3793,7 @@ export default function AdminDashboardPage() {
                                       </label>
                                       <input
                                         type="text"
+                                        disabled={isPanitia}
                                         value={rc.name}
                                         onChange={(e) => {
                                           const val = e.target.value;
@@ -3694,7 +3806,9 @@ export default function AdminDashboardPage() {
                                           );
                                         }}
                                         placeholder="Contoh: Tingkat SD/MI, Tingkat SMP/MTs, Tingkat SMA/SMK/MA"
-                                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                                        className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white ${
+                                          isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                        }`}
                                       />
                                     </div>
 
@@ -3704,6 +3818,7 @@ export default function AdminDashboardPage() {
                                       </label>
                                       <input
                                         type="number"
+                                        disabled={isPanitia}
                                         min={1}
                                         value={rc.quotaTotal}
                                         onChange={(e) => {
@@ -3723,7 +3838,9 @@ export default function AdminDashboardPage() {
                                             )
                                           );
                                         }}
-                                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-slate-900 dark:text-white"
+                                        className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-slate-900 dark:text-white ${
+                                          isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                        }`}
                                       />
                                     </div>
 
@@ -3733,6 +3850,7 @@ export default function AdminDashboardPage() {
                                       </label>
                                       <input
                                         type="number"
+                                        disabled={isPanitia}
                                         min={0}
                                         max={rc.quotaTotal}
                                         value={rc.quotaRemaining}
@@ -3746,12 +3864,14 @@ export default function AdminDashboardPage() {
                                             )
                                           );
                                         }}
-                                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400"
+                                        className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400 ${
+                                          isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                        }`}
                                       />
                                     </div>
 
                                     <div className="sm:col-span-1 flex justify-end">
-                                      {eventRegCategories.length > 1 && (
+                                      {!isPanitia && eventRegCategories.length > 1 && (
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -3776,7 +3896,7 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div className="pt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
-                      {isSuperAdmin ? (
+                      {isSuperAdmin && !isPanitia ? (
                         <button
                           type="button"
                           onClick={() => handleDeleteEvent(selectedEvent.id)}
@@ -3789,13 +3909,15 @@ export default function AdminDashboardPage() {
                         <div />
                       )}
 
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-lg shadow-orange-500/25 transition active:scale-95"
-                      >
-                        <Check className="h-4 w-4" />
-                        Simpan Semua Perubahan
-                      </button>
+                      {!isPanitia && (
+                        <button
+                          type="submit"
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-lg shadow-orange-500/25 transition active:scale-95"
+                        >
+                          <Check className="h-4 w-4" />
+                          Simpan Semua Perubahan
+                        </button>
+                      )}
                     </div>
                   </form>
                 </div>
@@ -4193,6 +4315,13 @@ export default function AdminDashboardPage() {
               {/* ========================================================== */}
               {eventSubTab === "VOTE" && (
                 <div className="space-y-6">
+                  {isPanitia && (
+                    <div className="rounded-2xl border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/60 p-4 text-xs font-bold text-teal-900 dark:text-teal-200 flex items-center gap-2.5 shadow-sm">
+                      <span className="text-lg">👁️</span>
+                      <span>Mode Pemantau Panitia Aktif: Anda hanya memiliki hak memantau perolehan suara bilik voting secara real-time. Penambahan atau pengubahan peserta dan kategori dikunci (Read-Only).</span>
+                    </div>
+                  )}
+
                   {/* Header Bilik Vote Event */}
                   <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-5 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -4210,23 +4339,27 @@ export default function AdminDashboardPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleOpenCreateCategory}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md transition active:scale-95"
-                        >
-                          <PlusCircle className="h-4 w-4" />
-                          + Tambah Kategori
-                        </button>
+                        {!isPanitia && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleOpenCreateCategory}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md transition active:scale-95"
+                            >
+                              <PlusCircle className="h-4 w-4" />
+                              + Tambah Kategori
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={handleOpenCreateCandidate}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition active:scale-95"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          + Tambah Peserta Baru
-                        </button>
+                            <button
+                              type="button"
+                              onClick={handleOpenCreateCandidate}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition active:scale-95"
+                            >
+                              <UserPlus className="h-4 w-4" />
+                              + Tambah Peserta Baru
+                            </button>
+                          </>
+                        )}
 
                         <Link
                           href={`/vote?eventId=${selectedEvent.id}`}
@@ -4274,28 +4407,32 @@ export default function AdminDashboardPage() {
                                 </span>
                               </button>
 
-                              <button
-                                onClick={() => handleOpenEditCategory(cat)}
-                                title="Edit Kategori"
-                                className="text-slate-400 hover:text-amber-600 transition"
-                              >
-                                <Edit3 className="h-3 w-3" />
-                              </button>
+                              {!isPanitia && (
+                                <>
+                                  <button
+                                    onClick={() => handleOpenEditCategory(cat)}
+                                    title="Edit Kategori"
+                                    className="text-slate-400 hover:text-amber-600 transition"
+                                  >
+                                    <Edit3 className="h-3 w-3" />
+                                  </button>
 
-                              <button
-                                onClick={() => handleDeleteCategory(cat.id)}
-                                title="Hapus Kategori"
-                                className="text-slate-400 hover:text-rose-600 transition"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
+                                  <button
+                                    onClick={() => handleDeleteCategory(cat.id)}
+                                    title="Hapus Kategori"
+                                    className="text-slate-400 hover:text-rose-600 transition"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           );
                         })}
 
                         {(!activeVoteEvent?.categories || activeVoteEvent.categories.length === 0) && (
                           <div className="text-xs text-slate-400 italic py-2">
-                            Belum ada kategori voting. Klik "+ Tambah Kategori" di atas.
+                            Belum ada kategori voting. {!isPanitia ? 'Klik "+ Tambah Kategori" di atas.' : ''}
                           </div>
                         )}
                       </div>
@@ -4320,13 +4457,15 @@ export default function AdminDashboardPage() {
                           </p>
                         </div>
 
-                        <button
-                          onClick={handleOpenCreateCandidate}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition active:scale-95"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          + Tambah Peserta Baru
-                        </button>
+                        {!isPanitia && (
+                          <button
+                            onClick={handleOpenCreateCandidate}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition active:scale-95"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            + Tambah Peserta Baru
+                          </button>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -4365,22 +4504,24 @@ export default function AdminDashboardPage() {
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => handleOpenEditCandidate(cand)}
-                                  className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition shadow-sm"
-                                  title="Edit Peserta"
-                                >
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteCandidate(cand.id)}
-                                  className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 hover:bg-rose-100 transition"
-                                  title="Hapus Peserta"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
+                              {!isPanitia && (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleOpenEditCandidate(cand)}
+                                    className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition shadow-sm"
+                                    title="Edit Peserta"
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCandidate(cand.id)}
+                                    className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 hover:bg-rose-100 transition"
+                                    title="Hapus Peserta"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -4388,12 +4529,14 @@ export default function AdminDashboardPage() {
                         {activeCategoryCandidates.length === 0 && (
                           <div className="col-span-full text-center py-12 text-xs text-slate-400 space-y-2">
                             <div>Belum ada peserta di kategori ini.</div>
-                            <button
-                              onClick={handleOpenCreateCandidate}
-                              className="px-3 py-1.5 rounded-xl bg-orange-500 text-white font-bold text-xs"
-                            >
-                              + Daftarkan Peserta Pertama
-                            </button>
+                            {!isPanitia && (
+                              <button
+                                onClick={handleOpenCreateCandidate}
+                                className="px-3 py-1.5 rounded-xl bg-orange-500 text-white font-bold text-xs"
+                              >
+                                + Daftarkan Peserta Pertama
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -4401,29 +4544,34 @@ export default function AdminDashboardPage() {
                   ) : (
                     <div className="rounded-3xl border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 p-8 text-center space-y-3">
                       <div className="text-sm font-black text-slate-900 dark:text-white">
-                        Siap Menambahkan Kategori &amp; Peserta Cetas Vote
+                        {isPanitia ? "Bilik Voting Belum Memiliki Kategori" : "Siap Menambahkan Kategori & Peserta Cetas Vote"}
                       </div>
                       <p className="text-xs text-slate-500 max-w-md mx-auto">
-                        Buat kategori pemilihan terlebih dahulu (misal: SMP, SMA, Umum) atau langsung daftarkan peserta baru (kategori otomatis dibuatkan).
+                        {isPanitia 
+                          ? "Penyelenggara belum menambahkan kategori atau peserta pemilihan untuk event ini."
+                          : "Buat kategori pemilihan terlebih dahulu (misal: SMP, SMA, Umum) atau langsung daftarkan peserta baru (kategori otomatis dibuatkan)."
+                        }
                       </p>
-                      <div className="flex items-center justify-center gap-3 pt-1">
-                        <button
-                          type="button"
-                          onClick={handleOpenCreateCategory}
-                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md transition"
-                        >
-                          <PlusCircle className="h-4 w-4" />
-                          + Buat Kategori Baru
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleOpenCreateCandidate}
-                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          + Langsung Tambah Peserta
-                        </button>
-                      </div>
+                      {!isPanitia && (
+                        <div className="flex items-center justify-center gap-3 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleOpenCreateCategory}
+                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-md transition"
+                          >
+                            <PlusCircle className="h-4 w-4" />
+                            + Buat Kategori Baru
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenCreateCandidate}
+                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md transition"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            + Langsung Tambah Peserta
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -4434,6 +4582,13 @@ export default function AdminDashboardPage() {
               {/* ========================================================== */}
               {eventSubTab === "TICKETS" && (
                 <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-8 space-y-6 shadow-sm">
+                  {isPanitia && (
+                    <div className="rounded-2xl border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950/60 p-4 text-xs font-bold text-teal-900 dark:text-teal-200 flex items-center gap-2.5 shadow-sm">
+                      <span className="text-lg">👁️</span>
+                      <span>Mode Pemantau Panitia Aktif: Anda hanya memiliki hak memantau kuota dan konfigurasi tiket masuk. Pengaturan harga dan penambahan tier dikunci (Read-Only).</span>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                     <div>
                       <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -4454,14 +4609,16 @@ export default function AdminDashboardPage() {
                         <ExternalLink className="h-3.5 w-3.5" />
                         Cetas Ticketing Publik
                       </Link>
-                      <Link
-                        href={`/scanner?eventId=${selectedEvent.id}`}
-                        target="_blank"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition active:scale-95"
-                      >
-                        <Ticket className="h-4 w-4" />
-                        Buka Scanner Pintu Masuk
-                      </Link>
+                      {!isPanitia && (
+                        <Link
+                          href={`/scanner?eventId=${selectedEvent.id}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition active:scale-95"
+                        >
+                          <Ticket className="h-4 w-4" />
+                          Buka Scanner Pintu Masuk
+                        </Link>
+                      )}
                     </div>
                   </div>
 
@@ -4479,6 +4636,7 @@ export default function AdminDashboardPage() {
                       <label className="inline-flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 text-xs font-black">
                         <input
                           type="checkbox"
+                          disabled={isPanitia}
                           checked={eventForm.isOpenTicketing}
                           onChange={(e) =>
                             setEventForm({ ...eventForm, isOpenTicketing: e.target.checked })
@@ -4515,29 +4673,31 @@ export default function AdminDashboardPage() {
                           Ubah nama tiket, harga (Rp), dan kuota di bawah ini, lalu klik tombol <strong>Simpan &amp; Sinkronkan Tiket ke Publik</strong>.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateEventTiersLive(
-                            (prev) => [
-                              ...prev,
-                              {
-                                id: `tier-${Date.now()}-${prev.length + 1}`,
-                                name: `Tier Tiket #${prev.length + 1} (VIP / Presale)`,
-                                price: 75000,
-                                quotaTotal: 100,
-                                quotaRemaining: 100,
-                                benefits: ["E-Ticket QR Code Resmi"],
-                              },
-                            ],
-                            true
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black transition shrink-0"
-                      >
-                        <PlusCircle className="h-3.5 w-3.5" />
-                        + Tambah Tier Tiket Baru
-                      </button>
+                      {!isPanitia && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateEventTiersLive(
+                              (prev) => [
+                                ...prev,
+                                {
+                                  id: `tier-${Date.now()}-${prev.length + 1}`,
+                                  name: `Tier Tiket #${prev.length + 1} (VIP / Presale)`,
+                                  price: 75000,
+                                  quotaTotal: 100,
+                                  quotaRemaining: 100,
+                                  benefits: ["E-Ticket QR Code Resmi"],
+                                },
+                              ],
+                              true
+                            )
+                          }
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black transition shrink-0"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" />
+                          + Tambah Tier Tiket Baru
+                        </button>
+                      )}
                     </div>
 
                     <div className="space-y-3">
@@ -4552,6 +4712,7 @@ export default function AdminDashboardPage() {
                             </label>
                             <input
                               type="text"
+                              disabled={isPanitia}
                               value={tier.name}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -4563,7 +4724,9 @@ export default function AdminDashboardPage() {
                                 }
                               }}
                               placeholder="Contoh: Tiket Reguler / VIP Pass"
-                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                              className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white ${
+                                isPanitia ? "cursor-not-allowed opacity-75" : ""
+                              }`}
                             />
                           </div>
 
@@ -4573,6 +4736,7 @@ export default function AdminDashboardPage() {
                             </label>
                             <input
                               type="number"
+                              disabled={isPanitia}
                               min={0}
                               value={tier.price}
                               onChange={(e) => {
@@ -4584,7 +4748,9 @@ export default function AdminDashboardPage() {
                                   setEventForm((f) => ({ ...f, ticketPrice: val }));
                                 }
                               }}
-                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-blue-600 dark:text-blue-400"
+                              className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-black text-blue-600 dark:text-blue-400 ${
+                                isPanitia ? "cursor-not-allowed opacity-75" : ""
+                              }`}
                             />
                           </div>
 
@@ -4594,6 +4760,7 @@ export default function AdminDashboardPage() {
                             </label>
                             <input
                               type="number"
+                              disabled={isPanitia}
                               min={1}
                               value={tier.quotaTotal}
                               onChange={(e) => {
@@ -4617,7 +4784,9 @@ export default function AdminDashboardPage() {
                                   setEventForm((f) => ({ ...f, ticketQuota: val }));
                                 }
                               }}
-                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"
+                              className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-900 dark:text-white ${
+                                isPanitia ? "cursor-not-allowed opacity-75" : ""
+                              }`}
                             />
                           </div>
 
@@ -4627,6 +4796,7 @@ export default function AdminDashboardPage() {
                             </label>
                             <input
                               type="number"
+                              disabled={isPanitia}
                               min={0}
                               value={tier.quotaRemaining}
                               onChange={(e) => {
@@ -4636,12 +4806,14 @@ export default function AdminDashboardPage() {
                                   prev.map((t, i) => (i === idx ? { ...t, quotaRemaining: val } : t))
                                 );
                               }}
-                              className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400"
+                              className={`w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 ${
+                                isPanitia ? "cursor-not-allowed opacity-75" : ""
+                              }`}
                             />
                           </div>
 
                           <div className="sm:col-span-1 flex justify-end">
-                            {eventTiers.length > 1 && (
+                            {!isPanitia && eventTiers.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -4670,20 +4842,22 @@ export default function AdminDashboardPage() {
                         </strong>{" "}
                         di katalog publik Cetas Ticketing.
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveEvent(undefined, true)}
-                        className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-lg shadow-blue-600/25 transition active:scale-95"
-                      >
-                        <Check className="h-4 w-4" />
-                        Simpan &amp; Sinkronkan Tiket ke Publik ✓
-                      </button>
+                      {!isPanitia && (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEvent(undefined, true)}
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-lg shadow-blue-600/25 transition active:scale-95"
+                        >
+                          <Check className="h-4 w-4" />
+                          Simpan &amp; Sinkronkan Tiket ke Publik ✓
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* ========================================================== */}
+              {/* ========================================================== */}
               {/* ========================================================== */}
               {/* SUB-TAB 5: KEUANGAN & OMZET EVENT */}
               {/* ========================================================== */}
@@ -4876,14 +5050,16 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Link
-                        href={`/scanner?eventId=${selectedEvent.id}`}
-                        target="_blank"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition"
-                      >
-                        <Ticket className="h-3.5 w-3.5" />
-                        Buka Kamera Scanner Gate &rarr;
-                      </Link>
+                      {!isPanitia && (
+                        <Link
+                          href={`/scanner?eventId=${selectedEvent.id}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition"
+                        >
+                          <Ticket className="h-3.5 w-3.5" />
+                          Buka Kamera Scanner Gate &rarr;
+                        </Link>
+                      )}
                       <button
                         onClick={() => {
                           if (selectedEventId) fetchEventTickets(selectedEventId);
@@ -5115,8 +5291,8 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </div>
-      )}
-
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/* TAB: KELOLA PRODUK PRODUCTION (CREATE / EDIT PRODUCT) */}
       {/* ------------------------------------------------------------------ */}
@@ -5288,52 +5464,217 @@ export default function AdminDashboardPage() {
       {/* TAB: OMZET & DOKU GATEWAY */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "FINANCES" && (
-        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="space-y-6">
+          {/* Header Keuangan & Tombol Refresh */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span>Rekonsiliasi Arus Kas DOKU Direct API</span>
-                <span className="text-[10px] bg-red-100 text-[#E1251B] dark:bg-red-950 dark:text-red-300 font-extrabold px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800">
-                  SNAP BI ASPI
-                </span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-black mb-1.5">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                Laporan Keuangan & Arus Kas Xendit Gateway (Real-Time)
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                Rekonsiliasi Keuangan & Transaksi Seluruh Event
               </h3>
-              <p className="text-xs text-slate-500">
-                Pembayaran otomatis terhubung dengan QRIS MPM & E-Wallet (OVO, ShopeePay, DANA) via direct integration.
+              <p className="text-xs text-slate-500 mt-0.5">
+                Data terhubung langsung dengan database PostgreSQL transaksi paid dan webhook resmi Xendit Payment Gateway.
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-200 dark:border-emerald-800">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              DOKU Direct Webhook Auto-Settlement Active
-            </span>
+
+            <button
+              onClick={() => {
+                fetch("/api/admin/finances", { cache: "no-store" })
+                  .then((r) => r.json())
+                  .then((d) => {
+                    if (d.success) {
+                      if (d.finances) setFinances(d.finances);
+                      if (Array.isArray(d.eventBreakdowns)) setEventFinancesData(d.eventBreakdowns);
+                      if (Array.isArray(d.recentOrders)) setGlobalRecentOrders(d.recentOrders);
+                      showSyncToast("✓ Data keuangan & transaksi berhasil diperbarui!");
+                    }
+                  });
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition active:scale-95 shrink-0"
+            >
+              🔄 Refresh Data Keuangan
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-              <div className="text-xs text-slate-500 font-semibold">QRIS & E-Wallet (SPay/DANA/OVO)</div>
-              <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
-                {formatRupiah(finances.totalOmzet > 0 ? Math.round(finances.totalOmzet * 0.65) : 0)}
+          {/* Cards Metrik Finansial */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+              <div className="text-xs text-slate-500 font-semibold mb-1">Total Omzet Masuk</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">
+                {formatRupiah(finances.totalOmzet)}
               </div>
-              <div className="text-[11px] text-emerald-600 mt-1">
-                {finances.totalOmzet > 0 ? "65% dari total transaksi" : "Belum ada transaksi"}
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-              <div className="text-xs text-slate-500 font-semibold">Virtual Account (BCA/BRI/BNI)</div>
-              <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
-                {formatRupiah(finances.totalOmzet > 0 ? Math.round(finances.totalOmzet * 0.35) : 0)}
-              </div>
-              <div className="text-[11px] text-blue-600 mt-1">
-                {finances.totalOmzet > 0 ? "35% dari total transaksi" : "Belum ada transaksi"}
+              <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+                ✓ Dana bersih terverifikasi Xendit
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-              <div className="text-xs text-slate-500 font-semibold">Status Settlement Hari Ini</div>
-              <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {finances.totalOmzet > 0 ? "100% SUKSES" : "SIAP MENERIMA"}
+            <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+              <div className="text-xs text-slate-500 font-semibold mb-1">Penjualan Tiket Masuk</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">
+                {formatRupiah(finances.ticketOmzet)}
               </div>
-              <div className="text-[11px] text-slate-500 mt-1">0 transaksi dispute / chargeback</div>
+              <div className="text-[11px] text-blue-600 font-semibold mt-1">
+                {finances.ticketsSold} tiket penonton lunas
+              </div>
+            </div>
+
+            <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+              <div className="text-xs text-slate-500 font-semibold mb-1">Cetas.Vote Berbayar</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">
+                {formatRupiah(finances.voteOmzet)}
+              </div>
+              <div className="text-[11px] text-amber-600 font-semibold mt-1">
+                {finances.votesCount.toLocaleString()} suara masuk
+              </div>
+            </div>
+
+            <div className="p-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+              <div className="text-xs text-slate-500 font-semibold mb-1">Cetas Production</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white">
+                {formatRupiah(finances.prodOmzet)}
+              </div>
+              <div className="text-[11px] text-purple-600 font-semibold mt-1">
+                Merchandise & rental alat panggung
+              </div>
+            </div>
+          </div>
+
+          {/* Breakdown Pendapatan Per-Event */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4 shadow-sm">
+            <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-orange-500" />
+              Performa Penjualan Tiket Per Acara / Event
+            </h4>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3.5">Nama Event</th>
+                    <th className="p-3.5">Total Pendapatan Tiket</th>
+                    <th className="p-3.5">Tiket Lunas Terjual</th>
+                    <th className="p-3.5">Sudah Hadir (Gate)</th>
+                    <th className="p-3.5">Rincian Tier Kategori</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {eventFinancesData.map((ev: any) => (
+                    <tr key={ev.eventId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                      <td className="p-3.5 font-bold text-slate-900 dark:text-white">
+                        {ev.eventName}
+                        <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{ev.eventId}</span>
+                      </td>
+                      <td className="p-3.5 font-black text-emerald-600 text-sm">
+                        {formatRupiah(ev.ticketRevenue || ev.totalRevenue || 0)}
+                      </td>
+                      <td className="p-3.5 font-bold text-slate-800 dark:text-slate-200">
+                        {ev.ticketsSold || 0} Tiket
+                      </td>
+                      <td className="p-3.5">
+                        <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
+                          ✓ {ev.ticketsCheckedIn || 0} penonton
+                        </span>
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(ev.tiers || []).map((tr: any, idx: number) => (
+                            <span key={idx} className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                              {tr.tierName}: {tr.sold} terjual
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {eventFinancesData.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-6 text-center text-slate-400 italic">
+                        Belum ada transaksi tiket yang masuk ke sistem.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Tabel Riwayat Transaksi Lunas Xendit */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Ticket className="h-4 w-4 text-blue-500" />
+                Riwayat Transaksi Paid Xendit Gateway (Terbaru)
+              </h4>
+              <span className="text-xs text-slate-400">
+                {globalRecentOrders.length} transaksi tercatat
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3.5">No. Order / Waktu</th>
+                    <th className="p-3.5">Nama & Kontak Pembeli</th>
+                    <th className="p-3.5">Event</th>
+                    <th className="p-3.5">Nominal</th>
+                    <th className="p-3.5">Metode Bayar</th>
+                    <th className="p-3.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {globalRecentOrders.map((ord: any) => {
+                    const cleanPhone = (ord.customerPhone || "").replace(/^0/, "62").replace(/[^0-9]/g, "");
+                    return (
+                      <tr key={ord.orderNumber} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                        <td className="p-3.5">
+                          <span className="font-mono font-black text-blue-600 block">{ord.orderNumber}</span>
+                          <span className="text-[10px] text-slate-400 mt-0.5 block">{formatDateTime(ord.createdAt)}</span>
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900 dark:text-white">{ord.customerName}</div>
+                          {ord.customerPhone && (
+                            <a
+                              href={`https://wa.me/${cleanPhone}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-emerald-600 hover:underline text-[11px] block mt-0.5"
+                            >
+                              📱 {ord.customerPhone}
+                            </a>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-slate-700 dark:text-slate-300 font-medium">
+                          {ord.eventName}
+                        </td>
+                        <td className="p-3.5 font-black text-slate-900 dark:text-white">
+                          {formatRupiah(ord.totalAmount)}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold text-[10px] text-slate-700 dark:text-slate-300">
+                            {ord.paymentChannel || "XENDIT"}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 font-extrabold text-[10px] border border-emerald-300 dark:border-emerald-700">
+                            ✓ LUNAS (PAID)
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {globalRecentOrders.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-6 text-center text-slate-400 italic">
+                        Belum ada riwayat transaksi masuk.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

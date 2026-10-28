@@ -195,6 +195,7 @@ export async function GET(req: NextRequest) {
         prodOmzet,
       },
       eventBreakdowns,
+      recentOrders: paidOrdersWithEvents.slice(0, 50),
       singleEvent: filterEventId ? eventMap.get(filterEventId) || null : null,
     });
   } catch (err: any) {

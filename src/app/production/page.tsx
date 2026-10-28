@@ -26,7 +26,7 @@ import {
 } from "@/lib/production-unified-data";
 
 export default function ProductionPage() {
-  const [products, setProducts] = useState<UnifiedProduct[]>(INITIAL_UNIFIED_PRODUCTS);
+  const [products, setProducts] = useState<UnifiedProduct[]>([]);
   const [selectedProductModal, setSelectedProductModal] = useState<UnifiedProduct | null>(null);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
 

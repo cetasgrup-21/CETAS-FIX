@@ -72,7 +72,8 @@ export async function sendTicketWhatsAppNotification(
   const token =
     process.env.WHATSAPP_GATEWAY_TOKEN ||
     process.env.FONNTE_TOKEN ||
-    process.env.WHATSAPP_API_TOKEN;
+    process.env.WHATSAPP_API_TOKEN ||
+    "gHFnuMuYEX9bwdwBUQrf";
   const gatewayUrl =
     process.env.WHATSAPP_GATEWAY_URL || "https://api.fonnte.com/send";
 

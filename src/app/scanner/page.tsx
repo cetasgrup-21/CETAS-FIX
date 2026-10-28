@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { createTicketQRString } from "@/lib/ticket-security";
 import { Html5Qrcode } from "html5-qrcode";
+import { getStoredAdminSession, getStoredStaffList } from "@/lib/admin-auth";
 
 export default function GateScannerPage() {
   // Staff Gatekeeper Authentication
@@ -54,26 +55,83 @@ export default function GateScannerPage() {
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Cek sesi login panitia
+  // Cek sesi login panitia / scanner staff
   useEffect(() => {
+    // 1. Cek sesi login admin / staff yang sedang aktif di Lingkup Kerja
+    const adminSession = getStoredAdminSession();
+    if (
+      adminSession &&
+      (adminSession.role === "SCANNER_STAFF" ||
+        adminSession.role === "SUPER_ADMIN" ||
+        adminSession.role === "EVENT_ADMIN" ||
+        Boolean((adminSession as any).canAccessScanner))
+    ) {
+      setIsStaffAuthenticated(true);
+      setStaffName(adminSession.name);
+      return;
+    }
+
     const savedAuth = sessionStorage.getItem("cetas_staff_auth");
     if (savedAuth === "true") {
       setIsStaffAuthenticated(true);
-      setStaffName(sessionStorage.getItem("cetas_staff_name") || "Panitia Gate 1");
+      setStaffName(sessionStorage.getItem("cetas_staff_name") || "Petugas Gatekeeper");
     }
   }, []);
 
   const handleStaffLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (staffPin === "211226" || staffPin === "RezaCetas2026!") {
-      const name = staffName.trim() || "REZA ADITYA ARIFIN";
+    const cleanPin = staffPin.trim();
+    const cleanInput = (staffName || "").trim().toLowerCase();
+
+    // 1. Master Super Admin PIN / Pass
+    if (cleanPin === "211226" || cleanPin === "RezaCetas2026!") {
+      const name = staffName.trim() || "REZA ADITYA ARIFIN (Super Admin)";
       sessionStorage.setItem("cetas_staff_auth", "true");
       sessionStorage.setItem("cetas_staff_name", name);
       setIsStaffAuthenticated(true);
       setPinError(null);
-    } else {
-      setPinError("Kode PIN Keamanan salah! Akses ditolak.");
+      return;
     }
+
+    // 2. Cek Akun Staf (SCANNER_STAFF / ADMIN / SUPER_ADMIN)
+    const staffList = getStoredStaffList();
+    const found = staffList.find(
+      (s) =>
+        (s.email.toLowerCase() === cleanInput ||
+          s.name.toLowerCase() === cleanInput ||
+          s.name.toLowerCase().includes(cleanInput) ||
+          cleanInput === "scanner" ||
+          cleanInput === "reza") &&
+        s.password === cleanPin
+    );
+
+    if (
+      found &&
+      (found.role === "SCANNER_STAFF" ||
+        Boolean((found as any).canAccessScanner) ||
+        found.role === "SUPER_ADMIN" ||
+        found.role === "EVENT_ADMIN")
+    ) {
+      sessionStorage.setItem("cetas_staff_auth", "true");
+      sessionStorage.setItem("cetas_staff_name", found.name);
+      setIsStaffAuthenticated(true);
+      setPinError(null);
+      return;
+    }
+
+    // 3. Cek jika password cocok dengan akun scanner staf manapun
+    const scannerByPass = staffList.find(
+      (s) => (s.role === "SCANNER_STAFF" || s.canAccessScanner) && s.password === cleanPin
+    );
+    if (scannerByPass) {
+      sessionStorage.setItem("cetas_staff_auth", "true");
+      sessionStorage.setItem("cetas_staff_name", staffName.trim() || scannerByPass.name);
+      setIsStaffAuthenticated(true);
+      setPinError(null);
+      return;
+    }
+
+    setPinError("Email / Password / PIN salah atau akun Anda tidak memiliki hak akses Gate Scanner!");
   };
 
   const handleStaffLogout = () => {
@@ -169,9 +227,9 @@ export default function GateScannerPage() {
           details: {
             code: data.ticket?.code || "CETAS-OK",
             holder: data.ticket?.holderName || "Pemegang Tiket",
-            tier: data.ticket?.tierName || "VIP / Regular",
-            event: data.ticket?.eventName || "Cetas SoundFest 2026",
-            time: new Date().toLocaleTimeString("id-ID"),
+            tier: data.ticket?.tierName || "Reguler",
+            event: data.ticket?.eventName || "Event Resmi CETAS",
+            time: data.ticket?.checkedInAt || data.ticket?.time || new Date().toLocaleTimeString("id-ID") + " WIB",
           },
         });
       } else if (res.status === 409) {
@@ -181,9 +239,10 @@ export default function GateScannerPage() {
           message: data.message || "Tiket ini sudah pernah digunakan!",
           details: {
             code: data.ticketCode || "CETAS-DUP",
-            holder: data.holderName || "Tamu",
-            tier: data.tierName || "Tiket",
+            holder: data.holderName || "Pemegang Tiket",
+            tier: data.tierName || "Kategori Tiket",
             event: data.eventName || "Acara",
+            time: data.checkedInAt || data.time || "-",
           },
         });
       } else {
@@ -306,30 +365,6 @@ export default function GateScannerPage() {
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  };
-
-  const [lastTestQR, setLastTestQR] = useState<string>("");
-
-  const handleTestNewTicket = () => {
-    const samplePayload = {
-      ticketCode: `CETAS-TCK-${Math.floor(100000 + Math.random() * 900000)}`,
-      eventId: "ev-01",
-      tierId: "tier-01",
-      issuedAt: Date.now(),
-    };
-    const qrStr = createTicketQRString(samplePayload);
-    setLastTestQR(qrStr);
-    setTicketInput(qrStr);
-    handleVerifyPayload(qrStr);
-  };
-
-  const handleTestDuplicateTicket = () => {
-    if (!lastTestQR) {
-      handleTestNewTicket();
-      return;
-    }
-    setTicketInput(lastTestQR);
-    handleVerifyPayload(lastTestQR);
   };
 
   // JIKA BELUM LOGIN SEBAGAI PANITIA: TAMPILKAN LAYAR PENGUNCI KEAMANAN
@@ -542,7 +577,7 @@ export default function GateScannerPage() {
                 {scannerError}
               </p>
               <p className="text-[11px] text-slate-500 pt-1">
-                Tip: Jika menggunakan laptop tanpa webcam atau izin ditolak, Anda bisa menggunakan tombol <strong>&ldquo;Upload Foto QR&rdquo;</strong> atau <strong>&ldquo;1. Tiket Baru&rdquo;</strong> di bawah.
+                Tip: Jika menggunakan laptop tanpa webcam atau izin ditolak, Anda bisa menggunakan tombol <strong>&ldquo;Upload Foto QR&rdquo;</strong> di atas atau input manual kode tiket di bawah.
               </p>
             </div>
           )}
@@ -619,29 +654,10 @@ export default function GateScannerPage() {
             <button
               type="submit"
               disabled={isVerifying}
-              className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-bold py-2.5 text-xs shadow-md transition"
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-bold py-3 text-xs shadow-md transition active:scale-95"
             >
-              <Search className="h-3.5 w-3.5" />
-              {isVerifying ? "Memvalidasi..." : "Verifikasi Tiket"}
-            </button>
-            <button
-              type="button"
-              onClick={handleTestNewTicket}
-              className="flex items-center gap-1 px-3 py-2.5 rounded-xl border border-dashed border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-xs font-bold transition"
-              title="Generate dan check-in tiket baru"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              1. Tiket Baru
-            </button>
-            <button
-              type="button"
-              onClick={handleTestDuplicateTicket}
-              disabled={!lastTestQR}
-              className="flex items-center gap-1 px-3 py-2.5 rounded-xl border border-dashed border-rose-500 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-40 text-xs font-bold transition"
-              title="Scan ulang tiket yang sama untuk menguji penolakan duplikat"
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              2. Scan Ulang (Uji Duplikat)
+              <Search className="h-4 w-4" />
+              {isVerifying ? "Memvalidasi Tiket..." : "Verifikasi Tiket Masuk"}
             </button>
           </div>
         </form>

@@ -97,8 +97,8 @@ function VotePageContent() {
   const searchParams = useSearchParams();
 
   // State data dari API
-  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>(INITIAL_EVENT_VOTINGS);
-  const [unifiedEvents, setUnifiedEvents] = useState<UnifiedEvent[]>(INITIAL_UNIFIED_EVENTS);
+  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>([]);
+  const [unifiedEvents, setUnifiedEvents] = useState<UnifiedEvent[]>([]);
 
   // State Hierarki Halaman (Event -> Kategori -> Peserta)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -159,12 +159,8 @@ function VotePageContent() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.eventVotings)) {
-          if (data.eventVotings.length > 0) {
-            setEventVotings(data.eventVotings);
-            saveStoredEventVotings(data.eventVotings);
-          } else if (localVotes && localVotes.length > 0) {
-            setEventVotings(localVotes);
-          }
+          setEventVotings(data.eventVotings);
+          saveStoredEventVotings(data.eventVotings);
         }
       })
       .catch(() => {});
@@ -173,11 +169,9 @@ function VotePageContent() {
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          const latestLocal = getStoredEvents();
-          const merged = mergeEventsWithLocal(data.events, latestLocal);
-          setUnifiedEvents(merged);
-          saveStoredEvents(merged);
+        if (data.success && Array.isArray(data.events)) {
+          setUnifiedEvents(data.events);
+          saveStoredEvents(data.events);
         }
       })
       .catch(() => {});

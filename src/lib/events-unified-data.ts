@@ -158,93 +158,26 @@ export function getEffectiveRegistrationCategories(
   });
 }
 
-export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [
-  {
-    id: "ev-268156",
-    slug: "lkbb-cemara-2026",
-    title: "LKBB CEMARA 2026",
-    organizer: "Cetas Official",
-    category: "Kompetisi & LKBB",
-    themePreset: "EMERALD",
-    date: "2026-11-28",
-    time: "09:00 - 17:00 WIB",
-    location: "SMK BUDI MURNI 2 JAKARTA",
-    locationType: "OFFLINE",
-    bannerUrl: "/lkbb-cemara-2026.jpg",
-    mascotUrl: "/mascot/ceti_transparent.png",
-    description:
-      "Kejuaraan Lomba Keterampilan Baris-Berbaris (LKBB) CEMARA 2026 di SMK Budi Murni 2 Jakarta. Terintegrasi dengan sistem penilaian digital real-time Cetas.Score, E-Voting Juara Favorit (Cetas Vote), dan E-Ticketing resmi.",
-    status: "PUBLISHED",
-    isOpenTicketing: true,
-    tiers: [
-      {
-        id: "tier-1791759127996-1",
-        name: "MANDATORY TICKET",
-        price: 10000,
-        quotaRemaining: 400,
-        quotaTotal: 400,
-        benefits: ["E-Ticket QR Code Resmi", "Akses Masuk Venue LKBB CEMARA 2026"],
-      },
-    ],
-    isOpenOnlineRegistration: true,
-    price: 0,
-    priceLabel: "Gratis",
-    quotaTotal: 100,
-    quotaRemaining: 100,
-    categoryOptions: [
-      "Tingkat SD/MI",
-      "Tingkat SMP/MTs",
-      "Tingkat SMA/SMK/MA",
-    ],
-    registrationCategories: [
-      {
-        id: "reg-cat-ev-268156-sd",
-        name: "Tingkat SD/MI",
-        code: "SD",
-        quotaTotal: 30,
-        quotaRemaining: 30,
-      },
-      {
-        id: "reg-cat-ev-268156-smp",
-        name: "Tingkat SMP/MTs",
-        code: "SMP",
-        quotaTotal: 35,
-        quotaRemaining: 35,
-      },
-      {
-        id: "reg-cat-ev-268156-sma",
-        name: "Tingkat SMA/SMK/MA",
-        code: "SMA",
-        quotaTotal: 35,
-        quotaRemaining: 35,
-      },
-    ],
-    facilities: [
-      "Sertifikat Digital Resmi",
-      "E-Badge Pass QR",
-      "Snack",
-    ],
-    lkbbTeams: [],
-  },
-];
+export const INITIAL_UNIFIED_EVENTS: UnifiedEvent[] = [];
 
-const EVENTS_STORAGE_KEY = "cetas_unified_events_v6";
+const EVENTS_STORAGE_KEY = "cetas_unified_events_v7";
 
 export function getStoredEvents(): UnifiedEvent[] {
-  if (typeof window === "undefined") return INITIAL_UNIFIED_EVENTS;
+  if (typeof window === "undefined") return [];
   try {
     localStorage.removeItem("cetas_unified_events_v1");
     localStorage.removeItem("cetas_unified_events_v2");
     localStorage.removeItem("cetas_unified_events_v3");
     localStorage.removeItem("cetas_unified_events_v4");
     localStorage.removeItem("cetas_unified_events_v5");
+    localStorage.removeItem("cetas_unified_events_v6");
     const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
-    if (!raw) return INITIAL_UNIFIED_EVENTS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return INITIAL_UNIFIED_EVENTS;
+    return [];
   } catch {
-    return INITIAL_UNIFIED_EVENTS;
+    return [];
   }
 }
 
@@ -312,11 +245,6 @@ export function mergeEventsWithLocal(
     };
   });
 
-  for (const loc of localEvents) {
-    if (loc.updatedAt && !merged.some((m) => m.id === loc.id)) {
-      merged.unshift(loc);
-    }
-  }
   return merged;
 }
 

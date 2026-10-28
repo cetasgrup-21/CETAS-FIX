@@ -52,8 +52,8 @@ import {
 import { formatRupiah } from "@/lib/utils";
 
 export default function HomePage() {
-  const [eventsList, setEventsList] = useState<UnifiedEvent[]>(INITIAL_UNIFIED_EVENTS);
-  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>(INITIAL_EVENT_VOTINGS);
+  const [eventsList, setEventsList] = useState<UnifiedEvent[]>([]);
+  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>([]);
   const [selectedHomeEventId, setSelectedHomeEventId] = useState<string | null>(null);
 
   const [selectedScoreTab, setSelectedScoreTab] = useState<
@@ -72,11 +72,9 @@ export default function HomePage() {
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          const currentLocal = getStoredEvents();
-          const merged = mergeEventsWithLocal(data.events, currentLocal);
-          setEventsList(merged);
-          saveStoredEvents(merged);
+        if (data.success && Array.isArray(data.events)) {
+          setEventsList(data.events);
+          saveStoredEvents(data.events);
         }
       })
       .catch(() => {});
@@ -84,7 +82,7 @@ export default function HomePage() {
     fetch("/api/vote", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
+        if (data.success && Array.isArray(data.eventVotings)) {
           setEventVotings(data.eventVotings);
           saveStoredEventVotings(data.eventVotings);
         }

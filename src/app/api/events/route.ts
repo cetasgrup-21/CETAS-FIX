@@ -82,18 +82,23 @@ function normalizeEventCategoriesAndQuota(
   };
 }
 
-// GET: Ambil daftar seluruh event dari PostgreSQL CetasStore
+// GET: Ambil daftar seluruh event dari PostgreSQL CetasStore (Paralel & Dioptimalkan)
 export async function GET() {
-  const rawEvents = await getEventsStore();
   const soldCountsMap = new Map<string, number>();
 
   try {
-    const soldRows = await prisma.$queryRawUnsafe<Array<{ tierId: string; count: number | bigint }>>(`
-      SELECT "tierId", COUNT(*)::int as count
-      FROM "CetasTicket"
-      WHERE "status" = 'ACTIVE'
-      GROUP BY "tierId"
-    `);
+    const [rawEvents, soldRows] = await Promise.all([
+      getEventsStore(),
+      prisma
+        .$queryRawUnsafe<Array<{ tierId: string; count: number | bigint }>>(
+          `SELECT "tierId", COUNT(*)::int as count
+           FROM "CetasTicket"
+           WHERE "status" = 'ACTIVE'
+           GROUP BY "tierId"`
+        )
+        .catch(() => []),
+    ]);
+
     if (Array.isArray(soldRows)) {
       for (const row of soldRows) {
         if (row.tierId) {
@@ -101,23 +106,24 @@ export async function GET() {
         }
       }
     }
-  } catch {
-    // Database fallback jika koneksi offline / initial bootstrap
-  }
 
-  const events = rawEvents.map((ev) => normalizeEventCategoriesAndQuota(ev, soldCountsMap));
-  return NextResponse.json(
-    {
-      success: true,
-      total: events.length,
-      events,
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate",
+    const events = rawEvents.map((ev) => normalizeEventCategoriesAndQuota(ev, soldCountsMap));
+    return NextResponse.json(
+      {
+        success: true,
+        total: events.length,
+        events,
       },
-    }
-  );
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=2, stale-while-revalidate=5",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("GET /api/events error:", error);
+    return NextResponse.json({ success: true, total: 0, events: [] });
+  }
 }
 
 // POST: Tambah Event Baru (Super Admin & Event Admin) + Auto-Sync ke Cetas Vote

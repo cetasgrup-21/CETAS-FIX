@@ -31,59 +31,26 @@ export interface EventVotingConfig {
   categories: VoteCategory[];
 }
 
-export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [
-  {
-    eventId: "ev-268156",
-    eventTitle: "LKBB CEMARA 2026",
-    eventDate: "2026-11-28",
-    bannerUrl: "/lkbb-cemara-2026.jpg",
-    mascotUrl: "/mascot/ceti_transparent.png",
-    themePreset: "EMERALD",
-    categories: [
-      {
-        id: "cat-ev-268156-sd",
-        eventId: "ev-268156",
-        title: "Tingkat SD/MI",
-        description: "Pemilihan pleton terfavorit tingkat SD/MI (Juara Favorit Terpisah)",
-        pricePerVote: 2000,
-        candidates: [],
-      },
-      {
-        id: "cat-ev-268156-smp",
-        eventId: "ev-268156",
-        title: "Tingkat SMP/MTs",
-        description: "Pemilihan pleton terfavorit tingkat SMP/MTs (Juara Favorit Terpisah)",
-        pricePerVote: 2000,
-        candidates: [],
-      },
-      {
-        id: "cat-ev-268156-sma",
-        eventId: "ev-268156",
-        title: "Tingkat SMA/SMK/MA",
-        description: "Pemilihan pleton terfavorit tingkat SMA/SMK/MA (Juara Favorit Terpisah)",
-        pricePerVote: 2000,
-        candidates: [],
-      },
-    ],
-  },
-];
+export const INITIAL_EVENT_VOTINGS: EventVotingConfig[] = [];
 
-const VOTE_STORAGE_KEY = "cetas_event_votings_v5";
+const VOTE_STORAGE_KEY = "cetas_event_votings_v7";
 
 export function getStoredEventVotings(): EventVotingConfig[] {
-  if (typeof window === "undefined") return INITIAL_EVENT_VOTINGS;
+  if (typeof window === "undefined") return [];
   try {
     localStorage.removeItem("cetas_event_votings_v1");
     localStorage.removeItem("cetas_event_votings_v2");
     localStorage.removeItem("cetas_event_votings_v3");
     localStorage.removeItem("cetas_event_votings_v4");
+    localStorage.removeItem("cetas_event_votings_v5");
+    localStorage.removeItem("cetas_event_votings_v6");
     const raw = localStorage.getItem(VOTE_STORAGE_KEY);
-    if (!raw) return INITIAL_EVENT_VOTINGS;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return INITIAL_EVENT_VOTINGS;
+    return [];
   } catch {
-    return INITIAL_EVENT_VOTINGS;
+    return [];
   }
 }
 

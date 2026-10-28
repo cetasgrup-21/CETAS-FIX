@@ -273,7 +273,7 @@ export default function AdminDashboardPage() {
   const [tempFinances, setTempFinances] = useState(finances);
 
   // Unified Events State (CRUD & Workspace)
-  const [eventsList, setEventsList] = useState<UnifiedEvent[]>(INITIAL_UNIFIED_EVENTS);
+  const [eventsList, setEventsList] = useState<UnifiedEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventSubTab, setEventSubTab] = useState<
     "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES"
@@ -499,12 +499,14 @@ export default function AdminDashboardPage() {
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+        if (data.success && Array.isArray(data.events)) {
           const latestLocal = getStoredEvents();
           const merged = mergeEventsWithLocal(data.events, latestLocal);
           setEventsList(merged);
           saveStoredEvents(merged);
-          setSelectedEventToConnect(merged[0].id);
+          if (merged.length > 0) {
+            setSelectedEventToConnect(merged[0].id);
+          }
 
           const activeEvId =
             sessionStorage.getItem("cetas_admin_selected_event_id") || savedEventId;
@@ -2024,6 +2026,13 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Link
+            href="/scanner"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition"
+          >
+            <Ticket className="h-3.5 w-3.5" />
+            Buka Scanner Gate
+          </Link>
           <button
             onClick={handleLogout}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition"
@@ -2084,6 +2093,33 @@ export default function AdminDashboardPage() {
               Buka Scanner Gate
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Scanner Staff Dedicated Quick Portal */}
+      {currentUser.role === "SCANNER_STAFF" && (
+        <div className="rounded-2xl border border-blue-300 dark:border-blue-700/80 bg-gradient-to-r from-blue-500/10 via-cyan-400/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0">
+              <Ticket className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="text-xs font-black text-blue-950 dark:text-blue-200">
+                Akses Gatekeeper & Scanner Masuk Aktif
+              </span>
+              <p className="text-[11px] text-blue-900/80 dark:text-blue-300/80 mt-0.5">
+                Akun Anda memiliki izin resmi untuk memvalidasi dan check-in e-tiket peserta di pintu masuk gerbang event.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/scanner"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition shrink-0"
+          >
+            <Ticket className="h-3.5 w-3.5" />
+            Buka Kamera Scanner Gate &rarr;
+          </Link>
         </div>
       )}
 

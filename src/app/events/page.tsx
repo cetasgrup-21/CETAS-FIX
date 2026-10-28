@@ -99,28 +99,27 @@ function mapToTicketingEvents(list: UnifiedEvent[]): EventItem[] {
     });
 }
 
-const DEFAULT_EVENTS: EventItem[] = mapToTicketingEvents(INITIAL_UNIFIED_EVENTS);
-
 export default function EventsPage() {
-  const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
   useEffect(() => {
     const stored = getStoredEvents();
     if (stored && stored.length > 0) {
       setEvents(mapToTicketingEvents(stored));
+      setIsLoadingEvents(false);
     }
 
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.events) && data.events.length > 0) {
-          const latestLocal = getStoredEvents();
-          const merged = mergeEventsWithLocal(data.events, latestLocal);
-          saveStoredEvents(merged);
-          setEvents(mapToTicketingEvents(merged));
+        if (data.success && Array.isArray(data.events)) {
+          saveStoredEvents(data.events);
+          setEvents(mapToTicketingEvents(data.events));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoadingEvents(false));
   }, []);
 
   const [selectedTier, setSelectedTier] = useState<{ event: EventItem; tier: TicketTier } | null>(null);
@@ -291,7 +290,13 @@ export default function EventsPage() {
       </div>
 
       {/* Events List */}
-      {events.length === 0 ? (
+      {isLoadingEvents && events.length === 0 ? (
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 p-16 text-center space-y-4 bg-white dark:bg-slate-900 animate-pulse">
+          <div className="h-10 w-10 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto" />
+          <div className="h-4 w-48 bg-slate-200 dark:bg-slate-800 rounded mx-auto" />
+          <div className="h-3 w-64 bg-slate-200 dark:bg-slate-800 rounded mx-auto" />
+        </div>
+      ) : events.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 p-16 text-center space-y-3 bg-white dark:bg-slate-900">
           <Calendar className="h-10 w-10 text-slate-300 mx-auto" />
           <div className="text-base font-bold text-slate-700 dark:text-slate-300">

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTicketQR } from "@/lib/ticket-security";
 import { prisma } from "@/lib/prisma";
+import { ensureOrderTables, StoredTicket } from "@/lib/order-store";
+
+export const dynamic = "force-dynamic";
 
 interface CheckedInRecord {
   checkedInAt: Date;
@@ -10,7 +13,7 @@ interface CheckedInRecord {
   staffId?: string;
 }
 
-// Global in-memory store agar status check-in tiket persisten di server Next.js
+// In-memory cache fallback jika offline
 const globalForCheckins = globalThis as unknown as {
   cetasCheckedInStore?: Map<string, CheckedInRecord>;
 };
@@ -22,160 +25,191 @@ if (process.env.NODE_ENV !== "production") {
   globalForCheckins.cetasCheckedInStore = checkedInStore;
 }
 
+function formatWibTime(date: Date): string {
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .format(date)
+      .replace(/:/g, ".");
+  } catch {
+    return date.toLocaleTimeString("id-ID").replace(/:/g, ".");
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { qrString, staffId } = await req.json();
 
-    if (!qrString) {
-      return NextResponse.json({ success: false, message: "Kode QR tidak ditemukan" }, { status: 400 });
-    }
-
-    // 1. Verifikasi tanda tangan digital QR Code secara kriptografi (HMAC-SHA256)
-    const verification = verifyTicketQR(qrString);
-    if (!verification.valid || !verification.data) {
+    if (!qrString || typeof qrString !== "string") {
       return NextResponse.json(
-        {
-          success: false,
-          code: "FORGERY_DETECTED",
-          message: verification.error || "Tanda tangan digital QR Code tidak sah! Kemungkinan tiket palsu.",
-        },
+        { success: false, message: "Kode QR atau tiket tidak ditemukan" },
         { status: 400 }
       );
     }
 
-    const { ticketCode } = verification.data;
+    const cleanInput = qrString.trim();
+    await ensureOrderTables();
 
-    // 2. Periksa apakah tiket sudah pernah digunakan (In-Memory Check)
-    if (checkedInStore.has(ticketCode)) {
-      const prev = checkedInStore.get(ticketCode)!;
-      return NextResponse.json(
-        {
-          success: false,
-          code: "ALREADY_CHECKED_IN",
-          message: `Tiket sudah pernah digunakan pada pukul ${prev.checkedInAt.toLocaleTimeString("id-ID")} WIB! Akses ditolak.`,
-          holderName: prev.holderName,
-          ticketCode: ticketCode,
-          tierName: prev.tierName,
-          eventName: prev.eventName,
-          checkedInAt: prev.checkedInAt.toLocaleTimeString("id-ID"),
-        },
-        { status: 409 }
-      );
+    // 1. Ekstrak kode tiket (bisa berupa plain ticket code atau signed HMAC QR payload)
+    let extractedTicketCode = cleanInput;
+    let isSignedQr = false;
+
+    if (cleanInput.startsWith("ey") || cleanInput.includes(".")) {
+      const verification = verifyTicketQR(cleanInput);
+      if (verification.valid && verification.data?.ticketCode) {
+        extractedTicketCode = verification.data.ticketCode;
+        isSignedQr = true;
+      }
     }
 
-    // 3. Periksa ke database PostgreSQL jika aktif
+    // 2. Query ke Database PostgreSQL ("CetasTicket")
+    let dbTicket: StoredTicket | null = null;
     try {
-      const ticket = await (prisma as any).ticket.findUnique({
-        where: { ticketCode },
-        include: {
-          tier: {
-            include: {
-              event: true,
-            },
-          },
-          order: true,
-        },
-      });
-
-      if (ticket) {
-        // Cek pembayaran lunas
-        if (ticket.order.paymentStatus !== "PAID") {
-          return NextResponse.json(
-            {
-              success: false,
-              code: "UNPAID_TICKET",
-              message: `Pembayaran tiket ini belum lunas (Status: ${ticket.order.paymentStatus}).`,
-            },
-            { status: 400 }
-          );
-        }
-
-        // Cek status check-in database
-        if (ticket.isCheckedIn) {
-          const checkinTimeStr = ticket.checkedInAt?.toLocaleTimeString("id-ID") || "sebelumnya";
-          // Sync ke in-memory store
-          checkedInStore.set(ticketCode, {
-            checkedInAt: ticket.checkedInAt || new Date(),
-            holderName: ticket.holderName,
-            tierName: ticket.tier.name,
-            eventName: ticket.tier.event.title,
-            staffId: ticket.checkedInById || staffId,
-          });
-
-          return NextResponse.json(
-            {
-              success: false,
-              code: "ALREADY_CHECKED_IN",
-              message: `Tiket sudah pernah digunakan pada pukul ${checkinTimeStr} WIB! Akses ditolak.`,
-              holderName: ticket.holderName,
-              ticketCode: ticket.ticketCode,
-              tierName: ticket.tier.name,
-              eventName: ticket.tier.event.title,
-            },
-            { status: 409 }
-          );
-        }
-
-        // Update database: tiket digunakan
-        const updatedTicket = await (prisma as any).ticket.update({
-          where: { id: ticket.id },
-          data: {
-            isCheckedIn: true,
-            checkedInAt: new Date(),
-            checkedInById: staffId || null,
-          },
-        });
-
-        // Simpan ke in-memory store
-        checkedInStore.set(ticketCode, {
-          checkedInAt: updatedTicket.checkedInAt!,
-          holderName: updatedTicket.holderName,
-          tierName: ticket.tier.name,
-          eventName: ticket.tier.event.title,
-          staffId,
-        });
-
-        return NextResponse.json({
-          success: true,
-          code: "CHECKIN_SUCCESS",
-          message: "Check-in berhasil! Silakan masuk.",
-          ticket: {
-            code: updatedTicket.ticketCode,
-            holderName: updatedTicket.holderName,
-            tierName: ticket.tier.name,
-            eventName: ticket.tier.event.title,
-            checkedInAt: updatedTicket.checkedInAt,
-          },
-        });
+      const rows = await prisma.$queryRawUnsafe<StoredTicket[]>(
+        `SELECT * FROM "CetasTicket"
+         WHERE "ticketCode" = $1
+            OR "qrString" = $1
+            OR "orderNumber" = $1
+            OR "ticketCode" = $2
+         LIMIT 1`,
+        cleanInput,
+        extractedTicketCode
+      );
+      if (rows && rows.length > 0) {
+        dbTicket = rows[0];
       }
     } catch (dbErr) {
-      console.warn("[Scanner DB Offline]: Menggunakan in-memory store untuk validasi tiket", dbErr);
+      console.warn("[Scanner DB Query Warning]:", dbErr);
     }
 
-    // 4. Catat check-in pertama kali ke in-memory store (Mode Offline / Dev)
-    const checkinTime = new Date();
-    checkedInStore.set(ticketCode, {
-      checkedInAt: checkinTime,
-      holderName: "Pemegang Tiket Resmi",
-      tierName: "Festival All Access Pass",
-      eventName: "Cetas SoundFest 2026",
-      staffId: staffId || "Gate-01",
-    });
+    // A. JIKA TIKET TERDAFTAR DI DATABASE POSTGRESQL:
+    if (dbTicket) {
+      // Periksa apakah sudah pernah check-in
+      if (dbTicket.status === "USED") {
+        const checkinDate = dbTicket.checkedInAt ? new Date(dbTicket.checkedInAt) : new Date();
+        const checkinTimeStr = formatWibTime(checkinDate);
 
-    return NextResponse.json({
-      success: true,
-      code: "CHECKIN_SUCCESS",
-      message: "Check-in Berhasil! Silakan masuk ke arena acara.",
-      ticket: {
-        code: ticketCode,
-        holderName: "Pemegang Tiket Resmi",
-        tierName: "Festival All Access Pass",
-        eventName: "Cetas SoundFest 2026",
-        checkedInAt: checkinTime,
+        return NextResponse.json(
+          {
+            success: false,
+            code: "ALREADY_CHECKED_IN",
+            message: `Tiket sudah pernah digunakan pada pukul ${checkinTimeStr} WIB! Akses ditolak.`,
+            ticketCode: dbTicket.ticketCode,
+            holderName: dbTicket.holderName,
+            tierName: dbTicket.tierName,
+            eventName: dbTicket.eventName,
+            checkedInAt: `${checkinTimeStr} WIB`,
+            time: `${checkinTimeStr} WIB`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Check-in pertama kali: Update status di database menjadi USED
+      const now = new Date();
+      const nowWibStr = formatWibTime(now);
+
+      try {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "CetasTicket"
+           SET "status" = 'USED',
+               "checkedInAt" = CURRENT_TIMESTAMP
+           WHERE "id" = $1`,
+          dbTicket.id
+        );
+      } catch (updateErr) {
+        console.error("Failed to update ticket check-in status:", updateErr);
+      }
+
+      // Simpan ke memory cache
+      checkedInStore.set(dbTicket.ticketCode, {
+        checkedInAt: now,
+        holderName: dbTicket.holderName,
+        tierName: dbTicket.tierName,
+        eventName: dbTicket.eventName,
+        staffId: staffId || "Gate-01",
+      });
+
+      return NextResponse.json({
+        success: true,
+        code: "CHECKIN_SUCCESS",
+        message: "Check-in Berhasil! Silakan masuk ke arena acara.",
+        ticket: {
+          code: dbTicket.ticketCode,
+          holderName: dbTicket.holderName,
+          tierName: dbTicket.tierName,
+          eventName: dbTicket.eventName,
+          checkedInAt: `${nowWibStr} WIB`,
+          time: `${nowWibStr} WIB`,
+        },
+      });
+    }
+
+    // B. JIKA TIKET TIDAK DITEMUKAN DI DATABASE, PERIKSA TANDA TANGAN QR (HMAC-SHA256)
+    if (isSignedQr) {
+      // Cek in-memory check-in
+      if (checkedInStore.has(extractedTicketCode)) {
+        const prev = checkedInStore.get(extractedTicketCode)!;
+        const prevTimeStr = formatWibTime(prev.checkedInAt);
+        return NextResponse.json(
+          {
+            success: false,
+            code: "ALREADY_CHECKED_IN",
+            message: `Tiket sudah pernah digunakan pada pukul ${prevTimeStr} WIB! Akses ditolak.`,
+            ticketCode: extractedTicketCode,
+            holderName: prev.holderName,
+            tierName: prev.tierName,
+            eventName: prev.eventName,
+            checkedInAt: `${prevTimeStr} WIB`,
+            time: `${prevTimeStr} WIB`,
+          },
+          { status: 409 }
+        );
+      }
+
+      const now = new Date();
+      const nowWibStr = formatWibTime(now);
+      checkedInStore.set(extractedTicketCode, {
+        checkedInAt: now,
+        holderName: "Pemegang Tiket Tamu",
+        tierName: "Tiket Resmi (Valid Digital)",
+        eventName: "Event Resmi CETAS",
+        staffId: staffId || "Gate-01",
+      });
+
+      return NextResponse.json({
+        success: true,
+        code: "CHECKIN_SUCCESS",
+        message: "Check-in Berhasil! Silakan masuk ke arena acara.",
+        ticket: {
+          code: extractedTicketCode,
+          holderName: "Pemegang Tiket Tamu",
+          tierName: "Tiket Resmi (Valid Digital)",
+          eventName: "Event Resmi CETAS",
+          checkedInAt: `${nowWibStr} WIB`,
+          time: `${nowWibStr} WIB`,
+        },
+      });
+    }
+
+    // C. JIKA TIDAK DITEMUKAN DAN TANDA TANGAN TIDAK SAH
+    return NextResponse.json(
+      {
+        success: false,
+        code: "INVALID_TICKET",
+        message: "Tiket tidak terdaftar di database CETAS atau tanda tangan digital palsu! Akses ditolak.",
       },
-    });
-  } catch (error) {
+      { status: 400 }
+    );
+  } catch (error: any) {
     console.error("[Scanner API Error]:", error);
-    return NextResponse.json({ success: false, message: "Gagal memproses validasi tiket" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Gagal memproses validasi tiket di gate" },
+      { status: 500 }
+    );
   }
 }

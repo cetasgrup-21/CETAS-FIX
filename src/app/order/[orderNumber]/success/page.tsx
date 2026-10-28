@@ -157,54 +157,64 @@ export default function OrderSuccessPage({
               </p>
             </div>
 
-            {/* Ticket Passes Cards */}
+            {/* Ticket Passes Cards (if ticket order) or Vote Confirmation */}
             <div className="p-6 sm:p-8 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    E-Ticket Masuk Resmi ({tickets.length} Tiket)
-                  </h2>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-full">
-                    Siap Digunakan
-                  </span>
-                </div>
+              {tickets.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                      E-Ticket Masuk Resmi ({tickets.length} Tiket)
+                    </h2>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-full">
+                      Siap Digunakan
+                    </span>
+                  </div>
 
-                {tickets.map((t, idx) => (
-                  <div
-                    key={t.id || idx}
-                    className="p-5 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col sm:flex-row items-center gap-5 justify-between"
-                  >
-                    <div className="flex-1 space-y-1.5 text-center sm:text-left">
-                      <span className="font-mono text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-block">
-                        {t.ticketCode}
-                      </span>
-                      <h3 className="text-base font-black text-slate-900">{t.eventName}</h3>
-                      <div className="text-xs font-bold text-slate-700">Kategori: {t.tierName}</div>
-                      <div className="text-[11px] text-slate-500">
-                        Pemegang: <strong>{t.holderName}</strong> ({t.holderEmail})
+                  {tickets.map((t, idx) => (
+                    <div
+                      key={t.id || idx}
+                      className="p-5 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col sm:flex-row items-center gap-5 justify-between"
+                    >
+                      <div className="flex-1 space-y-1.5 text-center sm:text-left">
+                        <span className="font-mono text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 inline-block">
+                          {t.ticketCode}
+                        </span>
+                        <h3 className="text-base font-black text-slate-900">{t.eventName}</h3>
+                        <div className="text-xs font-bold text-slate-700">Kategori: {t.tierName}</div>
+                        <div className="text-[11px] text-slate-500">
+                          Pemegang: <strong>{t.holderName}</strong> ({t.holderEmail})
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-center space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                        {t.qrDataUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={t.qrDataUrl}
+                            alt={`QR Code ${t.ticketCode}`}
+                            className="h-32 w-32 object-contain mx-auto"
+                          />
+                        ) : (
+                          <div className="h-32 w-32 flex items-center justify-center text-xs text-slate-400">
+                            QR Code Valid
+                          </div>
+                        )}
+                        <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">
+                          Scan di Pintu Gate
+                        </span>
                       </div>
                     </div>
-
-                    <div className="shrink-0 text-center space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                      {t.qrDataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={t.qrDataUrl}
-                          alt={`QR Code ${t.ticketCode}`}
-                          className="h-32 w-32 object-contain mx-auto"
-                        />
-                      ) : (
-                        <div className="h-32 w-32 flex items-center justify-center text-xs text-slate-400">
-                          QR Code Valid
-                        </div>
-                      )}
-                      <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">
-                        Scan di Pintu Gate
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-blue-50/70 border border-blue-200 text-center space-y-2">
+                  <ShieldCheck className="h-8 w-8 text-blue-600 mx-auto" />
+                  <h3 className="text-sm font-black text-blue-900">Vote &amp; Transaksi Berhasil Diterima</h3>
+                  <p className="text-xs text-blue-700 max-w-sm mx-auto">
+                    Suara voting Anda telah terverifikasi dan dihitung secara sah pada database CETAS. Terima kasih atas partisipasi Anda!
+                  </p>
+                </div>
+              )}
 
               {/* Settlement Summary */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">

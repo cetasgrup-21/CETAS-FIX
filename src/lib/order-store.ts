@@ -382,10 +382,15 @@ export async function markOrderAsPaid(
       }
 
       // Automatically reduce remaining quota in events store
-      if (event && item.id) {
-        const tier = event.tiers?.find((t) => t.id === item.id);
+      if (event) {
+        const tier = event.tiers?.find(
+          (t) => t.id === item.id || t.name === item.name || item.name.includes(t.name)
+        );
         if (tier && tier.quotaRemaining !== undefined) {
-          tier.quotaRemaining = Math.max(0, tier.quotaRemaining - item.quantity);
+          tier.quotaRemaining = Math.max(0, Number(tier.quotaRemaining) - item.quantity);
+        }
+        if (event.quotaRemaining !== undefined) {
+          event.quotaRemaining = Math.max(0, Number(event.quotaRemaining) - item.quantity);
         }
       }
     }

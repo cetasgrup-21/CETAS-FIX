@@ -418,7 +418,14 @@ function VotePageContent() {
         throw new Error(data.message || data.errors?.[0]?.message || "Gagal memproses checkout pembayaran");
       }
 
-      // Sukses: Tutup form voter dan langsung buka Xendit Modal (QRIS & E-Wallet)
+      // Sukses: Jika Xendit Invoice URL tersedia, langsung arahkan ke checkout resmi Xendit
+      const targetInvoiceUrl = data.invoiceUrl || data.xendit?.invoiceUrl;
+      if (targetInvoiceUrl) {
+        window.location.href = targetInvoiceUrl;
+        return;
+      }
+
+      // Fallback modal jika tidak ada direct URL
       const cand = selectedCandidate;
       const count = safeVoteCount;
       setSelectedCandidate(null);
@@ -429,7 +436,7 @@ function VotePageContent() {
         orderType: "VOTE",
         candidate: cand,
         voteCount: count,
-        invoiceUrl: data.invoiceUrl || data.xendit?.invoiceUrl,
+        invoiceUrl: targetInvoiceUrl,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
@@ -605,7 +612,13 @@ function VotePageContent() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      // Tampilkan Xendit Modal (QRIS & E-Wallet)
+      // Langsung arahkan pengguna ke Halaman Checkout Resmi Xendit (Tanpa modal barcode perantara)
+      if (data.invoiceUrl) {
+        window.location.href = data.invoiceUrl;
+        return;
+      }
+
+      // Fallback jika invoiceUrl tidak tersedia langsung
       setSimulatorData({
         orderNumber: data.orderNumber,
         grossAmount: selectedTier.price * ticketQty,

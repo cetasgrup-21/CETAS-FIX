@@ -277,14 +277,15 @@ export async function PUT(req: NextRequest) {
 
     // Aksi khusus: pengurangan kuota tiket saat penonton membeli tiket
     if (action === "REDUCE_TICKET_QUOTA") {
-      const { eventId, tierId, qty } = body;
-      const evIdx = events.findIndex((e) => e.id === (eventId || id));
+      const { eventId, tierId, qty, quantity, id: bodyId } = body;
+      const targetEventId = eventId || bodyId || id;
+      const evIdx = events.findIndex((e) => e.id === targetEventId);
       if (evIdx !== -1) {
         const targetEv = events[evIdx];
-        const deduct = Math.max(1, Number(qty) || 1);
+        const deduct = Math.max(1, Number(quantity || qty) || 1);
         targetEv.tiers = (targetEv.tiers || []).map((t) =>
           t.id === tierId
-            ? { ...t, quotaRemaining: Math.max(0, t.quotaRemaining - deduct) }
+            ? { ...t, quotaRemaining: Math.max(0, (Number(t.quotaRemaining) || 0) - deduct) }
             : t
         );
         events[evIdx] = targetEv;
@@ -292,6 +293,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({
           success: true,
           event: targetEv,
+          events,
         });
       }
     }

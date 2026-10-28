@@ -638,6 +638,22 @@ export default function AdminDashboardPage() {
     }
   }, [eventsList]);
 
+  // RBAC Auto-Routing Protection: Kunci akses halaman sesuai role (Dipanggil sebelum conditional return)
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = currentUser.role;
+    if (role === "PROD_ADMIN" && activeTab !== "PRODUCTION") {
+      setActiveTab("PRODUCTION");
+    } else if (role === "FINANCE_ADMIN" && activeTab !== "FINANCES") {
+      setActiveTab("FINANCES");
+    } else if (role === "SCANNER_STAFF" && (activeTab !== "EVENTS" || eventSubTab !== "ATTENDEES")) {
+      setActiveTab("EVENTS");
+      setEventSubTab("ATTENDEES");
+    } else if ((role === "EVENT_ADMIN" || role === "PANITIA") && activeTab !== "EVENTS") {
+      setActiveTab("EVENTS");
+    }
+  }, [currentUser, activeTab, eventSubTab]);
+
   useEffect(() => {
     if (eventVotings && eventVotings.length > 0) {
       saveStoredEventVotings(eventVotings);
@@ -2086,9 +2102,9 @@ export default function AdminDashboardPage() {
                 Email Resmi Akun Cetas
               </label>
               <input
-                type="email"
+                type="text"
                 required
-                placeholder="Masukkan email akun resmi..."
+                placeholder="Masukkan email atau username (admin, scanner, prod, dll)..."
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -2152,20 +2168,6 @@ export default function AdminDashboardPage() {
     (isEventAdmin || isPanitia) && currentUser.assignedEventId
       ? eventsList.filter((e) => e.id === currentUser.assignedEventId)
       : eventsList;
-
-  // RBAC Auto-Routing Protection: Kunci akses halaman sesuai role
-  useEffect(() => {
-    if (isProdAdmin && activeTab !== "PRODUCTION") {
-      setActiveTab("PRODUCTION");
-    } else if (isFinanceAdmin && activeTab !== "FINANCES") {
-      setActiveTab("FINANCES");
-    } else if (isScannerStaff && (activeTab !== "EVENTS" || eventSubTab !== "ATTENDEES")) {
-      setActiveTab("EVENTS");
-      setEventSubTab("ATTENDEES");
-    } else if ((isEventAdmin || isPanitia) && activeTab !== "EVENTS") {
-      setActiveTab("EVENTS");
-    }
-  }, [currentUser?.role, isProdAdmin, isFinanceAdmin, isScannerStaff, isEventAdmin, isPanitia, activeTab, eventSubTab]);
 
   // Keuangan event saat ini dari live breakdown
   const currentEventFinances = selectedEvent

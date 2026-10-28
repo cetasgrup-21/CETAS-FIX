@@ -3,6 +3,7 @@ import { INITIAL_UNIFIED_EVENTS, UnifiedEvent } from "@/lib/events-unified-data"
 import { INITIAL_EVENT_VOTINGS, EventVotingConfig } from "@/lib/vote-unified-data";
 import { INITIAL_UNIFIED_PRODUCTS, UnifiedProduct } from "@/lib/production-unified-data";
 import { INITIAL_ATTENDEES, RegisteredAttendee } from "@/lib/events-registration-data";
+import { INITIAL_STAFF_ACCOUNTS, StaffAccountRecord } from "@/lib/admin-auth";
 
 declare global {
   var __cetasTableInitialized: boolean | undefined;
@@ -111,4 +112,12 @@ export async function getAttendeesStore(): Promise<RegisteredAttendee[]> {
 
 export async function saveAttendeesStore(attendees: RegisteredAttendee[]): Promise<void> {
   await setStoreData<RegisteredAttendee[]>("cetas_attendees_v1", attendees);
+}
+
+export async function getStaffStore(): Promise<StaffAccountRecord[]> {
+  return getStoreData<StaffAccountRecord[]>("cetas_staff_list_v1", INITIAL_STAFF_ACCOUNTS);
+}
+
+export async function saveStaffStore(staff: StaffAccountRecord[]): Promise<void> {
+  await setStoreData<StaffAccountRecord[]>("cetas_staff_list_v1", staff);
 }

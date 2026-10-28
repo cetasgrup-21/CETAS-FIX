@@ -4,7 +4,8 @@ export type AdminRole =
   | "FINANCE_ADMIN"
   | "PROD_ADMIN"
   | "SCANNER_STAFF"
-  | "STAFF_REKAP";
+  | "STAFF_REKAP"
+  | "PANITIA";
 
 export interface AdminUser {
   id: string;
@@ -16,6 +17,8 @@ export interface AdminUser {
   badgeColor?: string;
   description?: string;
   lastLogin?: string;
+  assignedEventId?: string;
+  assignedEventTitle?: string;
   canEditFinances: boolean;
   canManageStaff: boolean;
   canManageAds: boolean;
@@ -24,6 +27,7 @@ export interface AdminUser {
   canManageProduction: boolean;
   canAccessScanner: boolean;
   canManageScoreRekap?: boolean;
+  isReadOnly?: boolean;
 }
 
 export const ROLE_DEFINITIONS: Record<
@@ -40,6 +44,7 @@ export const ROLE_DEFINITIONS: Record<
     canManageProduction: boolean;
     canAccessScanner: boolean;
     canManageScoreRekap?: boolean;
+    isReadOnly?: boolean;
   }
 > = {
   SUPER_ADMIN: {
@@ -119,6 +124,20 @@ export const ROLE_DEFINITIONS: Record<
     canManageProduction: false,
     canAccessScanner: false,
     canManageScoreRekap: true,
+  },
+  PANITIA: {
+    title: "👁️ Panitia Pemantau Event (Read-Only)",
+    badgeColor: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950/70 dark:text-teal-300 dark:border-teal-800",
+    description: "Hanya dapat memantau jalannya event, penjualan tiket, klasemen juara, dan absensi penonton tanpa izin mengubah data.",
+    canEditFinances: false,
+    canManageStaff: false,
+    canManageAds: false,
+    canApproveEvents: false,
+    canManageAttendees: false,
+    canManageProduction: false,
+    canAccessScanner: false,
+    canManageScoreRekap: false,
+    isReadOnly: true,
   },
 };
 

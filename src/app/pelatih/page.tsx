@@ -118,13 +118,16 @@ function PelatihPortalContent() {
       .catch(() => {});
   }, []);
 
-  // Initialize coach session from URL or localStorage
+  // Initialize coach session from localStorage only (Security: prevent URL scanning from logging into coach dashboard)
   useEffect(() => {
-    const savedCode = urlCode || (typeof window !== "undefined" ? localStorage.getItem("cetas_coach_code") || "" : "");
+    const savedCode = typeof window !== "undefined" ? localStorage.getItem("cetas_coach_code") || "" : "";
     if (savedCode) {
       setCoachCode(savedCode);
       fetchAttendeeData(savedCode);
     } else {
+      if (urlCode) {
+        setLoginInput(urlCode);
+      }
       setIsLoading(false);
     }
   }, [urlCode]);
@@ -149,9 +152,9 @@ function PelatihPortalContent() {
           localStorage.setItem("cetas_coach_code", data.attendee.badgeCode);
         }
 
-        // Generate QR Code for certificate & badge (Full Verification URL)
+        // Generate QR Code for certificate & badge (Points to dedicated Public Verification Portal)
         const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id");
-        const verificationUrl = `${origin}/pelatih?code=${encodeURIComponent(data.attendee.badgeCode)}&verify=1`;
+        const verificationUrl = `${origin}/verifikasi?code=${encodeURIComponent(data.attendee.badgeCode)}`;
         const qr = await generateQRCodeDataUrl(verificationUrl);
         setCertQrUrl(qr);
       } else {
@@ -236,9 +239,9 @@ function PelatihPortalContent() {
         localStorage.setItem("cetas_coach_code", createdAtd.badgeCode);
       }
 
-      // Generate QR Code (Full Verification URL)
+      // Generate QR Code (Points to Public Verification Portal)
       const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id");
-      const verificationUrl = `${origin}/pelatih?code=${encodeURIComponent(createdAtd.badgeCode)}&verify=1`;
+      const verificationUrl = `${origin}/verifikasi?code=${encodeURIComponent(createdAtd.badgeCode)}`;
       const qr = await generateQRCodeDataUrl(verificationUrl);
       setCertQrUrl(qr);
     } catch (err: unknown) {
@@ -907,18 +910,6 @@ function PelatihPortalContent() {
           <button onClick={() => setEmailSentToast(null)} className="ml-2 hover:opacity-80">
             <X className="h-4 w-4" />
           </button>
-        </div>
-      )}
-
-      {/* Verification Success Alert when QR is Scanned */}
-      {(searchParams.get("verify") === "1" || searchParams.get("verify") === "true") && (
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white px-4 py-3 shadow-lg flex items-center justify-between text-xs font-bold animate-in fade-in">
-          <div className="mx-auto max-w-7xl flex items-center gap-2.5">
-            <CheckCircle2 className="h-5 w-5 text-emerald-200 shrink-0" />
-            <span>
-              ✓ <strong>HASIL PEMINDAIAN RESMI:</strong> E-Sertifikat atas nama <strong>&ldquo;{authAttendee.fullName}&rdquo;</strong> ({authAttendee.institution}) telah terverifikasi ASLI dan terdaftar resmi di sistem CETAS!
-            </span>
-          </div>
         </div>
       )}
 
@@ -2216,10 +2207,10 @@ function PelatihPortalContent() {
                             <div className="flex items-center gap-2">
                               {certQrUrl ? (
                                 <a
-                                  href={`${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id")}/pelatih?code=${encodeURIComponent(authAttendee.badgeCode)}&verify=1`}
+                                  href={`${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id")}/verifikasi?code=${encodeURIComponent(authAttendee.badgeCode)}`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  title="Klik untuk membuka verifikasi keaslian sertifikat"
+                                  title="Buka Halaman Verifikasi Keaslian Sertifikat (Publik)"
                                   className="group relative block cursor-pointer transition hover:scale-105"
                                 >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}

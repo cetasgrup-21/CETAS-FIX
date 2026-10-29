@@ -1980,23 +1980,51 @@ export default function AdminDashboardPage() {
     setIsSavingOfficialDocs(true);
     try {
       // Pastikan jika ada file dengan data URL base64, diunggah ke endpoint /api/upload terlebih dahulu
-      // agar payload JSON ke /api/attendees berukuran sangat kecil (< 1KB) dan anti error 413
+      // menggunakan teknik chunking agar payload JSON ke /api/attendees berukuran sangat kecil (< 1KB) dan anti error 413
       const cleanedDocs = await Promise.all(
         officialDocsForm.map(async (doc) => {
           if (doc.fileUrl && doc.fileUrl.startsWith("data:")) {
             try {
               const resBlob = await fetch(doc.fileUrl);
               const blob = await resBlob.blob();
-              const formData = new FormData();
-              formData.append("file", blob, doc.fileName || `${doc.title}.pdf`);
-              const upRes = await fetch("/api/upload", {
-                method: "POST",
-                body: formData,
-              });
-              if (upRes.ok) {
-                const upData = await upRes.json();
-                if (upData.success && upData.url) {
-                  return { ...doc, fileUrl: upData.url };
+              const CHUNK_SIZE = 768 * 1024;
+              const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
+              const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+              const fileName = doc.fileName || `${doc.title}.pdf`;
+
+              if (totalChunks <= 1) {
+                const formData = new FormData();
+                formData.append("file", blob, fileName);
+                formData.append("fileName", fileName);
+                const upRes = await fetch("/api/upload", { method: "POST", body: formData });
+                if (upRes.ok) {
+                  const upData = await upRes.json();
+                  if (upData.success && upData.url) {
+                    return { ...doc, fileUrl: upData.url };
+                  }
+                }
+              } else {
+                let finalUrl = "";
+                for (let i = 0; i < totalChunks; i++) {
+                  const start = i * CHUNK_SIZE;
+                  const end = Math.min(start + CHUNK_SIZE, blob.size);
+                  const chunkBlob = blob.slice(start, end);
+                  const formData = new FormData();
+                  formData.append("file", chunkBlob, fileName);
+                  formData.append("fileName", fileName);
+                  formData.append("uploadId", uploadId);
+                  formData.append("chunkIndex", String(i));
+                  formData.append("totalChunks", String(totalChunks));
+                  const upRes = await fetch("/api/upload", { method: "POST", body: formData });
+                  if (upRes.ok) {
+                    const upData = await upRes.json();
+                    if (upData.isComplete && upData.url) {
+                      finalUrl = upData.url;
+                    }
+                  }
+                }
+                if (finalUrl) {
+                  return { ...doc, fileUrl: finalUrl };
                 }
               }
             } catch (err) {
@@ -9450,7 +9478,7 @@ export default function AdminDashboardPage() {
                         <div>
                           <FileUpload
                             label="Upload File Dokumen Resmi"
-                            description="Pilih berkas PDF, DOCX, XLSX, atau Gambar (Maks. 10 MB)"
+                            description="Pilih berkas PDF, DOCX, XLSX, atau Gambar (Maks. 50 MB, auto-chunking)"
                             accept="*/*"
                             aspectRatio="document"
                             value={doc.fileUrl || ""}

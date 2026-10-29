@@ -26,6 +26,7 @@ export function FileUpload({
   const [showUrlFallback, setShowUrlFallback] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isImage = accept.includes("image") || value.startsWith("data:image") || value.match(/\.(jpg|jpeg|png|webp|gif)$/i);
@@ -41,29 +42,98 @@ export function FileUpload({
       Boolean(file.name.match(/\.(pdf|docx?|xlsx?|csv|zip)$/i));
 
     if (isDocType) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+
+      // Batas upload dokumen hingga 50 MB
+      if (file.size > 50 * 1024 * 1024) {
+        alert(
+          `Berkas "${file.name}" berukuran ${fileSizeMB} MB.\n\nBatas maksimal unggah berkas langsung adalah 50 MB.\n\nSilakan klik "Atau masukkan link URL" di kanan atas dan masukkan tautan Google Drive / Cloud Storage untuk berkas ini.`
+        );
+        setShowUrlFallback(true);
+        return;
+      }
+
+      const CHUNK_SIZE = 768 * 1024; // 768 KB per bagian (jauh di bawah batas 1MB/2MB Nginx!)
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
       try {
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append("file", file);
+        setUploadProgress(5);
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+        if (totalChunks <= 1) {
+          // File kecil <= 768 KB: upload biasa
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("fileName", file.name);
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.url) {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.url) {
+              setUploadProgress(100);
+              setIsUploading(false);
+              onChange(data.url, file.name);
+              return;
+            }
+          }
+        } else {
+          // File besar (misal Juknis 5MB - 40MB): potong per bagian / chunk untuk memotong batasan Nginx
+          let finalResultUrl = "";
+
+          for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunkBlob = file.slice(start, end);
+
+            const formData = new FormData();
+            formData.append("file", chunkBlob, file.name);
+            formData.append("fileName", file.name);
+            formData.append("uploadId", uploadId);
+            formData.append("chunkIndex", String(chunkIndex));
+            formData.append("totalChunks", String(totalChunks));
+
+            const res = await fetch("/api/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!res.ok) {
+              throw new Error(`Gagal mengunggah bagian ke-${chunkIndex + 1} (${res.status})`);
+            }
+
+            const data = await res.json();
+            const currentPercent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+            setUploadProgress(currentPercent);
+
+            if (data.isComplete && data.url) {
+              finalResultUrl = data.url;
+            }
+          }
+
+          if (finalResultUrl) {
+            setUploadProgress(100);
             setIsUploading(false);
-            onChange(data.url, file.name);
+            onChange(finalResultUrl, file.name);
             return;
           }
         }
-      } catch (err) {
-        console.warn("Direct upload to /api/upload failed, falling back to local reader:", err);
+      } catch (err: any) {
+        console.warn("Direct/chunked upload to /api/upload failed:", err);
       } finally {
         setIsUploading(false);
       }
+
+      // Untuk dokumen (PDF/DOCX/XLSX), jangan fall back ke base64 raksasa agar tidak merusak JSON ke server
+      alert(
+        `Gagal mengunggah berkas "${file.name}" (${fileSizeMB} MB) ke server.\n\nSilakan gunakan opsi "Atau masukkan link URL" di kanan atas untuk menempelkan link Google Drive / Dropbox berkas ini.`
+      );
+      setShowUrlFallback(true);
+      return;
     }
 
     const reader = new FileReader();
@@ -172,12 +242,18 @@ export function FileUpload({
       )}
 
       {isUploading ? (
-        <div className="border-2 border-dashed border-purple-400 bg-purple-50/60 dark:bg-purple-950/20 rounded-2xl p-5 flex flex-col items-center justify-center text-center animate-pulse">
+        <div className="border-2 border-dashed border-purple-400 bg-purple-50/70 dark:bg-purple-950/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
           <RefreshCw className="h-6 w-6 animate-spin text-purple-600 mb-2" />
           <span className="text-xs font-black text-purple-900 dark:text-purple-200">
-            Mengunggah berkas ke server...
+            Mengunggah berkas ke server... {uploadProgress > 0 && `${uploadProgress}%`}
           </span>
-          <span className="text-[10px] text-purple-600/80 mt-0.5">
+          <div className="w-full max-w-xs bg-purple-200 dark:bg-purple-900 rounded-full h-2 mt-2 overflow-hidden">
+            <div
+              className="bg-purple-600 h-2 rounded-full transition-all duration-200"
+              style={{ width: `${Math.max(uploadProgress, 5)}%` }}
+            />
+          </div>
+          <span className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mt-1.5 truncate max-w-xs font-mono">
             {uploadedFileName}
           </span>
         </div>

@@ -437,21 +437,45 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
     try {
       let finalFileUrl = dataUrl;
 
-      // Jika masih berupa base64 data URL, upload ke /api/upload
+      // Jika masih berupa base64 data URL, upload ke /api/upload dengan chunking
       if (dataUrl.startsWith("data:")) {
         try {
           const resBlob = await fetch(dataUrl);
           const blob = await resBlob.blob();
-          const formData = new FormData();
-          formData.append("file", blob, fileName || `${rule.title}.pdf`);
-          const upRes = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-          });
-          if (upRes.ok) {
-            const upData = await upRes.json();
-            if (upData.success && upData.url) {
-              finalFileUrl = upData.url;
+          const CHUNK_SIZE = 768 * 1024;
+          const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
+          const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          const fName = fileName || `${rule.title}.pdf`;
+
+          if (totalChunks <= 1) {
+            const formData = new FormData();
+            formData.append("file", blob, fName);
+            formData.append("fileName", fName);
+            const upRes = await fetch("/api/upload", { method: "POST", body: formData });
+            if (upRes.ok) {
+              const upData = await upRes.json();
+              if (upData.success && upData.url) {
+                finalFileUrl = upData.url;
+              }
+            }
+          } else {
+            for (let i = 0; i < totalChunks; i++) {
+              const start = i * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, blob.size);
+              const chunkBlob = blob.slice(start, end);
+              const formData = new FormData();
+              formData.append("file", chunkBlob, fName);
+              formData.append("fileName", fName);
+              formData.append("uploadId", uploadId);
+              formData.append("chunkIndex", String(i));
+              formData.append("totalChunks", String(totalChunks));
+              const upRes = await fetch("/api/upload", { method: "POST", body: formData });
+              if (upRes.ok) {
+                const upData = await upRes.json();
+                if (upData.isComplete && upData.url) {
+                  finalFileUrl = upData.url;
+                }
+              }
             }
           }
         } catch (err) {
@@ -480,7 +504,7 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
           errorMsg = jsonErr.message || errorMsg;
         } catch {
           if (res.status === 413) {
-            errorMsg = "Ukuran file terlalu besar. Gunakan file yang lebih kecil (maks. 10 MB).";
+            errorMsg = "Ukuran file terlalu besar untuk server. Gunakan opsi link URL atau file lebih kecil (maks. 50 MB).";
           } else {
             errorMsg = `Server merespon dengan status ${res.status}.`;
           }
@@ -579,7 +603,7 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
         <style>
           @page {
             size: A4 landscape;
-            margin: 6mm;
+            margin: 3mm;
           }
           * {
             -webkit-print-color-adjust: exact !important;
@@ -591,14 +615,33 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            width: 100% !important;
+            width: 291mm !important;
+            min-height: 204mm !important;
           }
           .cert-sheet-container {
-            width: 100% !important;
-            max-width: 100% !important;
+            width: 291mm !important;
+            height: 204mm !important;
+            max-width: 291mm !important;
+            max-height: 204mm !important;
+            min-height: 204mm !important;
             margin: 0 auto !important;
+            padding: 6mm 10mm !important;
+            box-sizing: border-box !important;
+            border-radius: 4px !important;
+            box-shadow: none !important;
+            page-break-after: always !important;
+            break-after: page !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+          }
+          .cert-sheet-container:last-child,
+          .cert-sheet-container:last-of-type {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
           .cert-page-break {
             page-break-before: always !important;
@@ -2198,7 +2241,7 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
                                 ) : (
                                   <FileUpload
                                     label=""
-                                    description={`Format yang disarankan: ${rule.allowedFormats || "PDF, JPG, PNG"} (Maks. 10 MB)`}
+                                    description={`Format yang disarankan: ${rule.allowedFormats || "PDF, JPG, PNG"} (Maks. 50 MB, auto-chunking)`}
                                     accept="*/*"
                                     aspectRatio="document"
                                     onChange={(dataUrl, fileName) =>
@@ -2562,16 +2605,37 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
                 }
                 @page {
                   size: A4 landscape;
-                  margin: 6mm;
+                  margin: 3mm;
                 }
-                .cert-sheet-container {
-                  width: 100% !important;
-                  max-width: 100% !important;
-                  margin: 0 auto !important;
-                  page-break-inside: avoid !important;
-                  break-inside: avoid !important;
+                * {
                   -webkit-print-color-adjust: exact !important;
                   print-color-adjust: exact !important;
+                  box-sizing: border-box !important;
+                }
+                .cert-sheet-container {
+                  width: 291mm !important;
+                  height: 204mm !important;
+                  max-width: 291mm !important;
+                  max-height: 204mm !important;
+                  min-height: 204mm !important;
+                  margin: 0 auto !important;
+                  padding: 6mm 10mm !important;
+                  box-sizing: border-box !important;
+                  border-radius: 4px !important;
+                  box-shadow: none !important;
+                  page-break-after: always !important;
+                  break-after: page !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  overflow: hidden !important;
+                  display: flex !important;
+                  flex-direction: column !important;
+                  justify-content: space-between !important;
+                }
+                .cert-sheet-container:last-child,
+                .cert-sheet-container:last-of-type {
+                  page-break-after: auto !important;
+                  break-after: auto !important;
                 }
                 .cert-page-break {
                   page-break-before: always !important;

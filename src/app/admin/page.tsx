@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -42,6 +42,8 @@ import {
   Palette,
   ArrowLeft,
   ChevronRight,
+  RefreshCw,
+  MessageCircle,
 } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { EVENT_THEME_PRESETS, getEventTheme, EventThemePreset } from "@/lib/event-theme";
@@ -279,8 +281,16 @@ export default function AdminDashboardPage() {
   const [eventsList, setEventsList] = useState<UnifiedEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventSubTab, setEventSubTab] = useState<
-    "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" | "FINANCES"
+    "DETAILS" | "TEAMS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" | "FINANCES"
   >("DETAILS");
+
+  // Pasukan & Pelatih State
+  const [tmInputMap, setTmInputMap] = useState<Record<string, string>>({});
+  const [savingTmId, setSavingTmId] = useState<string | null>(null);
+  const [teamSearchQuery, setTeamSearchQuery] = useState("");
+  const [teamCategoryFilter, setTeamCategoryFilter] = useState("ALL");
+  const [teamStatusFilter, setTeamStatusFilter] = useState<"ALL" | "CONFIRMED" | "WAITLIST">("ALL");
+  const [isTogglingScoreRelease, setIsTogglingScoreRelease] = useState(false);
 
   // Real-time Tickets & Audience Attendance State
   const [eventTickets, setEventTickets] = useState<any[]>([]);
@@ -322,6 +332,9 @@ export default function AdminDashboardPage() {
     ticketPrice: 150000,
     ticketQuota: 200,
     isOpenOnlineRegistration: false,
+    registrationPrice: 0,
+    allowDownPayment: false,
+    minDownPaymentAmount: 0,
     registrationQuota: 100,
     facilitiesText: "Sertifikat Digital, E-Badge Gate Pass, Snack",
   });
@@ -474,6 +487,9 @@ export default function AdminDashboardPage() {
       ticketPrice: initialTiers[0].price,
       ticketQuota: initialTiers[0].quotaTotal,
       isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
+      registrationPrice: ev.price || 0,
+      allowDownPayment: Boolean(ev.allowDownPayment),
+      minDownPaymentAmount: ev.minDownPaymentAmount || (ev.price ? Math.round(ev.price / 2) : 0),
       registrationQuota: initialRegCats.reduce((s, c) => s + c.quotaTotal, 0) || ev.quotaTotal || 100,
       facilitiesText: (ev.facilities || []).join(", "),
     });
@@ -862,6 +878,9 @@ export default function AdminDashboardPage() {
       ticketPrice: 25000,
       ticketQuota: 300,
       isOpenOnlineRegistration: true,
+      registrationPrice: 0,
+      allowDownPayment: false,
+      minDownPaymentAmount: 0,
       registrationQuota: 100,
       facilitiesText: "Sertifikat Digital Resmi, E-Badge Pass QR, Snack",
     });
@@ -925,6 +944,9 @@ export default function AdminDashboardPage() {
       ticketPrice: initialTiers[0].price,
       ticketQuota: initialTiers[0].quotaTotal,
       isOpenOnlineRegistration: ev.isOpenOnlineRegistration,
+      registrationPrice: ev.price || 0,
+      allowDownPayment: Boolean(ev.allowDownPayment),
+      minDownPaymentAmount: ev.minDownPaymentAmount || (ev.price ? Math.round(ev.price / 2) : 0),
       registrationQuota: initialRegCats.reduce((s, c) => s + c.quotaTotal, 0) || ev.quotaTotal || 100,
       facilitiesText: (ev.facilities || []).join(", "),
     });
@@ -1076,8 +1098,10 @@ export default function AdminDashboardPage() {
       categoryOptions: normalizedRegCategories.map((c) => c.name),
       quotaTotal: totalRegQuota || Number(eventForm.registrationQuota) || 100,
       quotaRemaining: remRegQuota || Number(eventForm.registrationQuota) || 100,
-      price: 0,
-      priceLabel: "Gratis",
+      price: Number(eventForm.registrationPrice) || 0,
+      priceLabel: Number(eventForm.registrationPrice) > 0 ? `Rp ${Number(eventForm.registrationPrice).toLocaleString("id-ID")}` : "Gratis",
+      allowDownPayment: Boolean(eventForm.allowDownPayment),
+      minDownPaymentAmount: Number(eventForm.minDownPaymentAmount) || 0,
       facilities: facilitiesArray,
       updatedAt: saveTimestamp,
     };
@@ -1485,6 +1509,145 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleAssignTmNumber = async (id: string, customNumber?: string) => {
+    const targetNumber = (customNumber !== undefined ? customNumber : (tmInputMap[id] || "")).trim();
+    if (!targetNumber) {
+      showSyncToast("Nomor undian tidak boleh kosong");
+      return;
+    }
+    setSavingTmId(id);
+    setAttendees((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, tmLotteryNumber: targetNumber, candidateNumber: targetNumber } : a
+      )
+    );
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendeeId: id,
+          action: "UPDATE_TM_NUMBER",
+          tmNumber: targetNumber,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSyncToast(`✓ Nomor undian TM berhasil disimpan: #${targetNumber}`);
+      }
+    } catch {
+      showSyncToast("Gagal menyimpan nomor undian TM");
+    } finally {
+      setSavingTmId(null);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (
+    id: string,
+    nextPaymentStatus: "PAID" | "DP" | "UNPAID",
+    totalFee: number
+  ) => {
+    const paidAmt = nextPaymentStatus === "PAID" ? totalFee : (nextPaymentStatus === "DP" ? Math.round(totalFee / 2) : 0);
+    const remAmt = Math.max(0, totalFee - paidAmt);
+    setAttendees((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? {
+              ...a,
+              paymentStatus: nextPaymentStatus,
+              registrationFeePaid: paidAmt,
+              registrationFeeRemaining: remAmt,
+            }
+          : a
+      )
+    );
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendeeId: id,
+          action: "UPDATE_PAYMENT",
+          paymentStatus: nextPaymentStatus,
+          registrationFeeTotal: totalFee,
+          registrationFeePaid: paidAmt,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSyncToast(`✓ Status pembayaran diperbarui: ${nextPaymentStatus}`);
+      }
+    } catch {
+      showSyncToast("Gagal memperbarui status pembayaran");
+    }
+  };
+
+  const handleToggleCheckInDP1 = async (id: string) => {
+    const target = attendees.find((a) => a.id === id);
+    if (!target) return;
+    const nextVal = !target.checkedInDP1;
+    setAttendees((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, checkedInDP1: nextVal } : a))
+    );
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendeeId: id,
+          action: "CHECK_IN_DP1",
+          checkedIn: nextVal,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSyncToast(nextVal ? "✓ Pasukan tercatat HADIR di DP 1" : "Status kehadiran DP 1 dibatalkan");
+      }
+    } catch {
+      showSyncToast("Gagal mengubah status DP 1");
+    }
+  };
+
+  const handleToggleScoreRelease = async () => {
+    if (!selectedEvent) return;
+    const nextState = !selectedEvent.isScorePublishedToCoaches;
+    if (nextState) {
+      if (!confirm("Rilis nilai final resmi ke seluruh pelatih? Nilai akan dapat dilihat secara lengkap di bilik pelatih masing-masing.")) return;
+    } else {
+      if (!confirm("Tutup/rahasiakan kembali nilai final dari pelatih?")) return;
+    }
+    setIsTogglingScoreRelease(true);
+    setEventsList((prev) =>
+      prev.map((e) =>
+        e.id === selectedEvent.id ? { ...e, isScorePublishedToCoaches: nextState } : e
+      )
+    );
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: selectedEvent.id,
+          action: "TOGGLE_SCORE_RELEASE",
+          isScorePublished: nextState,
+          verifiedBy: currentUser?.name || "Admin CETAS",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSyncToast(
+          nextState
+            ? "✓ Nilai final resmi BERHASIL DIRILIS ke pelatih!"
+            : "🔒 Nilai berhasil ditutup/dirahasiakan dari pelatih."
+        );
+      }
+    } catch {
+      showSyncToast("Gagal memperbarui status publikasi nilai");
+    } finally {
+      setIsTogglingScoreRelease(false);
+    }
+  };
+
   const syncVotingsToBackend = async (nextVotings: EventVotingConfig[]) => {
     saveStoredEventVotings(nextVotings);
     try {
@@ -1507,7 +1670,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleSwitchSubTab = (
-    tab: "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" | "FINANCES"
+    tab: "DETAILS" | "TEAMS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" | "FINANCES"
   ) => {
     setEventSubTab(tab);
     try {
@@ -1517,7 +1680,7 @@ export default function AdminDashboardPage() {
 
   const handleSelectEventWorkspace = async (
     eventId: string,
-    initialSubTab: "DETAILS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" | "FINANCES" = "DETAILS"
+    initialSubTab: "DETAILS" | "TEAMS" | "SCORE" | "VOTE" | "TICKETS" | "ATTENDEES" | "FINANCES" = "DETAILS"
   ) => {
     setSelectedEventId(eventId);
     setSelectedVoteEventId(eventId);
@@ -1565,6 +1728,16 @@ export default function AdminDashboardPage() {
       }
     }
   };
+
+  // Daftar Pasukan & Pelatih untuk Event yang Sedang Dibuka
+  const currentEventAttendees: RegisteredAttendee[] = useMemo(() => {
+    if (!selectedEventId) return [];
+    return attendees.filter(
+      (a: RegisteredAttendee) =>
+        a.eventId === selectedEventId ||
+        (selectedEvent && a.eventName?.toLowerCase().trim() === selectedEvent.title?.toLowerCase().trim())
+    );
+  }, [attendees, selectedEventId, selectedEvent]);
 
   // Prioritize selectedEventId FIRST so activeVoteEvent NEVER falls back to a different event when inside an Event Workspace
   const activeVoteEvent: EventVotingConfig | undefined =
@@ -3288,6 +3461,18 @@ export default function AdminDashboardPage() {
                       </button>
 
                       <button
+                        onClick={() => handleSwitchSubTab("TEAMS")}
+                        className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
+                          eventSubTab === "TEAMS"
+                            ? "bg-purple-600 text-white shadow-md shadow-purple-600/25"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                        }`}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        2. Pasukan &amp; Pelatih ({currentEventAttendees.length})
+                      </button>
+
+                      <button
                         onClick={() => handleSwitchSubTab("SCORE")}
                         className={`px-4 py-2 rounded-2xl text-xs font-black transition shrink-0 flex items-center gap-1.5 ${
                           eventSubTab === "SCORE"
@@ -3296,7 +3481,7 @@ export default function AdminDashboardPage() {
                         }`}
                       >
                         <ShieldCheck className="h-3.5 w-3.5" />
-                        2. Penjurian LKBB (CETAS.SCORE)
+                        3. Penjurian LKBB (CETAS.SCORE)
                       </button>
 
                       <button
@@ -3308,7 +3493,7 @@ export default function AdminDashboardPage() {
                         }`}
                       >
                         <Award className="h-3.5 w-3.5" />
-                        3. Bilik Voting ({activeVoteEvent?.categories.length || 0} Kategori)
+                        4. Bilik Voting ({activeVoteEvent?.categories.length || 0} Kategori)
                       </button>
 
                       <button
@@ -3320,7 +3505,7 @@ export default function AdminDashboardPage() {
                         }`}
                       >
                         <Ticket className="h-3.5 w-3.5" />
-                        4. Kuota Tiket Masuk
+                        5. Kuota Tiket Masuk
                       </button>
 
                       <button
@@ -3332,7 +3517,7 @@ export default function AdminDashboardPage() {
                         }`}
                       >
                         <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                        5. Keuangan Event ({formatRupiah(currentEventFinances?.totalRevenue || 0)})
+                        6. Keuangan Event ({formatRupiah(currentEventFinances?.totalRevenue || 0)})
                       </button>
                     </>
                   )}
@@ -3346,7 +3531,7 @@ export default function AdminDashboardPage() {
                     }`}
                   >
                     <Users className="h-3.5 w-3.5" />
-                    {isScannerStaff ? "Daftar Hadir Penonton Gate" : "6. Daftar Hadir Penonton"} ({eventTickets.length})
+                    {isScannerStaff ? "Daftar Hadir Penonton Gate" : "7. Daftar Hadir Penonton"} ({eventTickets.length})
                   </button>                </div>
               </div>
 
@@ -3760,6 +3945,88 @@ export default function AdminDashboardPage() {
                               />
                             </div>
 
+                            {/* PENGATURAN BIAYA PENDAFTARAN & DOWN PAYMENT (DP) */}
+                            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
+                              <h5 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+                                Pengaturan Biaya Registrasi &amp; Down Payment (DP)
+                              </h5>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                    Biaya Pendaftaran (Rp)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    disabled={isPanitia}
+                                    min={0}
+                                    placeholder="0 = Gratis"
+                                    value={eventForm.registrationPrice}
+                                    onChange={(e) =>
+                                      setEventForm({
+                                        ...eventForm,
+                                        registrationPrice: Number(e.target.value) || 0,
+                                      })
+                                    }
+                                    className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs font-bold ${
+                                      isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                    }`}
+                                  />
+                                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                                    Isi 0 jika pendaftaran gratis
+                                  </span>
+                                </div>
+
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                    Opsi Pembayaran Bertahap
+                                  </label>
+                                  <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <input
+                                      type="checkbox"
+                                      disabled={isPanitia}
+                                      checked={eventForm.allowDownPayment}
+                                      onChange={(e) =>
+                                        setEventForm({
+                                          ...eventForm,
+                                          allowDownPayment: e.target.checked,
+                                        })
+                                      }
+                                      className="rounded text-emerald-600 h-4 w-4"
+                                    />
+                                    <span>Bisa Down Payment (DP)</span>
+                                  </label>
+                                </div>
+
+                                {eventForm.allowDownPayment && (
+                                  <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                                      Minimal Transfer DP (Rp)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      disabled={isPanitia}
+                                      min={0}
+                                      value={eventForm.minDownPaymentAmount}
+                                      onChange={(e) =>
+                                        setEventForm({
+                                          ...eventForm,
+                                          minDownPaymentAmount: Number(e.target.value) || 0,
+                                        })
+                                      }
+                                      className={`w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2 text-xs font-bold ${
+                                        isPanitia ? "cursor-not-allowed opacity-75" : ""
+                                      }`}
+                                    />
+                                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                                      Sisa tagihan dilunasi sebelum hari-H
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
                             {/* KATEGORI & KUOTA PENDAFTARAN PER TINGKATAN */}
                             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 space-y-3">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -3990,7 +4257,430 @@ export default function AdminDashboardPage() {
               )}
 
               {/* ========================================================== */}
-              {/* SUB-TAB 2: PENJURIAN LKBB (CETAS.SCORE) */}
+              {/* SUB-TAB 2: KELOLA PASUKAN & VERIFIKASI PELATIH */}
+              {/* ========================================================== */}
+              {eventSubTab === "TEAMS" && (
+                <div className="space-y-6">
+                  {/* Hero Header Pasukan & Pelatih */}
+                  <div className="rounded-3xl border border-purple-200 dark:border-purple-800/80 bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="space-y-2">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-purple-200 text-xs font-black backdrop-blur-xs border border-white/10">
+                          <Users className="h-3.5 w-3.5 text-purple-300" />
+                          <span>Pusat Manajemen Pasukan &amp; Pelatih</span>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                          Kelola Pasukan &amp; Verifikasi Pelatih
+                        </h3>
+                        <p className="text-xs text-purple-200/90 max-w-2xl leading-relaxed">
+                          Verifikasi pendaftaran kontingen, tetapkan nomor urut undian hasil <strong>Technical Meeting (TM)</strong>, pantau status pembayaran (Lunas / DP), serta rilis nilai final resmi ke bilik masing-masing pelatih.
+                        </p>
+                      </div>
+
+                      {/* Kontrol Publikasi Nilai Final ke Pelatih */}
+                      {!isPanitia && (
+                        <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex flex-col sm:flex-row items-center gap-3 shrink-0">
+                          <div className="text-left sm:text-right">
+                            <span className="text-[10px] uppercase font-bold text-purple-200 block">
+                              Akses Lembar Nilai Pelatih
+                            </span>
+                            <span className={`text-xs font-black ${selectedEvent.isScorePublishedToCoaches ? "text-emerald-300" : "text-amber-300"}`}>
+                              {selectedEvent.isScorePublishedToCoaches ? "✓ Terbuka (Nilai Final Dirilis)" : "🔒 Tertutup (Nilai Dirahasiakan)"}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isTogglingScoreRelease}
+                            onClick={handleToggleScoreRelease}
+                            className={`px-4 py-2.5 rounded-xl font-black text-xs transition shadow-md flex items-center gap-2 ${
+                              selectedEvent.isScorePublishedToCoaches
+                                ? "bg-slate-900 hover:bg-slate-950 text-purple-200 border border-purple-400/30"
+                                : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30"
+                            }`}
+                          >
+                            {isTogglingScoreRelease ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : selectedEvent.isScorePublishedToCoaches ? (
+                              <>
+                                <Lock className="h-3.5 w-3.5 text-amber-300" />
+                                Tutup/Kunci Nilai
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                                Rilis Nilai Final ke Pelatih
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* KPI Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Pasukan Terdaftar</span>
+                      <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                        {currentEventAttendees.length}
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-semibold">Semua kategori</span>
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 shadow-xs">
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Terkonfirmasi (Aktif)</span>
+                      <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                        {currentEventAttendees.filter((a: RegisteredAttendee) => a.status === "CONFIRMED").length}
+                      </div>
+                      <span className="text-[10px] text-emerald-600/80 font-semibold">Masuk list lomba &amp; vote</span>
+                    </div>
+
+                    <div className="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 p-4 shadow-xs">
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase block">Menunggu Konfirmasi</span>
+                      <div className="text-2xl font-black text-amber-700 dark:text-amber-300 mt-1">
+                        {currentEventAttendees.filter((a: RegisteredAttendee) => a.status === "WAITLIST").length}
+                      </div>
+                      <span className="text-[10px] text-amber-600/80 font-semibold">Belum masuk list resmi</span>
+                    </div>
+
+                    <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 p-4 shadow-xs">
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Status Pembayaran</span>
+                      <div className="text-xs font-black text-slate-900 dark:text-white mt-1 space-y-0.5">
+                        <div className="text-emerald-600 dark:text-emerald-400">
+                          Lunas: {currentEventAttendees.filter((a: RegisteredAttendee) => a.paymentStatus === "PAID").length} Tim
+                        </div>
+                        <div className="text-amber-600 dark:text-amber-400">
+                          Down Payment (DP): {currentEventAttendees.filter((a: RegisteredAttendee) => a.paymentStatus === "DP").length} Tim
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Toolbar Filter & Pencarian */}
+                  <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4">
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Cari nama pleton, sekolah, pelatih, no. undian, atau kode e-badge..."
+                          value={teamSearchQuery}
+                          onChange={(e) => setTeamSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <select
+                          value={teamCategoryFilter}
+                          onChange={(e) => setTeamCategoryFilter(e.target.value)}
+                          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none"
+                        >
+                          <option value="ALL">Semua Tingkat / Kategori</option>
+                          <option value="Tingkat SD/MI">Tingkat SD/MI</option>
+                          <option value="Tingkat SMP/MTs">Tingkat SMP/MTs</option>
+                          <option value="Tingkat SMA/SMK/MA">Tingkat SMA/SMK/MA</option>
+                          <option value="PURNA/CLUB/UMUM">PURNA/CLUB/UMUM</option>
+                        </select>
+
+                        <select
+                          value={teamStatusFilter}
+                          onChange={(e) => setTeamStatusFilter(e.target.value as any)}
+                          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 outline-none"
+                        >
+                          <option value="ALL">Semua Status Akun</option>
+                          <option value="CONFIRMED">Hanya Terkonfirmasi (Aktif)</option>
+                          <option value="WAITLIST">Hanya Menunggu Konfirmasi</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tabel Daftar Pasukan & Pelatih */}
+                    <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100 dark:border-slate-800">
+                          <tr>
+                            <th className="py-3 px-4">No. Undian TM</th>
+                            <th className="py-3 px-4">Pasukan &amp; Sekolah</th>
+                            <th className="py-3 px-4">Pelatih &amp; Danton</th>
+                            <th className="py-3 px-4">Biaya Registrasi</th>
+                            <th className="py-3 px-4">Status Akun</th>
+                            <th className="py-3 px-4">Absensi DP 1</th>
+                            <th className="py-3 px-4 text-right">Aksi Manajemen</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                          {(() => {
+                            const filteredList = currentEventAttendees.filter((item: RegisteredAttendee) => {
+                              const q = teamSearchQuery.toLowerCase().trim();
+                              const matchSearch =
+                                !q ||
+                                item.fullName?.toLowerCase().includes(q) ||
+                                item.institution?.toLowerCase().includes(q) ||
+                                item.coachName?.toLowerCase().includes(q) ||
+                                item.badgeCode?.toLowerCase().includes(q) ||
+                                item.candidateNumber?.toLowerCase().includes(q) ||
+                                item.tmLotteryNumber?.toLowerCase().includes(q);
+                              const matchCat =
+                                teamCategoryFilter === "ALL" ||
+                                item.category?.toLowerCase() === teamCategoryFilter.toLowerCase() ||
+                                item.levelCode?.toLowerCase() === teamCategoryFilter.toLowerCase();
+                              const matchStatus =
+                                teamStatusFilter === "ALL" || item.status === teamStatusFilter;
+                              return matchSearch && matchCat && matchStatus;
+                            });
+
+                            if (filteredList.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                                    <div className="max-w-xs mx-auto space-y-2">
+                                      <Users className="h-8 w-8 text-slate-300 mx-auto" />
+                                      <p className="font-bold text-xs text-slate-600 dark:text-slate-300">
+                                        Belum Ada Pasukan / Pelatih yang Cocok
+                                      </p>
+                                      <p className="text-[11px] text-slate-400">
+                                        Pasukan yang mendaftar online akan muncul di sini untuk dikonfirmasi admin.
+                                      </p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return filteredList.map((item: RegisteredAttendee) => {
+                              const currentTmVal =
+                                tmInputMap[item.id] !== undefined
+                                  ? tmInputMap[item.id]
+                                  : item.tmLotteryNumber || item.candidateNumber || "";
+                              const isSavingThis = savingTmId === item.id;
+                              const cleanPhone = (item.coachPhone || item.phone || "").replace(/\D/g, "");
+                              const waPhone = cleanPhone.startsWith("0") ? `62${cleanPhone.slice(1)}` : cleanPhone;
+
+                              return (
+                                <tr
+                                  key={item.id}
+                                  className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition ${
+                                    item.status === "WAITLIST"
+                                      ? "bg-amber-50/30 dark:bg-amber-950/10"
+                                      : ""
+                                  }`}
+                                >
+                                  {/* Kolom 1: No. Undian TM */}
+                                  <td className="py-3 px-4 shrink-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="text"
+                                        disabled={isPanitia}
+                                        placeholder="No TM"
+                                        value={currentTmVal}
+                                        onChange={(e) =>
+                                          setTmInputMap({
+                                            ...tmInputMap,
+                                            [item.id]: e.target.value,
+                                          })
+                                        }
+                                        className="w-16 px-2 py-1 text-center font-mono text-xs font-black rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                                      />
+                                      {!isPanitia && (
+                                        <button
+                                          type="button"
+                                          disabled={isSavingThis}
+                                          onClick={() => handleAssignTmNumber(item.id, currentTmVal)}
+                                          title="Simpan Nomor Undian TM"
+                                          className="p-1.5 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-950 dark:text-purple-300 transition"
+                                        >
+                                          {isSavingThis ? (
+                                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <Check className="h-3.5 w-3.5" />
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                      {item.tmLotteryNumber ? `Diundi: #${item.tmLotteryNumber}` : "Belum diundi"}
+                                    </span>
+                                  </td>
+
+                                  {/* Kolom 2: Pasukan & Sekolah */}
+                                  <td className="py-3 px-4 min-w-[200px]">
+                                    <div className="font-black text-slate-900 dark:text-white">
+                                      {item.fullName}
+                                    </div>
+                                    <div className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">
+                                      {item.institution}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                      <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[10px] font-black">
+                                        {item.category}
+                                      </span>
+                                      <span className="font-mono text-[10px] text-slate-400">
+                                        {item.badgeCode}
+                                      </span>
+                                    </div>
+                                  </td>
+
+                                  {/* Kolom 3: Pelatih & Danton */}
+                                  <td className="py-3 px-4 min-w-[170px]">
+                                    <div className="font-bold text-slate-800 dark:text-slate-200">
+                                      {item.coachName || item.fullName}
+                                    </div>
+                                    {waPhone && (
+                                      <a
+                                        href={`https://wa.me/${waPhone}?text=Halo%20Pelatih%20${encodeURIComponent(item.fullName)}%20(${encodeURIComponent(item.institution)})%2C%20kami%20dari%20Panitia%20CETAS%20LKBB.`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 mt-0.5"
+                                      >
+                                        <MessageCircle className="h-3 w-3 fill-emerald-600" />
+                                        <span>{item.coachPhone || item.phone}</span>
+                                      </a>
+                                    )}
+                                    {item.dantonName && (
+                                      <div className="text-[10px] text-slate-400 mt-0.5">
+                                        Danton: <strong className="text-slate-700 dark:text-slate-300">{item.dantonName}</strong>
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Kolom 4: Biaya & Status Pembayaran */}
+                                  <td className="py-3 px-4 min-w-[160px]">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                          item.paymentStatus === "PAID"
+                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                            : item.paymentStatus === "DP"
+                                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                            : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800"
+                                        }`}
+                                      >
+                                        {item.paymentStatus === "PAID"
+                                          ? "✓ Lunas"
+                                          : item.paymentStatus === "DP"
+                                          ? "Down Payment (DP)"
+                                          : "Belum Bayar"}
+                                      </span>
+
+                                      {!isPanitia && (
+                                        <select
+                                          value={item.paymentStatus || "UNPAID"}
+                                          onChange={(e) =>
+                                            handleUpdatePaymentStatus(
+                                              item.id,
+                                              e.target.value as any,
+                                              item.registrationFeeTotal || selectedEvent.price || 0
+                                            )
+                                          }
+                                          className="text-[10px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 p-0.5"
+                                        >
+                                          <option value="PAID">Ubah: Lunas</option>
+                                          <option value="DP">Ubah: DP</option>
+                                          <option value="UNPAID">Ubah: Belum Bayar</option>
+                                        </select>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 mt-1 space-y-0.5">
+                                      <div>
+                                        Terbayar: <strong className="text-slate-900 dark:text-white">Rp {(item.registrationFeePaid || 0).toLocaleString("id-ID")}</strong>
+                                      </div>
+                                      {item.paymentStatus === "DP" && (
+                                        <div className="text-rose-600 dark:text-rose-400 font-bold">
+                                          Sisa: Rp {(item.registrationFeeRemaining || 0).toLocaleString("id-ID")}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Kolom 5: Status Akun Pasukan */}
+                                  <td className="py-3 px-4 shrink-0">
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                                        item.status === "CONFIRMED"
+                                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                                          : "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse"
+                                      }`}
+                                    >
+                                      {item.status === "CONFIRMED" ? (
+                                        <>
+                                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                          Terkonfirmasi
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Clock className="h-3 w-3 text-amber-600" />
+                                          Menunggu
+                                        </>
+                                      )}
+                                    </span>
+                                  </td>
+
+                                  {/* Kolom 6: Absensi DP 1 (Hari-H) */}
+                                  <td className="py-3 px-4 shrink-0">
+                                    <button
+                                      type="button"
+                                      disabled={isPanitia}
+                                      onClick={() => handleToggleCheckInDP1(item.id)}
+                                      className={`px-2.5 py-1 rounded-xl text-[10px] font-black transition flex items-center gap-1.5 ${
+                                        item.checkedInDP1
+                                          ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs"
+                                          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                                      }`}
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      {item.checkedInDP1 ? "Hadir di DP 1" : "Belum Hadir"}
+                                    </button>
+                                  </td>
+
+                                  {/* Kolom 7: Aksi Manajemen */}
+                                  <td className="py-3 px-4 text-right shrink-0">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {!isPanitia && item.status !== "CONFIRMED" ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleVerifyAttendee(item.id, "CONFIRMED")}
+                                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-xs transition flex items-center gap-1"
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                          Setujui Pasukan
+                                        </button>
+                                      ) : !isPanitia ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleVerifyAttendee(item.id, "WAITLIST")}
+                                          className="px-2.5 py-1.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 font-bold text-[11px] transition"
+                                          title="Tangguhkan Akun Pasukan"
+                                        >
+                                          Tangguhkan
+                                        </button>
+                                      ) : null}
+
+                                      {!isPanitia && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteAttendee(item.id, item.fullName)}
+                                          title="Hapus Peserta"
+                                          className="p-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:hover:bg-rose-950/60 transition"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================== */}
+              {/* SUB-TAB 3: PENJURIAN LKBB (CETAS.SCORE) */}
               {/* ========================================================== */}
               {eventSubTab === "SCORE" && (
                 <div className="space-y-6">

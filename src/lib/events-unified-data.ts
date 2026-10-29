@@ -56,11 +56,18 @@ export interface UnifiedEvent {
   isOpenOnlineRegistration: boolean;
   price: number; // 0 = Gratis
   priceLabel: string;
+  allowDownPayment?: boolean; // Mengizinkan pembayaran bertahap (Down Payment)
+  minDownPaymentAmount?: number; // Minimal transfer DP (e.g. 200000)
   quotaTotal: number;
   quotaRemaining: number;
   categoryOptions: string[];
   registrationCategories?: RegistrationCategoryQuota[];
   facilities: string[];
+
+  // Publikasi Nilai Final ke Pelatih (Bukan Real-time)
+  isScorePublishedToCoaches?: boolean;
+  scorePublishedAt?: string;
+  scorePublishedBy?: string;
 
   // Data Peserta & Peringkat LKBB (Cetas.Score)
   lkbbTeams?: LKBBTeamScore[];

@@ -34,6 +34,14 @@ const registrationSchema = z.object({
   dantonName: z.string().optional(),
   teamMembersCount: z.number().optional(),
   status: z.enum(["CONFIRMED", "WAITLIST", "CANCELLED"]).optional(),
+  paymentScheme: z.enum(["LUNAS", "DP", "FREE"]).optional(),
+  paymentStatus: z.enum(["PAID", "DP", "UNPAID"]).optional(),
+  registrationFeeTotal: z.number().optional(),
+  registrationFeePaid: z.number().optional(),
+  registrationFeeRemaining: z.number().optional(),
+  paymentProofUrl: z.string().optional(),
+  tmLotteryNumber: z.string().optional(),
+  candidateNumber: z.string().optional(),
 });
 
 function mapLevelCodeToPrismaLevel(levelCode: string, fallbackName: string) {
@@ -228,6 +236,7 @@ export async function GET(req: NextRequest) {
     }
 
     const matchedEvent = events.find((e) => e.id === matched.eventId) || events[0];
+    const isScorePublished = Boolean(matchedEvent?.isScorePublishedToCoaches);
     const matchedTeam = (matchedEvent?.lkbbTeams || []).find(
       (t) =>
         (t.teamName && matched.fullName && t.teamName.toLowerCase().trim() === matched.fullName.toLowerCase().trim()) ||
@@ -235,12 +244,29 @@ export async function GET(req: NextRequest) {
         (t.number && matched.candidateNumber && t.number === matched.candidateNumber)
     ) || null;
 
+    // JIKA NILAI FINAL BELUM DIRILIS ADMIN CETAS: Rahasiakan angka nilai dari pelatih
+    const safeTeamScore = matchedTeam
+      ? isScorePublished
+        ? matchedTeam
+        : {
+            ...matchedTeam,
+            pbbMurni: 0,
+            variasiFormasi: 0,
+            danton: 0,
+            kostum: 0,
+            penalty: 0,
+            totalScore: 0,
+            status: "SEDANG_DINILAI" as const,
+          }
+      : null;
+
     return NextResponse.json(
       {
         success: true,
         attendee: matched,
         event: matchedEvent,
-        lkbbTeam: matchedTeam,
+        lkbbTeam: safeTeamScore,
+        isScorePublished,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
@@ -363,14 +389,25 @@ export async function POST(req: NextRequest) {
     const newTotalQuota = regCats.reduce((sum, c) => sum + c.quotaTotal, 0);
     const newRemainingQuota = regCats.reduce((sum, c) => sum + c.quotaRemaining, 0);
 
-    // Hitung Nomor Urut Peserta di Kategori Ini (Terpisah antar kategori: SD mulai 01, SMP mulai 01, SMA mulai 01)
-    const existingLkbbTeams = Array.isArray(event?.lkbbTeams) ? [...event.lkbbTeams] : [];
-    const sameCategoryTeams = existingLkbbTeams.filter(
-      (t) =>
-        normalizeCategoryLevelCode(t.level || t.categoryName || "") === levelCode
-    );
-    const nextNumberInt = sameCategoryTeams.length + 1;
-    const candidateNumber = String(nextNumberInt).padStart(2, "0");
+    // Hitung Skema Biaya Pendaftaran (Gratis / Lunas / Down Payment)
+    const eventPrice = Number(event?.price) || 0;
+    const totalFee = validated.registrationFeeTotal !== undefined ? validated.registrationFeeTotal : eventPrice;
+    const requestedScheme = validated.paymentScheme || (totalFee > 0 ? "LUNAS" : "FREE");
+    let paidAmount = validated.registrationFeePaid !== undefined ? validated.registrationFeePaid : (requestedScheme === "LUNAS" ? totalFee : (Number(event?.minDownPaymentAmount) || Math.round(totalFee / 2)));
+    if (requestedScheme === "FREE" || totalFee === 0) {
+      paidAmount = 0;
+    }
+    const remainingAmount = Math.max(0, totalFee - paidAmount);
+    let resolvedPaymentStatus: "PAID" | "DP" | "UNPAID" = "UNPAID";
+    if (totalFee === 0 || remainingAmount === 0) {
+      resolvedPaymentStatus = "PAID";
+    } else if (paidAmount > 0) {
+      resolvedPaymentStatus = "DP";
+    }
+
+    // CATATAN KHUSUS NOMOR UNDIAN:
+    // Nomor undian tampil TIDAK diberikan saat pendaftaran, melainkan diundi saat Technical Meeting (TM).
+    const candidateNumber = validated.candidateNumber || validated.tmLotteryNumber || "";
 
     // 1. Buat Data E-Badge Attendee (Status Awal = WAITLIST / Menunggu Verifikasi Admin CETAS)
     const randomDigits = Math.floor(10000 + Math.random() * 90000);
@@ -382,6 +419,7 @@ export async function POST(req: NextRequest) {
       id: `atd-${Date.now()}`,
       badgeCode,
       candidateNumber,
+      tmLotteryNumber: candidateNumber,
       eventId: resolvedEventId,
       eventName: resolvedEventTitle,
       fullName: validated.fullName,
@@ -400,11 +438,47 @@ export async function POST(req: NextRequest) {
       coachPhone: validated.coachPhone || validated.phone,
       dantonName: validated.dantonName || "",
       teamMembersCount: validated.teamMembersCount || 16,
+      paymentScheme: requestedScheme,
+      paymentStatus: resolvedPaymentStatus,
+      registrationFeeTotal: totalFee,
+      registrationFeePaid: paidAmount,
+      registrationFeeRemaining: remainingAmount,
+      paymentProofUrl: validated.paymentProofUrl || "",
     };
 
     const nextAttendees = [newAttendee, ...attendees];
 
+    // JIKA STATUS BUKAN "CONFIRMED" (Misal WAITLIST):
+    // TIDAK BOLEH masuk ke list peserta resmi, Cetas Vote, maupun juri scoring!
+    if (initialStatus !== "CONFIRMED") {
+      if (events[targetEventIdx]) {
+        events[targetEventIdx] = {
+          ...events[targetEventIdx],
+          registrationCategories: regCats,
+          categoryOptions: regCats.map((c) => c.name),
+          quotaTotal: newTotalQuota,
+          quotaRemaining: newRemainingQuota,
+        };
+      }
+
+      await Promise.all([
+        saveAttendeesStore(nextAttendees),
+        saveEventsStore(events),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Pendaftaran pasukan berhasil diterima! Menunggu verifikasi pembayaran & berkas oleh Admin CETAS sebelum dimasukkan ke daftar lomba resmi.",
+        attendee: newAttendee,
+        event: events[targetEventIdx],
+        assignedNumber: "",
+      });
+    }
+
+    // JIKA STATUS LANGSUNG "CONFIRMED" (Misal didaftarkan langsung oleh Admin):
     // 2. AUTO-SYNC KE CETAS.SCORE (lkbbTeams di UnifiedEvent + Prisma Participant)
+    const existingLkbbTeams = Array.isArray(event?.lkbbTeams) ? [...event.lkbbTeams] : [];
     const alreadyInScore = existingLkbbTeams.some(
       (t) =>
         t.teamName.trim().toLowerCase() === validated.fullName.trim().toLowerCase() &&
@@ -414,7 +488,7 @@ export async function POST(req: NextRequest) {
     if (!alreadyInScore) {
       const newTeamScore: LKBBTeamScore = {
         id: `team-reg-${Date.now()}`,
-        number: candidateNumber,
+        number: candidateNumber || "-",
         school: validated.institution,
         teamName: validated.fullName,
         level: levelCode,
@@ -520,7 +594,7 @@ export async function POST(req: NextRequest) {
       );
 
       if (!alreadyInVote) {
-        const voteCandNumber = String(existingCandidates.length + 1).padStart(2, "0");
+        const voteCandNumber = candidateNumber || String(existingCandidates.length + 1).padStart(2, "0");
         existingCandidates.push({
           id: `cand-reg-${Date.now()}`,
           eventId: resolvedEventId,
@@ -559,7 +633,7 @@ export async function POST(req: NextRequest) {
         categoryTitle,
         participantName: validated.fullName,
         schoolName: validated.institution,
-        assignedNumber: nextNumberInt,
+        assignedNumber: parseInt(candidateNumber, 10) || 1,
         photoUrl: isUploadedImage ? defaultCandidatePhoto : null,
       }),
     ]);
@@ -567,7 +641,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message:
-        "Pendaftaran berhasil! Peserta otomatis tersinkronisasi ke Cetas Vote & Cetas.Score sesuai kategorinya.",
+        "Pendaftaran terkonfirmasi! Pasukan resmi masuk ke daftar peserta, Cetas Vote & Cetas.Score.",
       attendee: newAttendee,
       event: events[targetEventIdx],
       eventVotings: votings,
@@ -611,10 +685,11 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Aksi 1: Verifikasi / Ubah Status Akun Pasukan (CONFIRMED / WAITLIST / CANCELLED)
-    if (action === "UPDATE_STATUS" || action === "VERIFY_ATTENDEE") {
-      const [attendees, events] = await Promise.all([
+    if (action === "UPDATE_STATUS" || action === "VERIFY_ATTENDEE" || action === "CONFIRM_ATTENDEE") {
+      const [attendees, events, votings] = await Promise.all([
         getAttendeesStore(),
         getEventsStore(),
+        getVotingsStore(),
       ]);
 
       const idx = attendees.findIndex(
@@ -631,12 +706,13 @@ export async function PATCH(req: NextRequest) {
       const nextStatus = (status || "CONFIRMED") as "CONFIRMED" | "WAITLIST" | "CANCELLED";
       attendees[idx].status = nextStatus;
 
+      const evIdx = events.findIndex((e) => e.id === attendees[idx].eventId);
+
       if (nextStatus === "CONFIRMED") {
         attendees[idx].verifiedAt = new Date().toISOString();
         attendees[idx].verifiedBy = verifiedBy || "Admin CETAS";
 
-        // Pastikan terdaftar di lkbbTeams pada event terkait
-        const evIdx = events.findIndex((e) => e.id === attendees[idx].eventId);
+        // 1. Masukkan ke lkbbTeams pada event terkait
         if (evIdx !== -1) {
           const lkbbList = events[evIdx].lkbbTeams ? [...events[evIdx].lkbbTeams] : [];
           const alreadyExists = lkbbList.some(
@@ -648,7 +724,7 @@ export async function PATCH(req: NextRequest) {
           if (!alreadyExists) {
             lkbbList.push({
               id: `team-verif-${Date.now()}`,
-              number: attendees[idx].candidateNumber || "01",
+              number: attendees[idx].tmLotteryNumber || attendees[idx].candidateNumber || "-",
               school: attendees[idx].institution,
               teamName: attendees[idx].fullName,
               level: attendees[idx].levelCode || "SMP",
@@ -665,6 +741,76 @@ export async function PATCH(req: NextRequest) {
             await saveEventsStore(events);
           }
         }
+
+        // 2. Masukkan ke Cetas Vote jika belum terdaftar
+        const vIdx = votings.findIndex((v) => v.eventId === attendees[idx].eventId);
+        if (vIdx !== -1) {
+          const targetVoteCat = votings[vIdx].categories.find(
+            (vc) =>
+              vc.title.trim().toLowerCase() === attendees[idx].category.trim().toLowerCase() ||
+              normalizeCategoryLevelCode(vc.title) === attendees[idx].levelCode
+          );
+          if (targetVoteCat) {
+            const alreadyInVote = (targetVoteCat.candidates || []).some(
+              (c) =>
+                c.name.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
+                c.institution.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
+            );
+            if (!alreadyInVote) {
+              const nextVoteNum = attendees[idx].tmLotteryNumber || String((targetVoteCat.candidates || []).length + 1).padStart(2, "0");
+              targetVoteCat.candidates.push({
+                id: `cand-verif-${Date.now()}`,
+                eventId: attendees[idx].eventId,
+                categoryId: targetVoteCat.id,
+                candidateNumber: nextVoteNum,
+                name: attendees[idx].fullName,
+                institution: attendees[idx].institution,
+                photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
+                tagline: `Kontingen Resmi ${attendees[idx].category} — ${attendees[idx].institution}`,
+                totalVotes: 0,
+              });
+              await saveVotingsStore(votings);
+            }
+          }
+        }
+
+        // 3. Sync ke Prisma PostgreSQL untuk dewan juri
+        await syncParticipantToPrismaScore({
+          eventTitle: attendees[idx].eventName || "LKBB CETAS",
+          eventDate: evIdx !== -1 ? events[evIdx].date : undefined,
+          eventLocation: evIdx !== -1 ? events[evIdx].location : undefined,
+          levelCode: attendees[idx].levelCode || "SMP",
+          categoryTitle: attendees[idx].category,
+          participantName: attendees[idx].fullName,
+          schoolName: attendees[idx].institution,
+          assignedNumber: parseInt(attendees[idx].tmLotteryNumber || attendees[idx].candidateNumber || "1", 10) || 1,
+        });
+      } else {
+        // JIKA STATUS DIUBAH KE WAITLIST ATAU CANCELLED: Keluarkan dari list lkbbTeams dan Vote
+        if (evIdx !== -1) {
+          events[evIdx].lkbbTeams = (events[evIdx].lkbbTeams || []).filter(
+            (t) =>
+              !(
+                t.teamName.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
+                t.school.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
+              )
+          );
+          await saveEventsStore(events);
+        }
+        const vIdx = votings.findIndex((v) => v.eventId === attendees[idx].eventId);
+        if (vIdx !== -1) {
+          votings[vIdx].categories = votings[vIdx].categories.map((vc) => ({
+            ...vc,
+            candidates: vc.candidates.filter(
+              (c) =>
+                !(
+                  c.name.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
+                  c.institution.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
+                )
+            ),
+          }));
+          await saveVotingsStore(votings);
+        }
       }
 
       await saveAttendeesStore(attendees);
@@ -673,9 +819,174 @@ export async function PATCH(req: NextRequest) {
         success: true,
         message:
           nextStatus === "CONFIRMED"
-            ? `Akun pasukan "${attendees[idx].fullName}" berhasil DIVERIFIKASI! Akses portal pelatih kini telah terbuka.`
-            : `Status akun pasukan "${attendees[idx].fullName}" diubah menjadi: ${nextStatus}`,
+            ? `Akun pasukan "${attendees[idx].fullName}" berhasil DIVERIFIKASI! Resmi masuk ke list peserta, Cetas Vote & Cetas.Score.`
+            : `Status akun pasukan "${attendees[idx].fullName}" diubah menjadi: ${nextStatus}. Dikeluarkan dari list aktif.`,
         attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1B: Tetapkan / Ubah Nomor Undian Hasil Technical Meeting (TM)
+    if (action === "UPDATE_TM_NUMBER" || action === "ASSIGN_TM_NUMBER") {
+      const [attendees, events] = await Promise.all([
+        getAttendeesStore(),
+        getEventsStore(),
+      ]);
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const rawNumber = String(body.tmNumber ?? body.candidateNumber ?? "").trim();
+      const formattedNumber = rawNumber ? (rawNumber.length === 1 ? `0${rawNumber}` : rawNumber) : "";
+
+      attendees[idx].tmLotteryNumber = formattedNumber;
+      attendees[idx].candidateNumber = formattedNumber;
+
+      // Update di lkbbTeams jika sudah terdaftar
+      const evIdx = events.findIndex((e) => e.id === attendees[idx].eventId);
+      if (evIdx !== -1 && events[evIdx].lkbbTeams) {
+        events[evIdx].lkbbTeams = events[evIdx].lkbbTeams.map((t) => {
+          if (
+            t.teamName.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
+            t.school.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
+          ) {
+            return { ...t, number: formattedNumber || "-" };
+          }
+          return t;
+        });
+        await saveEventsStore(events);
+      }
+
+      // Update di Prisma jika ada
+      if (formattedNumber) {
+        try {
+          const numInt = parseInt(formattedNumber, 10);
+          if (!isNaN(numInt)) {
+            await db.participant.updateMany({
+              where: {
+                name: attendees[idx].fullName,
+                school: attendees[idx].institution,
+              },
+              data: { number: numInt },
+            }).catch(() => {});
+          }
+        } catch {}
+      }
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Nomor undian Technical Meeting (TM) untuk ${attendees[idx].fullName} berhasil disimpan: #${formattedNumber || "Belum Diundi"}`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1C: Update Pembayaran Registrasi (Lunas / DP / Sisa Tagihan)
+    if (action === "UPDATE_PAYMENT") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      if (body.paymentScheme) attendees[idx].paymentScheme = body.paymentScheme;
+      if (body.registrationFeeTotal !== undefined) attendees[idx].registrationFeeTotal = Number(body.registrationFeeTotal);
+      if (body.registrationFeePaid !== undefined) attendees[idx].registrationFeePaid = Number(body.registrationFeePaid);
+
+      const total = attendees[idx].registrationFeeTotal || 0;
+      const paid = attendees[idx].registrationFeePaid || 0;
+      const remaining = Math.max(0, total - paid);
+      attendees[idx].registrationFeeRemaining = remaining;
+
+      if (body.paymentStatus) {
+        attendees[idx].paymentStatus = body.paymentStatus;
+      } else {
+        if (total === 0 || remaining === 0) {
+          attendees[idx].paymentStatus = "PAID";
+        } else if (paid > 0) {
+          attendees[idx].paymentStatus = "DP";
+        } else {
+          attendees[idx].paymentStatus = "UNPAID";
+        }
+      }
+
+      if (body.paymentProofUrl) attendees[idx].paymentProofUrl = body.paymentProofUrl;
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Status pembayaran ${attendees[idx].fullName} berhasil diperbarui: ${attendees[idx].paymentStatus} (Terbayar: Rp ${paid.toLocaleString("id-ID")})`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1D: Check-in Hari-H di DP 1
+    if (action === "CHECK_IN_DP1") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const nextVal = body.checkedIn !== undefined ? Boolean(body.checkedIn) : !attendees[idx].checkedInDP1;
+      attendees[idx].checkedInDP1 = nextVal;
+      attendees[idx].checkedInDP1At = nextVal ? new Date().toISOString() : undefined;
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Status absensi DP 1 ${attendees[idx].fullName} berhasil diubah: ${nextVal ? "HADIR DI DP 1" : "BELUM ABSEN DP 1"}`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1E: Rilis / Tutup Nilai Final Resmi ke Pelatih
+    if (action === "TOGGLE_SCORE_RELEASE" || action === "PUBLISH_SCORES") {
+      const events = await getEventsStore();
+      const evIdx = events.findIndex((e) => e.id === eventId);
+      if (evIdx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Event tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const nextState =
+        body.isScorePublished !== undefined
+          ? Boolean(body.isScorePublished)
+          : !events[evIdx].isScorePublishedToCoaches;
+
+      events[evIdx].isScorePublishedToCoaches = nextState;
+      events[evIdx].scorePublishedAt = nextState ? new Date().toISOString() : undefined;
+      events[evIdx].scorePublishedBy = verifiedBy || "Admin CETAS";
+
+      await saveEventsStore(events);
+
+      return NextResponse.json({
+        success: true,
+        message: nextState
+          ? "✓ Nilai final resmi berhasil DIRILIS ke seluruh pelatih! Pelatih kini dapat melihat lembar nilai pasukannya."
+          : "🔒 Nilai ke pelatih berhasil DITUTUP/DIRAHASIAKAN. Pelatih tidak dapat melihat nilai sebelum dirilis kembali.",
+        isScorePublishedToCoaches: nextState,
+        event: events[evIdx],
       });
     }
 

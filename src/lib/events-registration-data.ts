@@ -49,6 +49,21 @@ export interface RegisteredAttendee {
   teamMembersCount?: number;
   verifiedAt?: string;
   verifiedBy?: string;
+
+  // Skema Pembayaran Registrasi (Lunas / DP / Belum Bayar)
+  paymentScheme?: "LUNAS" | "DP" | "FREE";
+  paymentStatus?: "PAID" | "DP" | "UNPAID";
+  registrationFeeTotal?: number;
+  registrationFeePaid?: number;
+  registrationFeeRemaining?: number;
+  paymentProofUrl?: string;
+
+  // Nomor Undian Hasil Technical Meeting (TM)
+  tmLotteryNumber?: string;
+
+  // Status Check-in Hari-H di DP 1
+  checkedInDP1?: boolean;
+  checkedInDP1At?: string;
 }
 
 // Data awal registrasi bersih

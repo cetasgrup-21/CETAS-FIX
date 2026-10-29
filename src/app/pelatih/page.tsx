@@ -69,6 +69,7 @@ function PelatihPortalContent() {
     email: "",
     dantonName: "",
     notes: "",
+    paymentScheme: "LUNAS" as "LUNAS" | "DP",
   });
   const [isSubmittingReg, setIsSubmittingReg] = useState<boolean>(false);
   const [regError, setRegError] = useState<string | null>(null);
@@ -181,6 +182,12 @@ function PelatihPortalContent() {
     setIsSubmittingReg(true);
     try {
       const targetEventId = regForm.eventId || (eventsList[0] ? eventsList[0].id : "ev-cemara-2026");
+      const matchedEv = eventsList.find((e) => e.id === targetEventId);
+      const feeTotal = Number(matchedEv?.price) || 0;
+      const minDp = Number(matchedEv?.minDownPaymentAmount) || Math.round(feeTotal / 2);
+      const paidAmt = feeTotal === 0 ? 0 : (regForm.paymentScheme === "LUNAS" ? feeTotal : minDp);
+      const remainingAmt = Math.max(0, feeTotal - paidAmt);
+
       const res = await fetch("/api/attendees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,6 +203,10 @@ function PelatihPortalContent() {
           dantonName: regForm.dantonName.trim(),
           notes: regForm.notes.trim(),
           status: "WAITLIST", // Status awal: Menunggu Verifikasi Admin CETAS
+          paymentScheme: regForm.paymentScheme,
+          registrationFeeTotal: feeTotal,
+          registrationFeePaid: paidAmt,
+          registrationFeeRemaining: remainingAmt,
         }),
       });
 
@@ -269,8 +280,12 @@ function PelatihPortalContent() {
     setIsCertModalOpen(true);
   };
 
-  // Calculate schedule based on candidate number
-  const candidateNumInt = parseInt(authAttendee?.candidateNumber || authTeamScore?.number || "1", 10) || 1;
+  // Nomor Undian Hasil Technical Meeting (TM) - Bukan dari Pendaftaran
+  const tmRawNumber = (authAttendee?.tmLotteryNumber || authAttendee?.candidateNumber || "").trim();
+  const hasTmNumber = Boolean(tmRawNumber && tmRawNumber !== "-" && !isNaN(parseInt(tmRawNumber, 10)));
+  const candidateNumInt = hasTmNumber ? parseInt(tmRawNumber, 10) : 1;
+  const tmDisplayNumber = hasTmNumber ? `#${tmRawNumber.padStart(2, "0")}` : "Belum Diundi (Menunggu TM)";
+
   const baseHour = 8; // 08:00 WIB
   const minutesOffset = (candidateNumInt - 1) * 12; // 12 mins per troop
   const calcTime = (extraMins: number) => {
@@ -287,15 +302,18 @@ function PelatihPortalContent() {
     arena: calcTime(0),
   };
 
-  // Score Calculations
+  // Status Publikasi Nilai Final dari Admin CETAS (Bukan Realtime)
+  const isScoreReleased = Boolean(authEvent?.isScorePublishedToCoaches);
+
+  // Score Calculations (Hanya ditampilkan jika nilai final resmi sudah dirilis oleh Admin)
   const scoreData = {
-    pbbMurni: authTeamScore?.pbbMurni || 0,
-    variasiFormasi: authTeamScore?.variasiFormasi || 0,
-    dantonScore: authTeamScore?.danton || 0,
-    kostumScore: authTeamScore?.kostum || 0,
-    penalty: authTeamScore?.penalty || 0,
-    totalScore: authTeamScore?.totalScore || 0,
-    status: authTeamScore?.status || "BELUM_TAMPIL",
+    pbbMurni: isScoreReleased ? (authTeamScore?.pbbMurni || 0) : 0,
+    variasiFormasi: isScoreReleased ? (authTeamScore?.variasiFormasi || 0) : 0,
+    dantonScore: isScoreReleased ? (authTeamScore?.danton || 0) : 0,
+    kostumScore: isScoreReleased ? (authTeamScore?.kostum || 0) : 0,
+    penalty: isScoreReleased ? (authTeamScore?.penalty || 0) : 0,
+    totalScore: isScoreReleased ? (authTeamScore?.totalScore || 0) : 0,
+    status: isScoreReleased ? (authTeamScore?.status || "TERVERIFIKASI") : "MENUNGGU_RILIS",
   };
 
   // ---------------------------------------------------------------------------------
@@ -544,6 +562,59 @@ function PelatihPortalContent() {
                   </div>
                 </div>
 
+                {/* Skema Pembayaran Registrasi (Jika event berbayar) */}
+                {(() => {
+                  const ev = eventsList.find((e) => e.id === regForm.eventId) || eventsList[0];
+                  const price = Number(ev?.price) || 0;
+                  const minDp = Number(ev?.minDownPaymentAmount) || Math.round(price / 2);
+                  if (price <= 0) return null;
+                  return (
+                    <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800">Skema Biaya Pendaftaran:</span>
+                        <span className="font-black text-purple-900">Rp {price.toLocaleString("id-ID")}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                          regForm.paymentScheme === "LUNAS"
+                            ? "bg-white border-purple-600 text-purple-900 shadow-xs font-black"
+                            : "bg-white/60 border-slate-200 text-slate-600 hover:bg-white"
+                        }`}>
+                          <input
+                            type="radio"
+                            name="regPaymentScheme"
+                            checked={regForm.paymentScheme === "LUNAS"}
+                            onChange={() => setRegForm({ ...regForm, paymentScheme: "LUNAS" })}
+                            className="text-purple-600"
+                          />
+                          <div>
+                            <div className="text-[11px]">Lunas (Full)</div>
+                            <div className="text-[10px] text-slate-500 font-normal">Rp {price.toLocaleString("id-ID")}</div>
+                          </div>
+                        </label>
+
+                        <label className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                          regForm.paymentScheme === "DP"
+                            ? "bg-white border-purple-600 text-purple-900 shadow-xs font-black"
+                            : "bg-white/60 border-slate-200 text-slate-600 hover:bg-white"
+                        }`}>
+                          <input
+                            type="radio"
+                            name="regPaymentScheme"
+                            checked={regForm.paymentScheme === "DP"}
+                            onChange={() => setRegForm({ ...regForm, paymentScheme: "DP" })}
+                            className="text-purple-600"
+                          />
+                          <div>
+                            <div className="text-[11px]">Down Payment (DP)</div>
+                            <div className="text-[10px] text-slate-500 font-normal">Rp {minDp.toLocaleString("id-ID")}</div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <button
                   type="submit"
                   disabled={isSubmittingReg}
@@ -642,16 +713,65 @@ function PelatihPortalContent() {
               </div>
             </div>
 
+            {/* Status Biaya & Skema Pembayaran Registrasi */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-700">Status Pembayaran Registrasi</span>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                    authAttendee.paymentStatus === "PAID"
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      : authAttendee.paymentStatus === "DP"
+                      ? "bg-amber-100 text-amber-800 border border-amber-300"
+                      : "bg-rose-100 text-rose-800 border border-rose-300"
+                  }`}
+                >
+                  {authAttendee.paymentStatus === "PAID"
+                    ? "✓ LUNAS"
+                    : authAttendee.paymentStatus === "DP"
+                    ? "DOWN PAYMENT (DP)"
+                    : "BELUM BAYAR"}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-[11px]">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Total Biaya:</span>
+                  <span className="font-black text-slate-900">
+                    {authAttendee.registrationFeeTotal
+                      ? `Rp ${authAttendee.registrationFeeTotal.toLocaleString("id-ID")}`
+                      : "Gratis"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Sudah Dibayar:</span>
+                  <span className="font-black text-emerald-700">
+                    {authAttendee.registrationFeePaid
+                      ? `Rp ${authAttendee.registrationFeePaid.toLocaleString("id-ID")}`
+                      : "Rp 0"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Sisa Tagihan:</span>
+                  <span className="font-black text-rose-600">
+                    {authAttendee.registrationFeeRemaining
+                      ? `Rp ${authAttendee.registrationFeeRemaining.toLocaleString("id-ID")}`
+                      : "Nihil"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Notice Box */}
             <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 text-purple-900 text-xs leading-relaxed space-y-2">
               <div className="font-bold flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-purple-600" />
-                Apa yang terjadi setelah akun diverifikasi?
+                Apa yang terjadi setelah akun disetujui & diverifikasi admin?
               </div>
               <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
-                <li>Lembar nilai juri live real-time (PBB murni, variasi, danton, kostum) akan terbuka otomatis.</li>
-                <li>Rundown jadwal masuk Daerah Persiapan (DP 1, DP 2, DP 3) akan aktif sesuai nomor undian.</li>
-                <li>E-Sertifikat resmi ber-QR Code untuk pelatih dan anggota pasukan dapat langsung diunduh.</li>
+                <li>Pasukan resmi masuk ke daftar peserta kompetisi dan Cetas Vote.</li>
+                <li>Nomor undian tampil resmi akan diundi pada sesi Technical Meeting (TM).</li>
+                <li>Rundown jadwal persiapan (DP 1, DP 2, DP 3) akan aktif sesuai hasil undian TM.</li>
+                <li>Hasil penilaian final resmi dewan juri & E-Sertifikat ber-QR Code dapat diakses setelah dirilis panitia.</li>
               </ul>
             </div>
 
@@ -724,7 +844,7 @@ function PelatihPortalContent() {
                 {authAttendee.institution}
               </h1>
               <p className="text-xs sm:text-sm text-purple-200/90 max-w-2xl leading-relaxed">
-                Pasukan: <strong>&ldquo;{authAttendee.fullName}&rdquo;</strong> • Kategori: <strong>{authAttendee.category}</strong> • Nomor Undian: <strong>#{authAttendee.candidateNumber || authTeamScore?.number || "01"}</strong>
+                Pasukan: <strong>&ldquo;{authAttendee.fullName}&rdquo;</strong> • Kategori: <strong>{authAttendee.category}</strong> • Nomor Undian: <strong>{tmDisplayNumber}</strong>
               </p>
             </div>
 
@@ -762,18 +882,14 @@ function PelatihPortalContent() {
                 </span>
                 <span
                   className={`text-[11px] font-black px-2.5 py-1 rounded-full ${
-                    scoreData.status === "TERVERIFIKASI"
+                    isScoreReleased
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : scoreData.status === "SEDANG_DINILAI"
-                      ? "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
-                      : "bg-slate-100 text-slate-600"
+                      : "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse"
                   }`}
                 >
-                  {scoreData.status === "TERVERIFIKASI"
-                    ? "✓ Nilai Terverifikasi Juri"
-                    : scoreData.status === "SEDANG_DINILAI"
-                    ? "Sedang Dinilai"
-                    : "Menunggu Jadwal Tampil"}
+                  {isScoreReleased
+                    ? "✓ Nilai Final Resmi Dirilis"
+                    : "🔒 Rekap Dewan Juri (Tertutup)"}
                 </span>
               </div>
 
@@ -792,9 +908,9 @@ function PelatihPortalContent() {
               {/* Quick Info Grid */}
               <div className="grid grid-cols-2 gap-2.5 pt-2 text-xs">
                 <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
-                  <div className="text-[10px] text-slate-500 font-bold uppercase">Nomor Undian</div>
-                  <div className="text-xl font-black text-purple-900">
-                    #{authAttendee.candidateNumber || authTeamScore?.number || "01"}
+                  <div className="text-[10px] text-slate-500 font-bold uppercase">No. Undian TM</div>
+                  <div className="text-base font-black text-purple-900 truncate">
+                    {tmDisplayNumber}
                   </div>
                 </div>
                 <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100">
@@ -817,27 +933,33 @@ function PelatihPortalContent() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">Jadwal Masuk Arena:</span>
-                  <span className="font-bold text-purple-700">{scheduleRundown.arena}</span>
+                  <span className="font-bold text-purple-700">
+                    {hasTmNumber ? scheduleRundown.arena : "Menunggu TM"}
+                  </span>
                 </div>
               </div>
 
               {/* Total Score Highlight */}
               <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-800 to-indigo-900 text-white space-y-1">
                 <div className="text-[11px] text-purple-200 uppercase tracking-wider font-semibold">
-                  Akumulasi Nilai Pasukan Anda
+                  Akumulasi Nilai Pasukan
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-3xl font-black tracking-tight font-mono">
-                    {scoreData.totalScore > 0 ? `${scoreData.totalScore} Poin` : "Belum Dinilai"}
+                  <span className="text-2xl font-black tracking-tight font-mono">
+                    {isScoreReleased
+                      ? (scoreData.totalScore > 0 ? `${scoreData.totalScore} Poin` : "Belum Dinilai")
+                      : "Menunggu Rilis Final"}
                   </span>
-                  {scoreData.totalScore > 0 && (
+                  {isScoreReleased && scoreData.totalScore > 0 && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
                       Grade A
                     </span>
                   )}
                 </div>
                 <p className="text-[10px] text-purple-200">
-                  Transparansi perhitungan dewan juri tanpa rekayasa
+                  {isScoreReleased
+                    ? "Hasil dewan juri telah disahkan resmi"
+                    : "Nilai final resmi akan dibuka oleh Admin CETAS setelah rekap dewan juri disahkan"}
                 </p>
               </div>
             </div>
@@ -955,21 +1077,51 @@ function PelatihPortalContent() {
                       Khusus rekapitulasi penilaian dewan juri untuk pasukan {authAttendee.institution}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
-                    <CheckCircle2 className="h-4 w-4" />
-                    HMAC Verified
+                  <div
+                    className={`flex items-center gap-1.5 text-xs font-bold ${
+                      isScoreReleased ? "text-emerald-600" : "text-amber-600"
+                    }`}
+                  >
+                    {isScoreReleased ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Nilai Final Resmi
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        Tertutup Sementara
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {scoreData.totalScore === 0 ? (
+                {!isScoreReleased ? (
+                  <div className="p-8 rounded-2xl bg-gradient-to-b from-purple-50/80 to-slate-50 border border-purple-200 text-center space-y-3">
+                    <div className="h-12 w-12 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700 mx-auto">
+                      <Lock className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-1.5 max-w-lg mx-auto">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-purple-100 text-purple-800">
+                        <Clock className="h-3.5 w-3.5" /> REKAPITULASI DEWAN JURI SEDANG BERLANGSUNG
+                      </span>
+                      <h4 className="text-base font-black text-slate-900 mt-2">
+                        Hasil Penilaian Final Belum Dirilis Admin CETAS
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Sesuai standar perlombaan resmi, proses penilaian dewan juri di pos PBB Murni, Variasi Formasi, Danton, dan Kostum bersifat tertutup selama turnamen berlangsung. Hasil penilaian final resmi akan dirilis langsung oleh Admin CETAS setelah seluruh sesi penampilan selesai dan disahkan oleh Ketua Dewan Hakim Juri.
+                      </p>
+                    </div>
+                  </div>
+                ) : scoreData.totalScore === 0 ? (
                   <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
                     <Clock className="h-10 w-10 text-purple-500 mx-auto animate-pulse" />
                     <div className="space-y-1">
                       <h4 className="text-sm font-black text-slate-800">
-                        Pasukan Belum Dinilai / Sedang Mempersiapkan Diri
+                        Pasukan Belum Tampil / Lembar Nilai Kosong
                       </h4>
                       <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                        Pasukan Anda berada di nomor undian <strong>#{authAttendee.candidateNumber || authTeamScore?.number || "01"}</strong>. Tim dewan juri akan menginput skor penilaian secara digital saat pasukan memasuki arena lomba.
+                        Pasukan Anda berada di nomor undian <strong>{tmDisplayNumber}</strong>. Dewan juri akan mengesahkan nilai setelah sesi penampilan selesai.
                       </p>
                     </div>
                   </div>
@@ -1085,7 +1237,12 @@ function PelatihPortalContent() {
                   <button
                     type="button"
                     onClick={() => window.print()}
-                    className="inline-flex items-center gap-1.5 font-bold text-purple-700 hover:text-purple-800"
+                    disabled={!isScoreReleased}
+                    className={`inline-flex items-center gap-1.5 font-bold ${
+                      isScoreReleased
+                        ? "text-purple-700 hover:text-purple-800"
+                        : "text-slate-400 cursor-not-allowed"
+                    }`}
                   >
                     <Printer className="h-4 w-4" />
                     Cetak Lembar Nilai Pasukan
@@ -1102,75 +1259,89 @@ function PelatihPortalContent() {
                     Rundown Daerah Persiapan (DP) & Arena Lomba
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Jadwal khusus pasukan <strong>{authAttendee.fullName}</strong> (No. Undian #{authAttendee.candidateNumber || authTeamScore?.number || "01"})
+                    Jadwal khusus pasukan <strong>{authAttendee.fullName}</strong> (No. Undian: {tmDisplayNumber})
                   </p>
                 </div>
 
-                <div className="relative border-l-2 border-purple-200 ml-4 pl-6 space-y-6 py-2">
-                  {/* Step 1: DP 1 */}
-                  <div className="relative">
-                    <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-purple-600 ring-4 ring-purple-100" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-purple-900 uppercase">
-                        Daerah Persiapan 1 (DP 1) • Cek Absensi & Registrasi Pasukan
-                      </span>
-                      <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                        {scheduleRundown.dp1}
-                      </span>
+                {!hasTmNumber ? (
+                  <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                    <Calendar className="h-10 w-10 text-purple-600 mx-auto" />
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-black text-slate-800">
+                        Nomor Undian Tampil Belum Diundi
+                      </h4>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                        Nomor undian urutan tampil akan ditetapkan melalui sesi pengundian resmi pada <strong>Technical Meeting (TM)</strong>. Rundown waktu persiapan (DP 1, DP 2, DP 3) dan jam masuk arena akan otomatis aktif setelah panitia menginput nomor undian pasukan Anda.
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Pemeriksaan ID Card peserta, verifikasi surat tugas mandat sekolah, dan penghitungan jumlah anggota (16 pasukan + 1 danton).
-                    </p>
                   </div>
+                ) : (
+                  <div className="relative border-l-2 border-purple-200 ml-4 pl-6 space-y-6 py-2">
+                    {/* Step 1: DP 1 */}
+                    <div className="relative">
+                      <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-purple-600 ring-4 ring-purple-100" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-purple-900 uppercase">
+                          Daerah Persiapan 1 (DP 1) • Cek Absensi & Registrasi Pasukan
+                        </span>
+                        <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                          {scheduleRundown.dp1}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Pemeriksaan ID Card peserta, verifikasi surat tugas mandat sekolah, dan penghitungan jumlah anggota (16 pasukan + 1 danton).
+                      </p>
+                    </div>
 
-                  {/* Step 2: DP 2 */}
-                  <div className="relative">
-                    <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-purple-600 ring-4 ring-purple-100" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-purple-900 uppercase">
-                        Daerah Persiapan 2 (DP 2) • Pemeriksaan Kostum & Atribut
-                      </span>
-                      <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                        {scheduleRundown.dp2}
-                      </span>
+                    {/* Step 2: DP 2 */}
+                    <div className="relative">
+                      <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-purple-600 ring-4 ring-purple-100" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-purple-900 uppercase">
+                          Daerah Persiapan 2 (DP 2) • Pemeriksaan Kostum & Atribut
+                        </span>
+                        <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                          {scheduleRundown.dp2}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Pemeriksaan kelengkapan atribut seragam paskibra oleh tim juri pos kostum.
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Pemeriksaan kelengkapan atribut seragam paskibra oleh tim juri pos kostum.
-                    </p>
-                  </div>
 
-                  {/* Step 3: DP 3 */}
-                  <div className="relative">
-                    <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-purple-600 ring-4 ring-purple-100" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-purple-900 uppercase">
-                        Daerah Persiapan 3 (DP 3) • Gerbang Pintu Masuk Lapangan
-                      </span>
-                      <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
-                        {scheduleRundown.dp3}
-                      </span>
+                    {/* Step 3: DP 3 */}
+                    <div className="relative">
+                      <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-purple-600 ring-4 ring-purple-100" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-purple-900 uppercase">
+                          Daerah Persiapan 3 (DP 3) • Gerbang Pintu Masuk Lapangan
+                        </span>
+                        <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                          {scheduleRundown.dp3}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Pasukan bersiap di pintu masuk arena utama. Waktu penampilan dimulai ketika danton melapor kepada juri utama.
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Pasukan bersiap di pintu masuk arena utama. Waktu penampilan dimulai ketika danton melapor kepada juri utama.
-                    </p>
-                  </div>
 
-                  {/* Step 4: Arena Utama */}
-                  <div className="relative">
-                    <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-emerald-600 ring-4 ring-emerald-100" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-emerald-900 uppercase">
-                        Arena Utama Lomba • Tampil Live
-                      </span>
-                      <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                        {scheduleRundown.arena}
-                      </span>
+                    {/* Step 4: Arena Utama */}
+                    <div className="relative">
+                      <span className="absolute -left-[33px] top-0 h-4 w-4 rounded-full bg-emerald-600 ring-4 ring-emerald-100" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-emerald-900 uppercase">
+                          Arena Utama Lomba • Tampil Live
+                        </span>
+                        <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                          {scheduleRundown.arena}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Durasi waktu tampil maksimal 10 menit. Nilai langsung masuk ke sistem dewan juri CETAS secara digital.
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Durasi waktu tampil maksimal 10 menit. Nilai langsung masuk ke sistem dewan juri CETAS secara digital.
-                    </p>
                   </div>
-                </div>
+                )}
               </div>
             )}
 

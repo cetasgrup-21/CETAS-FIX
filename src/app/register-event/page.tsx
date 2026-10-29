@@ -100,6 +100,7 @@ export default function RegisterEventPage() {
     category: DEFAULT_REG_EVENTS[0]?.categoryOptions?.[0] || "Tingkat SD/MI",
     notes: "",
     portfolioUrl: "",
+    paymentScheme: "LUNAS" as "LUNAS" | "DP",
   });
 
   // Fetch updated events list from API & localStorage
@@ -170,6 +171,11 @@ export default function RegisterEventPage() {
     setIsSubmitting(true);
 
     try {
+      const feeTotal = Number(activeEvent.price) || 0;
+      const minDp = Math.round(feeTotal / 2);
+      const paidAmt = feeTotal === 0 ? 0 : (form.paymentScheme === "LUNAS" ? feeTotal : minDp);
+      const remainingAmt = Math.max(0, feeTotal - paidAmt);
+
       const res = await fetch("/api/attendees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -186,6 +192,10 @@ export default function RegisterEventPage() {
             "Tingkat SMP/MTs",
           notes: form.notes,
           portfolioUrl: form.portfolioUrl,
+          paymentScheme: form.paymentScheme,
+          registrationFeeTotal: feeTotal,
+          registrationFeePaid: paidAmt,
+          registrationFeeRemaining: remainingAmt,
         }),
       });
 
@@ -492,6 +502,7 @@ export default function RegisterEventPage() {
                     category: activeRegCategories[0]?.name || "",
                     notes: "",
                     portfolioUrl: "",
+                    paymentScheme: "LUNAS",
                   });
                 }}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-5 py-3 text-xs transition"
@@ -918,6 +929,65 @@ export default function RegisterEventPage() {
                       className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
+
+                  {/* Skema Pembayaran (Jika Event Berbayar) */}
+                  {Number(activeEvent.price) > 0 && (
+                    <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          Pilih Skema Biaya Pendaftaran:
+                        </span>
+                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
+                          Total Rp {Number(activeEvent.price).toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+                        <label
+                          className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition ${
+                            form.paymentScheme === "LUNAS"
+                              ? "bg-white dark:bg-slate-900 border-emerald-600 text-emerald-900 dark:text-emerald-300 shadow-xs font-bold"
+                              : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="regEventPaymentScheme"
+                            checked={form.paymentScheme === "LUNAS"}
+                            onChange={() => setForm({ ...form, paymentScheme: "LUNAS" })}
+                            className="text-emerald-600"
+                          />
+                          <div>
+                            <div className="font-bold text-xs">Pembayaran Lunas (Full)</div>
+                            <div className="text-[11px] text-slate-500">
+                              Rp {Number(activeEvent.price).toLocaleString("id-ID")}
+                            </div>
+                          </div>
+                        </label>
+
+                        <label
+                          className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition ${
+                            form.paymentScheme === "DP"
+                              ? "bg-white dark:bg-slate-900 border-emerald-600 text-emerald-900 dark:text-emerald-300 shadow-xs font-bold"
+                              : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="regEventPaymentScheme"
+                            checked={form.paymentScheme === "DP"}
+                            onChange={() => setForm({ ...form, paymentScheme: "DP" })}
+                            className="text-emerald-600"
+                          />
+                          <div>
+                            <div className="font-bold text-xs">Down Payment (DP)</div>
+                            <div className="text-[11px] text-slate-500">
+                              Rp {Math.round(Number(activeEvent.price) / 2).toLocaleString("id-ID")} (Sisa dilunasi saat TM)
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="text-[11px] text-slate-500 flex items-center gap-1.5">

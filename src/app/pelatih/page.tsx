@@ -2119,7 +2119,10 @@ function PelatihPortalContent() {
                         {/* Top Header Information */}
                         <div className="relative z-10 space-y-2 pt-2">
                           <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 text-amber-950 border border-amber-400 text-[10px] font-black uppercase tracking-widest shadow-xs">
-                            ★ KOMPETISI BARIS BERBARIS TINGKAT NASIONAL ★
+                            {(() => {
+                              const headingText = (certConfig.eventHeading || authEvent?.title || "KOMPETISI BARIS BERBARIS").trim();
+                              return headingText.startsWith("★") ? headingText : `★ ${headingText.toUpperCase()} ★`;
+                            })()}
                           </div>
                           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
                             {institutionName}

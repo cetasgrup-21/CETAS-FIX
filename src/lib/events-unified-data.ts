@@ -41,10 +41,11 @@ export interface CertificateSignerConfig {
 }
 
 export interface EventCertificateConfig {
+  eventHeading?: string; // e.g. "LKBB BARAVOS 2026" atau custom header teks pita emas
   certificateNumberFormat?: string; // e.g. "042/CETAS-LKBB/{YEAR}"
   issueCity?: string; // e.g. "Jakarta"
   issueDate?: string; // e.g. "30 Oktober 2026"
-  institutionName?: string; // e.g. "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA"
+  institutionName?: string; // e.g. "Centralized Electronic Tournament & Award System"
   signer1?: CertificateSignerConfig; // Penyelenggara / Ketua Panitia
   signer2?: CertificateSignerConfig; // Ketua Dewan Juri
   stampUrl?: string; // Stempel panitia / stempel bulat cetas

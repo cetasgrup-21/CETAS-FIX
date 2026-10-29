@@ -301,6 +301,7 @@ export default function AdminDashboardPage() {
   // Certificate Settings & Signatures State
   const [isCertConfigModalOpen, setIsCertConfigModalOpen] = useState(false);
   const [certConfigForm, setCertConfigForm] = useState<EventCertificateConfig>({
+    eventHeading: "LKBB BARAVOS 2026",
     issueCity: "Jakarta",
     issueDate: "30 Oktober 2026",
     certificateNumberFormat: "042/CETAS-LKBB/X/2026",
@@ -1711,10 +1712,11 @@ export default function AdminDashboardPage() {
     if (!selectedEvent) return;
     const existing = selectedEvent.certificateConfig;
     setCertConfigForm({
+      eventHeading: existing?.eventHeading || selectedEvent.title || "LKBB BARAVOS 2026",
       issueCity: existing?.issueCity || "Jakarta",
       issueDate: existing?.issueDate || (selectedEvent.date ? new Date(selectedEvent.date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "30 Oktober 2026"),
       certificateNumberFormat: existing?.certificateNumberFormat || "042/CETAS-LKBB/X/2026",
-      institutionName: existing?.institutionName || "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA",
+      institutionName: existing?.institutionName || "Centralized Electronic Tournament & Award System",
       signer1: {
         role: existing?.signer1?.role || "Ketua Panitia Penyelenggara",
         name: existing?.signer1?.name || "Ardi Purwanto, S.Pd.",
@@ -8524,6 +8526,21 @@ export default function AdminDashboardPage() {
                   1. Informasi Penerbitan &amp; Penomoran
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nama / Judul Event di Atas Sertifikat (Pita Emas):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. LKBB BARAVOS 2026 atau KOMPETISI BARIS BERBARIS TINGKAT NASIONAL"
+                      value={certConfigForm.eventHeading || ""}
+                      onChange={(e) => setCertConfigForm({ ...certConfigForm, eventHeading: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      *Teks ini akan muncul pada badge pita emas paling atas seluruh sertifikat. Jika dikosongkan, otomatis mengikuti nama event.
+                    </p>
+                  </div>
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Kota Penerbitan:

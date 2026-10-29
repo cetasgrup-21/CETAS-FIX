@@ -149,10 +149,10 @@ function PelatihPortalContent() {
           localStorage.setItem("cetas_coach_code", data.attendee.badgeCode);
         }
 
-        // Generate QR Code for certificate & badge
-        const qr = await generateQRCodeDataUrl(
-          `CETAS-VERIFIED|${data.attendee.badgeCode}|${data.attendee.fullName}|${data.attendee.institution}|${data.attendee.status}`
-        );
+        // Generate QR Code for certificate & badge (Full Verification URL)
+        const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id");
+        const verificationUrl = `${origin}/pelatih?code=${encodeURIComponent(data.attendee.badgeCode)}&verify=1`;
+        const qr = await generateQRCodeDataUrl(verificationUrl);
         setCertQrUrl(qr);
       } else {
         setLoginError(data.message || "Data pasukan tidak ditemukan. Pastikan kode badge atau kontak benar.");
@@ -236,10 +236,10 @@ function PelatihPortalContent() {
         localStorage.setItem("cetas_coach_code", createdAtd.badgeCode);
       }
 
-      // Generate QR
-      const qr = await generateQRCodeDataUrl(
-        `CETAS-VERIFIED|${createdAtd.badgeCode}|${createdAtd.fullName}|${createdAtd.institution}|WAITLIST`
-      );
+      // Generate QR Code (Full Verification URL)
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id");
+      const verificationUrl = `${origin}/pelatih?code=${encodeURIComponent(createdAtd.badgeCode)}&verify=1`;
+      const qr = await generateQRCodeDataUrl(verificationUrl);
       setCertQrUrl(qr);
     } catch (err: unknown) {
       setRegError(err instanceof Error ? err.message : "Terjadi kesalahan saat mendaftarkan akun pasukan.");
@@ -907,6 +907,18 @@ function PelatihPortalContent() {
           <button onClick={() => setEmailSentToast(null)} className="ml-2 hover:opacity-80">
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {/* Verification Success Alert when QR is Scanned */}
+      {(searchParams.get("verify") === "1" || searchParams.get("verify") === "true") && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white px-4 py-3 shadow-lg flex items-center justify-between text-xs font-bold animate-in fade-in">
+          <div className="mx-auto max-w-7xl flex items-center gap-2.5">
+            <CheckCircle2 className="h-5 w-5 text-emerald-200 shrink-0" />
+            <span>
+              ✓ <strong>HASIL PEMINDAIAN RESMI:</strong> E-Sertifikat atas nama <strong>&ldquo;{authAttendee.fullName}&rdquo;</strong> ({authAttendee.institution}) telah terverifikasi ASLI dan terdaftar resmi di sistem CETAS!
+            </span>
+          </div>
         </div>
       )}
 
@@ -2026,21 +2038,17 @@ function PelatihPortalContent() {
                 const issueDate = certConfig.issueDate || (authEvent?.date ? new Date(authEvent.date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "30 Oktober 2026");
                 const institutionName = certConfig.institutionName || "Centralized Electronic Tournament & Award System";
                 
-                // Format Penomoran Sertifikat Resmi (Bukan Acak)
-                const rawFormat = (certConfig.certificateNumberFormat || "").trim();
+                // Format Penomoran Sertifikat Resmi (Bukan Acak - Otomatis Menggunakan Nomor Undian Kontingen)
+                const rawFormat = (certConfig.certificateNumberFormat || "[NO]/CETAS-LKBB/X/2026").trim();
                 const contingentNum = authAttendee.tmLotteryNumber || authAttendee.candidateNumber || "";
                 const paddedNum = contingentNum ? String(contingentNum).padStart(3, "0") : "001";
                 let certNumber = "";
-                if (rawFormat) {
-                  if (rawFormat.includes("[NO]") || rawFormat.includes("[NOMOR]")) {
-                    certNumber = rawFormat.replace(/\[NO\]|\[NOMOR\]/g, paddedNum);
-                  } else if (rawFormat.includes("###")) {
-                    certNumber = rawFormat.replace(/###/g, paddedNum);
-                  } else {
-                    certNumber = rawFormat;
-                  }
+                if (rawFormat.includes("[NO]") || rawFormat.includes("[NOMOR]")) {
+                  certNumber = rawFormat.replace(/\[NO\]|\[NOMOR\]/g, paddedNum);
+                } else if (rawFormat.includes("###")) {
+                  certNumber = rawFormat.replace(/###/g, paddedNum);
                 } else {
-                  certNumber = `042/CETAS-LKBB/X/2026`;
+                  certNumber = rawFormat;
                 }
 
                 // Jika Tipe JUARA dan ada file upload manual dari panitia
@@ -2207,12 +2215,20 @@ function PelatihPortalContent() {
                           <div className="flex flex-col items-center justify-center space-y-1.5 pb-1">
                             <div className="flex items-center gap-2">
                               {certQrUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={certQrUrl}
-                                  alt="Certificate QR"
-                                  className="h-14 w-14 rounded-lg border-2 border-[#C5A059] bg-white p-0.5 shadow-sm"
-                                />
+                                <a
+                                  href={`${typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cetas.id")}/pelatih?code=${encodeURIComponent(authAttendee.badgeCode)}&verify=1`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="Klik untuk membuka verifikasi keaslian sertifikat"
+                                  className="group relative block cursor-pointer transition hover:scale-105"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={certQrUrl}
+                                    alt="Certificate QR"
+                                    className="h-14 w-14 rounded-lg border-2 border-[#C5A059] bg-white p-0.5 shadow-sm group-hover:border-amber-600 transition"
+                                  />
+                                </a>
                               ) : (
                                 <div className="h-14 w-14 bg-white rounded-lg border border-[#C5A059] flex items-center justify-center text-[9px] text-slate-400 font-mono">
                                   QR Valid

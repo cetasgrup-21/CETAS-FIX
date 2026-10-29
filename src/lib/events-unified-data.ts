@@ -251,9 +251,9 @@ export function mergeEventsWithLocal(
             ? loc.registrationCategories
             : srv.registrationCategories,
         lkbbTeams:
-          Array.isArray(loc.lkbbTeams) && loc.lkbbTeams.length >= (srv.lkbbTeams?.length || 0)
-            ? loc.lkbbTeams
-            : srv.lkbbTeams,
+          Array.isArray(srv.lkbbTeams)
+            ? srv.lkbbTeams
+            : (Array.isArray(loc.lkbbTeams) ? loc.lkbbTeams : []),
         mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
       };
     }

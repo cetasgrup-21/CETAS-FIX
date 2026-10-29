@@ -304,7 +304,7 @@ export default function AdminDashboardPage() {
     issueCity: "Jakarta",
     issueDate: "30 Oktober 2026",
     certificateNumberFormat: "042/CETAS-LKBB/X/2026",
-    institutionName: "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA",
+    institutionName: "Centralized Electronic Tournament & Award System",
     signer1: {
       role: "Ketua Panitia Penyelenggara",
       name: "Ardi Purwanto, S.Pd.",
@@ -1533,6 +1533,19 @@ export default function AdminDashboardPage() {
   const handleDeleteAttendee = async (id: string, name: string) => {
     if (!confirm(`Hapus pendaftaran peserta "${name}"? Kuota pendaftaran akan dikembalikan otomatis.`)) return;
     setAttendees((prev) => prev.filter((a) => a.id !== id));
+    // Hapus juga dari eventsList dan sync ke localStorage agar peserta tidak pernah muncul kembali saat refresh
+    setEventsList((prevEvents) => {
+      const updated = prevEvents.map((ev) => ({
+        ...ev,
+        lkbbTeams: (ev.lkbbTeams || []).filter(
+          (t) => t.teamName.trim().toLowerCase() !== name.trim().toLowerCase()
+        ),
+        updatedAt: Date.now(),
+      }));
+      saveStoredEvents(updated);
+      return updated;
+    });
+
     try {
       const res = await fetch("/api/attendees", {
         method: "PATCH",
@@ -1544,7 +1557,10 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showSyncToast(`Peserta "${name}" berhasil dihapus.`);
+        if (data.attendees) {
+          setAttendees(data.attendees);
+        }
+        showSyncToast(`Peserta "${name}" berhasil dihapus secara permanen.`);
       }
     } catch {
       showSyncToast("Gagal menghapus peserta");
@@ -8541,10 +8557,20 @@ export default function AdminDashboardPage() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA"
+                      placeholder="e.g. Centralized Electronic Tournament & Award System"
                       value={certConfigForm.institutionName || ""}
                       onChange={(e) => setCertConfigForm({ ...certConfigForm, institutionName: e.target.value })}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 pt-1">
+                    <FileUpload
+                      label="Upload Gambar Stempel Resmi Penyelenggara (Opsional)"
+                      description="Format PNG transparan stempel basah (Jika kosong menggunakan stempel digital resmi CETAS)"
+                      accept="image/png,image/webp,image/*"
+                      aspectRatio="square"
+                      value={certConfigForm.stampUrl || ""}
+                      onChange={(url) => setCertConfigForm({ ...certConfigForm, stampUrl: url })}
                     />
                   </div>
                 </div>
@@ -8610,20 +8636,18 @@ export default function AdminDashboardPage() {
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      URL Gambar Scan TTD 1 (Opsional, jika kosong menggunakan kaligrafi digital resmi):
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="https://... atau data:image/png..."
+                    <FileUpload
+                      label="Upload File Gambar Scan TTD 1 (Ketua Panitia)"
+                      description="Pilih foto TTD di kertas putih atau PNG transparan (Ukuran otomatis dioptimasi)"
+                      accept="image/png,image/jpeg,image/webp,image/*"
+                      aspectRatio="square"
                       value={certConfigForm.signer1?.signatureUrl || ""}
-                      onChange={(e) =>
+                      onChange={(url) =>
                         setCertConfigForm({
                           ...certConfigForm,
-                          signer1: { ...(certConfigForm.signer1 || { name: "", role: "" }), signatureUrl: e.target.value },
+                          signer1: { ...(certConfigForm.signer1 || { name: "", role: "" }), signatureUrl: url },
                         })
                       }
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
                     />
                   </div>
                 </div>
@@ -8689,20 +8713,18 @@ export default function AdminDashboardPage() {
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      URL Gambar Scan TTD 2 (Opsional, jika kosong menggunakan kaligrafi digital resmi):
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="https://... atau data:image/png..."
+                    <FileUpload
+                      label="Upload File Gambar Scan TTD 2 (Ketua Dewan Juri)"
+                      description="Pilih foto TTD di kertas putih atau PNG transparan (Ukuran otomatis dioptimasi)"
+                      accept="image/png,image/jpeg,image/webp,image/*"
+                      aspectRatio="square"
                       value={certConfigForm.signer2?.signatureUrl || ""}
-                      onChange={(e) =>
+                      onChange={(url) =>
                         setCertConfigForm({
                           ...certConfigForm,
-                          signer2: { ...(certConfigForm.signer2 || { name: "", role: "" }), signatureUrl: e.target.value },
+                          signer2: { ...(certConfigForm.signer2 || { name: "", role: "" }), signatureUrl: url },
                         })
                       }
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
                     />
                   </div>
                 </div>

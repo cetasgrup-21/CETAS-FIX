@@ -2024,8 +2024,24 @@ function PelatihPortalContent() {
                 };
                 const issueCity = certConfig.issueCity || "Jakarta";
                 const issueDate = certConfig.issueDate || (authEvent?.date ? new Date(authEvent.date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "30 Oktober 2026");
-                const institutionName = certConfig.institutionName || "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA";
-                const certNumber = `${authAttendee.badgeCode ? authAttendee.badgeCode.replace("CETAS-ATD-", "042/CETAS-LKBB/") : "042/CETAS-LKBB/2026/01"}`;
+                const institutionName = certConfig.institutionName || "Centralized Electronic Tournament & Award System";
+                
+                // Format Penomoran Sertifikat Resmi (Bukan Acak)
+                const rawFormat = (certConfig.certificateNumberFormat || "").trim();
+                const contingentNum = authAttendee.tmLotteryNumber || authAttendee.candidateNumber || "";
+                const paddedNum = contingentNum ? String(contingentNum).padStart(3, "0") : "001";
+                let certNumber = "";
+                if (rawFormat) {
+                  if (rawFormat.includes("[NO]") || rawFormat.includes("[NOMOR]")) {
+                    certNumber = rawFormat.replace(/\[NO\]|\[NOMOR\]/g, paddedNum);
+                  } else if (rawFormat.includes("###")) {
+                    certNumber = rawFormat.replace(/###/g, paddedNum);
+                  } else {
+                    certNumber = rawFormat;
+                  }
+                } else {
+                  certNumber = `042/CETAS-LKBB/X/2026`;
+                }
 
                 // Jika Tipe JUARA dan ada file upload manual dari panitia
                 if (certType === "JUARA" && authAttendee.championCertificateUrl) {
@@ -2074,6 +2090,16 @@ function PelatihPortalContent() {
                         {/* Layered Decorative Borders */}
                         <div className="absolute inset-2 border border-[#C5A059]/40 rounded-xl pointer-events-none" />
                         <div className="absolute inset-3 border-2 border-[#D4AF37] rounded-lg pointer-events-none" />
+
+                        {/* Center Watermark - Logo CETAS PNG Resmi */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none select-none">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/logo/cetas_logo_transparent.png"
+                            alt="Watermark CETAS"
+                            className="w-[360px] h-[360px] object-contain filter grayscale"
+                          />
+                        </div>
                         <div className="absolute inset-4 border border-dashed border-[#B38728]/30 rounded-md pointer-events-none" />
 
                         {/* Corner Baroque Flourish SVGs */}
@@ -2090,14 +2116,6 @@ function PelatihPortalContent() {
                           <path d="M0,0 L45,0 C30,12 18,22 12,38 C8,48 5,65 5,90 L0,90 Z M12,12 C22,22 35,26 50,28 C38,38 28,48 28,65 C18,52 15,38 12,12 Z" />
                         </svg>
 
-                        {/* Subtle Center Rosette Watermark */}
-                        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none select-none">
-                          <svg viewBox="0 0 200 200" className="w-[420px] h-[420px] text-amber-950" fill="currentColor">
-                            <circle cx="100" cy="100" r="90" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path d="M100 20 L120 70 L175 75 L135 110 L148 165 L100 135 L52 165 L65 110 L25 75 L80 70 Z" />
-                          </svg>
-                        </div>
-
                         {/* Top Header Information */}
                         <div className="relative z-10 space-y-2 pt-2">
                           <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 text-amber-950 border border-amber-400 text-[10px] font-black uppercase tracking-widest shadow-xs">
@@ -2106,8 +2124,8 @@ function PelatihPortalContent() {
                           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
                             {institutionName}
                           </div>
-                          <div className="font-mono text-[10px] text-slate-400 tracking-wider">
-                            Nomor Registrasi Resmi: <strong>{certNumber}</strong>
+                          <div className="font-mono text-[11px] text-slate-500 tracking-wider">
+                            Nomor: <strong>{certNumber}</strong>
                           </div>
 
                           {/* CERTIFICATE MAIN TITLE */}
@@ -2125,19 +2143,19 @@ function PelatihPortalContent() {
                         </div>
 
                         {/* RECIPIENT BODY */}
-                        <div className="relative z-10 py-3 sm:py-5 space-y-2">
-                          <div className="font-serif font-black text-2xl sm:text-4xl text-[#1E1B4B] tracking-tight">
+                        <div className="relative z-10 py-4 sm:py-6 space-y-3">
+                          <div className="font-serif font-black text-3xl sm:text-5xl md:text-6xl text-[#1E1B4B] tracking-normal leading-tight py-2 drop-shadow-xs">
                             {certType === "PELATIH" && (authAttendee.coachName || authAttendee.fullName)}
                             {certType === "DANTON" && (authAttendee.dantonName || "Komandan Peleton")}
                             {certType === "PASUKAN" && authAttendee.fullName}
                             {certType === "JUARA" && authAttendee.fullName}
                           </div>
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="h-0.5 w-12 bg-gradient-to-r from-transparent to-[#C5A059]" />
-                            <div className="text-sm font-bold text-[#8C6D23] font-serif">
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="h-0.5 w-16 bg-gradient-to-r from-transparent via-[#C5A059] to-[#C5A059]" />
+                            <div className="text-sm sm:text-base font-bold text-[#8C6D23] font-serif tracking-wide">
                               {authAttendee.institution} • {authAttendee.category}
                             </div>
-                            <div className="h-0.5 w-12 bg-gradient-to-l from-transparent to-[#C5A059]" />
+                            <div className="h-0.5 w-16 bg-gradient-to-l from-transparent via-[#C5A059] to-[#C5A059]" />
                           </div>
 
                           <p className="text-xs sm:text-sm text-slate-700 max-w-2xl mx-auto leading-relaxed italic font-serif pt-1">
@@ -2243,6 +2261,16 @@ function PelatihPortalContent() {
                         {/* Layered Decorative Borders */}
                         <div className="absolute inset-2 border border-[#C5A059]/40 rounded-xl pointer-events-none" />
                         <div className="absolute inset-3 border-2 border-[#D4AF37] rounded-lg pointer-events-none" />
+
+                        {/* Center Watermark - Logo CETAS PNG Resmi */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none select-none">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/logo/cetas_logo_transparent.png"
+                            alt="Watermark CETAS"
+                            className="w-[360px] h-[360px] object-contain filter grayscale"
+                          />
+                        </div>
 
                         {/* Top Header Lampiran */}
                         <div className="relative z-10 space-y-1.5 pt-2">

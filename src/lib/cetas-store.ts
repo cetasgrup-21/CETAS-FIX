@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import fs from "fs";
+import path from "path";
 import { INITIAL_UNIFIED_EVENTS, UnifiedEvent } from "@/lib/events-unified-data";
 import { INITIAL_EVENT_VOTINGS, EventVotingConfig } from "@/lib/vote-unified-data";
 import { INITIAL_UNIFIED_PRODUCTS, UnifiedProduct } from "@/lib/production-unified-data";
@@ -12,6 +14,29 @@ declare global {
 
 if (!global.__cetasMemoryFallback) {
   global.__cetasMemoryFallback = {};
+}
+
+const DISK_BACKUP_DIR = path.join(process.cwd(), ".cetas_data");
+
+function readDiskBackup<T>(key: string): T | null {
+  try {
+    const filePath = path.join(DISK_BACKUP_DIR, `${key}.json`);
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(raw) as T;
+    }
+  } catch {}
+  return null;
+}
+
+function writeDiskBackup<T>(key: string, value: T): void {
+  try {
+    if (!fs.existsSync(DISK_BACKUP_DIR)) {
+      fs.mkdirSync(DISK_BACKUP_DIR, { recursive: true });
+    }
+    const filePath = path.join(DISK_BACKUP_DIR, `${key}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
+  } catch {}
 }
 
 async function ensureCetasStoreTable(): Promise<void> {
@@ -47,7 +72,16 @@ export async function getStoreData<T>(key: string, defaultValue: T): Promise<T> 
         } catch {}
       }
       global.__cetasMemoryFallback![key] = parsedVal;
+      writeDiskBackup(key, parsedVal);
       return parsedVal;
+    }
+
+    // Cek disk backup lokal jika belum ada di database
+    const localDisk = readDiskBackup<T>(key);
+    if (localDisk !== null) {
+      global.__cetasMemoryFallback![key] = localDisk;
+      await setStoreData(key, localDisk);
+      return localDisk;
     }
 
     // Seed initial default value into PostgreSQL so all instances share the same baseline
@@ -58,6 +92,11 @@ export async function getStoreData<T>(key: string, defaultValue: T): Promise<T> 
     if (global.__cetasMemoryFallback && global.__cetasMemoryFallback[key] !== undefined) {
       return global.__cetasMemoryFallback[key] as T;
     }
+    const localDisk = readDiskBackup<T>(key);
+    if (localDisk !== null) {
+      global.__cetasMemoryFallback![key] = localDisk;
+      return localDisk;
+    }
     global.__cetasMemoryFallback![key] = defaultValue;
     return defaultValue;
   }
@@ -65,6 +104,7 @@ export async function getStoreData<T>(key: string, defaultValue: T): Promise<T> 
 
 export async function setStoreData<T>(key: string, value: T): Promise<void> {
   global.__cetasMemoryFallback![key] = value;
+  writeDiskBackup(key, value);
   try {
     await ensureCetasStoreTable();
     const jsonString = JSON.stringify(value);

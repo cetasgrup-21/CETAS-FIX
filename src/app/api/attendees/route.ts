@@ -1152,6 +1152,17 @@ export async function PATCH(req: NextRequest) {
       await saveAttendeesStore(next);
 
       if (target) {
+        // Hapus juga dari database Prisma jika ada
+        try {
+          await db.participant.deleteMany({
+            where: {
+              name: target.fullName,
+            },
+          });
+        } catch (dbErr) {
+          console.warn("Participant deleteMany warning:", dbErr);
+        }
+
         const evIdx = events.findIndex((e) => e.id === target.eventId);
         if (evIdx !== -1) {
           const regCats = getEffectiveRegistrationCategories(events[evIdx]);
@@ -1174,8 +1185,9 @@ export async function PATCH(req: NextRequest) {
           const nextTeams = (events[evIdx].lkbbTeams || []).filter(
             (t) =>
               !(
-                t.teamName.trim().toLowerCase() === target.fullName.trim().toLowerCase() &&
-                normalizeCategoryLevelCode(t.level || t.categoryName || "") === targetCode
+                t.teamName.trim().toLowerCase() === target.fullName.trim().toLowerCase() ||
+                (target.candidateNumber && t.number === target.candidateNumber) ||
+                (target.tmLotteryNumber && t.number === target.tmLotteryNumber)
               )
           );
           events[evIdx] = {
@@ -1184,6 +1196,7 @@ export async function PATCH(req: NextRequest) {
             quotaTotal: regCats.reduce((s, c) => s + c.quotaTotal, 0),
             quotaRemaining: regCats.reduce((s, c) => s + c.quotaRemaining, 0),
             lkbbTeams: nextTeams,
+            updatedAt: Date.now(),
           };
           await saveEventsStore(events);
         }
@@ -1208,6 +1221,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({
         success: true,
         message: "Data peserta berhasil dihapus dan kuota kategori dikembalikan",
+        attendees: next,
       });
     }
 

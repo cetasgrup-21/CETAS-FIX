@@ -57,6 +57,7 @@ export function FileUpload({
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
+      let serverErrMsg = "";
       try {
         setIsUploading(true);
         setUploadProgress(5);
@@ -80,6 +81,9 @@ export function FileUpload({
               onChange(data.url, file.name);
               return;
             }
+          } else {
+            const errJson = await res.json().catch(() => null);
+            throw new Error(errJson?.message || `Server status ${res.status}`);
           }
         } else {
           // File besar (misal Juknis 5MB - 40MB): potong per bagian / chunk untuk memotong batasan Nginx
@@ -124,13 +128,14 @@ export function FileUpload({
         }
       } catch (err: any) {
         console.warn("Direct/chunked upload to /api/upload failed:", err);
+        serverErrMsg = err?.message || "";
       } finally {
         setIsUploading(false);
       }
 
       // Untuk dokumen (PDF/DOCX/XLSX), jangan fall back ke base64 raksasa agar tidak merusak JSON ke server
       alert(
-        `Gagal mengunggah berkas "${file.name}" (${fileSizeMB} MB) ke server.\n\nSilakan gunakan opsi "Atau masukkan link URL" di kanan atas untuk menempelkan link Google Drive / Dropbox berkas ini.`
+        `Gagal mengunggah berkas "${file.name}" (${fileSizeMB} MB)${serverErrMsg ? `: ${serverErrMsg}` : ""}.\n\nSilakan coba lagi atau gunakan opsi "Atau masukkan link URL" di kanan atas.`
       );
       setShowUrlFallback(true);
       return;

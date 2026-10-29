@@ -48,6 +48,13 @@ import {
   FileText,
   Settings,
   Save,
+  FileCheck,
+  FolderCheck,
+  AlertCircle,
+  Eye,
+  FileUp,
+  FileCheck2,
+  Download,
 } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { EVENT_THEME_PRESETS, getEventTheme, EventThemePreset } from "@/lib/event-theme";
@@ -77,6 +84,10 @@ import {
   CETAS_MASCOT_PRESETS,
   DEFAULT_MASCOT_URL,
   EventCertificateConfig,
+  EventOfficialDocument,
+  EventPrerequisiteRule,
+  getEffectiveOfficialDocuments,
+  getEffectivePrerequisiteRules,
 } from "@/lib/events-unified-data";
 import {
   INITIAL_UNIFIED_PRODUCTS,
@@ -88,6 +99,7 @@ import {
   INITIAL_ATTENDEES,
   RegisteredAttendee,
   SquadMemberItem,
+  SubmittedAttendeeDocument,
 } from "@/lib/events-registration-data";
 import {
   INITIAL_EVENT_VOTINGS,
@@ -334,6 +346,19 @@ export default function AdminDashboardPage() {
   const [isSavingAdminSquad, setIsSavingAdminSquad] = useState(false);
   const [showQuickPaste, setShowQuickPaste] = useState(false);
   const [quickPasteText, setQuickPasteText] = useState("");
+
+  // Manajemen Dokumen & Juknis Event (Admin)
+  const [isOfficialDocsModalOpen, setIsOfficialDocsModalOpen] = useState(false);
+  const [docsModalSubTab, setDocsModalSubTab] = useState<"DOCS" | "RULES">("DOCS");
+  const [officialDocsForm, setOfficialDocsForm] = useState<EventOfficialDocument[]>([]);
+  const [prerequisiteRulesForm, setPrerequisiteRulesForm] = useState<EventPrerequisiteRule[]>([]);
+  const [isSavingOfficialDocs, setIsSavingOfficialDocs] = useState(false);
+
+  // Verifikasi Dokumen Prasyarat Peserta (Admin)
+  const [adminDocsAttendee, setAdminDocsAttendee] = useState<RegisteredAttendee | null>(null);
+  const [reviewingDocRuleId, setReviewingDocRuleId] = useState<string | null>(null);
+  const [revisionNoteInput, setRevisionNoteInput] = useState<string>("");
+  const [isSavingDocReview, setIsSavingDocReview] = useState(false);
 
   // Real-time Tickets & Audience Attendance State
   const [eventTickets, setEventTickets] = useState<any[]>([]);
@@ -1936,6 +1961,106 @@ export default function AdminDashboardPage() {
       alert("Gagal menyimpan susunan personel.");
     } finally {
       setIsSavingAdminSquad(false);
+    }
+  };
+
+  // Open and configure official documents & prerequisite rules (Admin)
+  const handleOpenOfficialDocsModal = () => {
+    if (!selectedEvent) return;
+    const effectiveDocs = getEffectiveOfficialDocuments(selectedEvent);
+    const effectiveRules = getEffectivePrerequisiteRules(selectedEvent);
+    setOfficialDocsForm(JSON.parse(JSON.stringify(effectiveDocs)));
+    setPrerequisiteRulesForm(JSON.parse(JSON.stringify(effectiveRules)));
+    setDocsModalSubTab("DOCS");
+    setIsOfficialDocsModalOpen(true);
+  };
+
+  const handleSaveOfficialDocs = async () => {
+    if (!selectedEvent) return;
+    setIsSavingOfficialDocs(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPDATE_EVENT_DOCS",
+          eventId: selectedEvent.id,
+          officialDocuments: officialDocsForm,
+          prerequisiteRules: prerequisiteRulesForm,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEventsList((prev) =>
+          prev.map((e) =>
+            e.id === selectedEvent.id
+              ? {
+                  ...e,
+                  officialDocuments: officialDocsForm,
+                  prerequisiteRules: prerequisiteRulesForm,
+                }
+              : e
+          )
+        );
+        setIsOfficialDocsModalOpen(false);
+        showSyncToast("✓ Dokumen resmi & aturan prasyarat event berhasil disimpan!");
+      } else {
+        alert(data.message || "Gagal menyimpan dokumen event");
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan saat menyimpan dokumen event.");
+    } finally {
+      setIsSavingOfficialDocs(false);
+    }
+  };
+
+  // Open participant prerequisite documents verification modal (Admin)
+  const handleOpenAdminDocsModal = (attendee: RegisteredAttendee) => {
+    setAdminDocsAttendee(attendee);
+    setReviewingDocRuleId(null);
+    setRevisionNoteInput("");
+  };
+
+  const handleReviewAttendeeDoc = async (
+    ruleId: string,
+    status: "VERIFIED" | "REVISION",
+    note?: string
+  ) => {
+    if (!adminDocsAttendee) return;
+    setIsSavingDocReview(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "REVIEW_PREREQUISITE_DOC",
+          attendeeId: adminDocsAttendee.id,
+          ruleId,
+          status,
+          reviewNote: note || "",
+          reviewedBy: currentUser?.name || "Admin CETAS",
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.attendee) {
+        setAttendees((prev: RegisteredAttendee[]) =>
+          prev.map((a: RegisteredAttendee) => (a.id === adminDocsAttendee.id ? data.attendee : a))
+        );
+        setAdminDocsAttendee(data.attendee);
+        setReviewingDocRuleId(null);
+        setRevisionNoteInput("");
+        showSyncToast(
+          status === "VERIFIED"
+            ? "✓ Berkas prasyarat diverifikasi VALID!"
+            : "⚠️ Catatan revisi berkas berhasil dikirim ke pelatih!"
+        );
+      } else {
+        alert(data.message || "Gagal memverifikasi berkas");
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan saat memverifikasi berkas.");
+    } finally {
+      setIsSavingDocReview(false);
     }
   };
 
@@ -3849,13 +3974,24 @@ export default function AdminDashboardPage() {
                     </div>
 
                     {!isPanitia && (
-                      <button
-                        type="button"
-                        onClick={() => handleSaveEvent()}
-                        className="px-5 py-2.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md shadow-orange-500/25 transition active:scale-95"
-                      >
-                        Simpan Perubahan
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleOpenOfficialDocsModal}
+                          className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md shadow-purple-600/25 transition active:scale-95 flex items-center gap-1.5"
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span>📁 Kelola Dokumen &amp; Juknis</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEvent()}
+                          className="px-5 py-2.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs shadow-md shadow-orange-500/25 transition active:scale-95"
+                        >
+                          Simpan Perubahan
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -4571,6 +4707,16 @@ export default function AdminDashboardPage() {
                       {/* Kontrol Sertifikat & Publikasi Nilai Final ke Pelatih */}
                       {!isPanitia && (
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                          {/* Tombol Pengaturan Dokumen & Juknis */}
+                          <button
+                            type="button"
+                            onClick={handleOpenOfficialDocsModal}
+                            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-white/10 hover:bg-white/20 text-white border border-white/20 transition shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <FileText className="h-4 w-4 text-purple-300" />
+                            <span>📁 Dokumen &amp; Juknis Event</span>
+                          </button>
+
                           {/* Tombol Pengaturan Sertifikat & TTD */}
                           <button
                             type="button"
@@ -4959,6 +5105,39 @@ export default function AdminDashboardPage() {
                                           Tangguhkan
                                         </button>
                                       ) : null}
+
+                                      {/* Tombol Verifikasi Berkas Prasyarat Kontingen */}
+                                      {(() => {
+                                        const rules = getEffectivePrerequisiteRules(selectedEvent);
+                                        const submittedDocs = item.submittedDocuments || [];
+                                        const verifiedCount = submittedDocs.filter((d) => d.status === "VERIFIED").length;
+                                        const hasRevision = submittedDocs.some((d) => d.status === "REVISION");
+                                        const hasPending = submittedDocs.some((d) => d.status === "PENDING");
+                                        const isComplete = rules.length > 0 && verifiedCount >= rules.filter((r) => r.isRequired).length;
+
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenAdminDocsModal(item)}
+                                            title="Periksa &amp; Verifikasi Berkas Prasyarat Kontingen"
+                                            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black transition flex items-center gap-1 border ${
+                                              hasRevision
+                                                ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300"
+                                                : isComplete
+                                                ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
+                                                : hasPending
+                                                ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
+                                                : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                                            }`}
+                                          >
+                                            <FileText className="h-3 w-3" />
+                                            <span>
+                                              Berkas ({submittedDocs.length}/{rules.length})
+                                              {hasRevision ? " ⚠️" : isComplete ? " ✓" : hasPending ? " ⏳" : ""}
+                                            </span>
+                                          </button>
+                                        );
+                                      })()}
 
                                       {!isPanitia && (
                                         <button
@@ -9052,6 +9231,628 @@ export default function AdminDashboardPage() {
                   Simpan Susunan Personel ✓
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: KELOLA DOKUMEN RESMI & ATURAN PRASYARAT EVENT (ADMIN) */}
+      {/* ------------------------------------------------------------------ */}
+      {isOfficialDocsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-white border-b border-purple-800/40 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-purple-600/40 text-purple-300 border border-purple-500/30 flex items-center justify-center">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Kelola Dokumen Resmi &amp; Prasyarat Turnamen
+                  </h3>
+                  <p className="text-[11px] text-purple-200/80">
+                    Event: <strong>{selectedEvent?.title}</strong> • Atur file Juknis, Undangan, Form List, Form Foto &amp; syarat berkas peserta.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOfficialDocsModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Sub-tabs switch */}
+            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-2 gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setDocsModalSubTab("DOCS")}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+                  docsModalSubTab === "DOCS"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/50"
+                }`}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>1. Dokumen Resmi Event (Unduhan Peserta)</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-white/20 text-white">
+                  {officialDocsForm.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDocsModalSubTab("RULES")}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+                  docsModalSubTab === "RULES"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/50"
+                }`}
+              >
+                <FileCheck className="h-3.5 w-3.5" />
+                <span>2. Aturan Prasyarat Berkas (Upload Peserta)</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-white/20 text-white">
+                  {prerequisiteRulesForm.length}
+                </span>
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {docsModalSubTab === "DOCS" && (
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/60 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2.5">
+                    <Sparkles className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">File Resmi Turnamen yang Dapat Diunduh Pelatih</p>
+                      <p className="text-[11px] text-purple-700 dark:text-purple-300">
+                        Admin dapat mengunggah file PDF, Excel, Word, atau gambar untuk Petunjuk Teknis (Juknis), Surat Undangan Sekolah &amp; Dispensasi, Form List 16 Personel, dan Form Foto.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {officialDocsForm.map((doc, idx) => (
+                      <div
+                        key={doc.id || idx}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                            <span className="h-5 w-5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 flex items-center justify-center font-bold">
+                              {idx + 1}
+                            </span>
+                            <span>Dokumen #{idx + 1}</span>
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={doc.fileType || "PDF"}
+                              onChange={(e) => {
+                                const updated = [...officialDocsForm];
+                                updated[idx].fileType = e.target.value as any;
+                                setOfficialDocsForm(updated);
+                              }}
+                              className="px-2 py-1 text-[10px] font-black rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            >
+                              <option value="PDF">PDF Document</option>
+                              <option value="DOCX">Word (.docx)</option>
+                              <option value="XLSX">Excel (.xlsx)</option>
+                              <option value="IMAGE">Gambar (JPG/PNG)</option>
+                              <option value="OTHER">Lainnya</option>
+                            </select>
+
+                            {officialDocsForm.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Hapus dokumen "${doc.title}"?`)) {
+                                    setOfficialDocsForm(officialDocsForm.filter((_, i) => i !== idx));
+                                  }
+                                }}
+                                className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 transition"
+                                title="Hapus Dokumen"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                              Judul Dokumen:
+                            </label>
+                            <input
+                              type="text"
+                              value={doc.title}
+                              onChange={(e) => {
+                                const updated = [...officialDocsForm];
+                                updated[idx].title = e.target.value;
+                                setOfficialDocsForm(updated);
+                              }}
+                              placeholder="e.g. Petunjuk Teknis (Juknis) Resmi LKBB"
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                              Keterangan Singkat:
+                            </label>
+                            <input
+                              type="text"
+                              value={doc.description || ""}
+                              onChange={(e) => {
+                                const updated = [...officialDocsForm];
+                                updated[idx].description = e.target.value;
+                                setOfficialDocsForm(updated);
+                              }}
+                              placeholder="e.g. Ketentuan arena 18x12m, materi PBB murni..."
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 outline-none focus:border-purple-600"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <FileUpload
+                            label="Upload File Dokumen Resmi"
+                            description="Pilih berkas PDF, DOCX, XLSX, atau Gambar (Maks. 10 MB)"
+                            accept="*/*"
+                            aspectRatio="document"
+                            value={doc.fileUrl || ""}
+                            onChange={(dataUrl, fileName) => {
+                              const updated = [...officialDocsForm];
+                              updated[idx].fileUrl = dataUrl;
+                              if (fileName) {
+                                updated[idx].fileName = fileName;
+                                if (fileName.endsWith(".pdf")) updated[idx].fileType = "PDF";
+                                else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) updated[idx].fileType = "XLSX";
+                                else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) updated[idx].fileType = "DOCX";
+                              }
+                              updated[idx].updatedAt = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+                              setOfficialDocsForm(updated);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfficialDocsForm([
+                        ...officialDocsForm,
+                        {
+                          id: `doc-${Date.now()}`,
+                          title: "Dokumen Resmi Baru",
+                          description: "Keterangan dokumen",
+                          fileUrl: "",
+                          fileName: "Dokumen-Resmi.pdf",
+                          fileType: "PDF",
+                          updatedAt: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }),
+                        },
+                      ]);
+                    }}
+                    className="w-full py-2.5 rounded-2xl border-2 border-dashed border-purple-300 dark:border-purple-800/80 text-purple-700 dark:text-purple-300 font-bold text-xs hover:bg-purple-50 dark:hover:bg-purple-950/30 transition flex items-center justify-center gap-2"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    <span>Tambah Dokumen Resmi Turnamen</span>
+                  </button>
+                </div>
+              )}
+
+              {docsModalSubTab === "RULES" && (
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Aturan Berkas Prasyarat yang Wajib Dikirim Kontingen</p>
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                        Kontingen / Pelatih wajib mengunggah dokumen di bawah ini pada portal pelatih. Admin dapat memverifikasi atau meminta revisi setiap berkas.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {prerequisiteRulesForm.map((rule, idx) => (
+                      <div
+                        key={rule.id || idx}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                            <span className="h-5 w-5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold">
+                              {idx + 1}
+                            </span>
+                            <span>Prasyarat #{idx + 1}</span>
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={rule.isRequired}
+                                onChange={(e) => {
+                                  const updated = [...prerequisiteRulesForm];
+                                  updated[idx].isRequired = e.target.checked;
+                                  setPrerequisiteRulesForm(updated);
+                                }}
+                                className="rounded text-purple-600 focus:ring-purple-500"
+                              />
+                              <span>Wajib Diunggah</span>
+                            </label>
+
+                            {prerequisiteRulesForm.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Hapus aturan prasyarat "${rule.title}"?`)) {
+                                    setPrerequisiteRulesForm(prerequisiteRulesForm.filter((_, i) => i !== idx));
+                                  }
+                                }}
+                                className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 transition"
+                                title="Hapus Aturan"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                              Nama / Judul Berkas Prasyarat:
+                            </label>
+                            <input
+                              type="text"
+                              value={rule.title}
+                              onChange={(e) => {
+                                const updated = [...prerequisiteRulesForm];
+                                updated[idx].title = e.target.value;
+                                setPrerequisiteRulesForm(updated);
+                              }}
+                              placeholder="e.g. Surat Rekomendasi / Tugas Kepala Sekolah"
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                              Format File yang Diizinkan:
+                            </label>
+                            <input
+                              type="text"
+                              value={rule.allowedFormats || "PDF, PNG, JPG"}
+                              onChange={(e) => {
+                                const updated = [...prerequisiteRulesForm];
+                                updated[idx].allowedFormats = e.target.value;
+                                setPrerequisiteRulesForm(updated);
+                              }}
+                              placeholder="e.g. PDF, PNG, JPG"
+                              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Petunjuk / Keterangan untuk Pelatih:
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={rule.description || ""}
+                            onChange={(e) => {
+                              const updated = [...prerequisiteRulesForm];
+                              updated[idx].description = e.target.value;
+                              setPrerequisiteRulesForm(updated);
+                            }}
+                            placeholder="e.g. Wajib bertanda tangan basah Kepala Sekolah dan berstempel resmi."
+                            className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrerequisiteRulesForm([
+                        ...prerequisiteRulesForm,
+                        {
+                          id: `req-${Date.now()}`,
+                          title: "Aturan Prasyarat Baru",
+                          description: "Petunjuk pengunggahan berkas untuk pelatih.",
+                          isRequired: true,
+                          allowedFormats: "PDF, PNG, JPG",
+                        },
+                      ]);
+                    }}
+                    className="w-full py-2.5 rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-800/80 text-amber-700 dark:text-amber-300 font-bold text-xs hover:bg-amber-50 dark:hover:bg-amber-950/30 transition flex items-center justify-center gap-2"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    <span>Tambah Aturan Prasyarat Berkas Baru</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500">
+                {officialDocsForm.length} Dokumen Resmi • {prerequisiteRulesForm.length} Aturan Prasyarat
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOfficialDocsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingOfficialDocs}
+                  onClick={handleSaveOfficialDocs}
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-md transition flex items-center gap-1.5"
+                >
+                  {isSavingOfficialDocs ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {isSavingOfficialDocs ? "Menyimpan..." : "Simpan Pengaturan Dokumen ✓"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: VERIFIKASI BERKAS PRASYARAT KONTINGEN OLEH ADMIN */}
+      {/* ------------------------------------------------------------------ */}
+      {adminDocsAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-800/40 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 flex items-center justify-center">
+                  <FileCheck2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Verifikasi Berkas Prasyarat Kontingen
+                  </h3>
+                  <p className="text-[11px] text-indigo-200/80">
+                    Pasukan: <strong>{adminDocsAttendee.fullName}</strong> • {adminDocsAttendee.institution} • No. Undian TM: <strong>#{adminDocsAttendee.tmLotteryNumber || adminDocsAttendee.candidateNumber || "-"}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminDocsAttendee(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {(() => {
+                const rules = getEffectivePrerequisiteRules(selectedEvent);
+                const submitted = adminDocsAttendee.submittedDocuments || [];
+
+                return rules.map((rule, idx) => {
+                  const doc = submitted.find((d) => d.ruleId === rule.id);
+                  const isUploaded = Boolean(doc && doc.fileUrl);
+                  const isVerified = doc?.status === "VERIFIED";
+                  const isRevision = doc?.status === "REVISION";
+                  const isPending = doc?.status === "PENDING";
+                  const isReviewingThis = reviewingDocRuleId === rule.id;
+
+                  return (
+                    <div
+                      key={rule.id || idx}
+                      className={`p-4 rounded-2xl border transition ${
+                        isVerified
+                          ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50"
+                          : isRevision
+                          ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50"
+                          : isPending
+                          ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50"
+                          : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-900 dark:text-white">
+                              {idx + 1}. {rule.title}
+                            </span>
+                            {rule.isRequired ? (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                WAJIB
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                                OPSIONAL
+                              </span>
+                            )}
+                          </div>
+                          {rule.description && (
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {rule.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0">
+                          {isVerified ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              Terverifikasi Valid ✓
+                            </span>
+                          ) : isRevision ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                              <AlertCircle className="h-3 w-3 text-rose-600" />
+                              Perlu Revisi ⚠️
+                            </span>
+                          ) : isPending ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                              <Clock className="h-3 w-3 text-amber-600" />
+                              Menunggu Verifikasi ⏳
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              Belum Diunggah
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Content File & Action */}
+                      <div className="pt-3">
+                        {isUploaded ? (
+                          <div className="space-y-2.5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center shrink-0">
+                                  <FileText className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 truncate">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {doc?.fileName || `${rule.title}.pdf`}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    Diunggah: {doc?.uploadedAt ? formatDateTime(doc.uploadedAt) : "-"}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (doc?.fileUrl) {
+                                      if (doc.fileUrl.startsWith("data:")) {
+                                        const win = window.open();
+                                        if (win) {
+                                          win.document.write(
+                                            `<iframe src="${doc.fileUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+                                          );
+                                        }
+                                      } else {
+                                        window.open(doc.fileUrl, "_blank");
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center gap-1.5"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                  <span>Buka / Pratinjau</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Existing Review Note */}
+                            {doc?.reviewNote && (
+                              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-200">
+                                <span className="font-bold">Catatan Revisi Terakhir:</span> {doc.reviewNote}
+                              </div>
+                            )}
+
+                            {/* Verification Buttons */}
+                            {!isReviewingThis ? (
+                              <div className="flex items-center justify-end gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReviewingDocRuleId(rule.id);
+                                    setRevisionNoteInput(doc?.reviewNote || "");
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition flex items-center gap-1"
+                                >
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  <span>Minta Revisi Berkas</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isSavingDocReview}
+                                  onClick={() => handleReviewAttendeeDoc(rule.id, "VERIFIED")}
+                                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition flex items-center gap-1"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Setujui Valid ✓</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 space-y-2 animate-in fade-in">
+                                <label className="block text-[11px] font-bold text-rose-900 dark:text-rose-200">
+                                  Tuliskan Catatan / Alasan Revisi untuk Pelatih:
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={revisionNoteInput}
+                                  onChange={(e) => setRevisionNoteInput(e.target.value)}
+                                  placeholder="Contoh: Stempel kepala sekolah belum ada, tolong upload scan asli..."
+                                  className="w-full px-3 py-2 rounded-xl border border-rose-300 dark:border-rose-800 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500/30"
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setReviewingDocRuleId(null)}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-white/50"
+                                  >
+                                    Batal
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isSavingDocReview || !revisionNoteInput.trim()}
+                                    onClick={() => handleReviewAttendeeDoc(rule.id, "REVISION", revisionNoteInput)}
+                                    className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-black shadow-xs transition flex items-center gap-1"
+                                  >
+                                    <AlertCircle className="h-3.5 w-3.5" />
+                                    <span>Kirim Catatan Revisi ⚠️</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-3 text-slate-400 text-xs">
+                            <span className="italic">Kontingen belum mengunggah berkas ini ke portal pelatih.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500">
+                E-Badge: <strong className="font-mono text-slate-800 dark:text-slate-200">{adminDocsAttendee.badgeCode}</strong>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setAdminDocsAttendee(null)}
+                className="px-5 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs hover:bg-slate-900 transition"
+              >
+                Tutup
+              </button>
             </div>
           </div>
         </div>

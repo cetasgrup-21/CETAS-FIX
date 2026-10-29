@@ -33,6 +33,20 @@ export interface SquadMemberItem {
   isReserve?: boolean;
 }
 
+export interface SubmittedAttendeeDocument {
+  ruleId: string; // ID prasyarat (e.g. "req-surat-sekolah")
+  title: string;
+  fileUrl: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: string;
+  uploadedAt: string;
+  status: "PENDING" | "VERIFIED" | "REVISION";
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
 export interface RegisteredAttendee {
   id: string;
   badgeCode: string; // e.g. CETAS-ATD-2026-98124
@@ -81,6 +95,9 @@ export interface RegisteredAttendee {
   championCertificateTitle?: string;
   championCertificateUploadedAt?: string;
   championCertificateUploadedBy?: string;
+
+  // Berkas Prasyarat yang Diunggah oleh Kontingen / Pelatih
+  submittedDocuments?: SubmittedAttendeeDocument[];
 }
 
 // Data awal registrasi bersih

@@ -40,6 +40,26 @@ export interface CertificateSignerConfig {
   signatureUrl?: string; // scan/image TTD, atau kosong untuk kaligrafi resmi
 }
 
+export interface EventOfficialDocument {
+  id: string; // e.g. "doc-juknis", "doc-undangan", "doc-form-peserta", "doc-form-foto"
+  title: string; // e.g. "Petunjuk Teknis (Juknis) Pelaksanaan LKBB"
+  description?: string;
+  fileUrl: string; // Data URL base64 atau path berkas
+  fileName?: string;
+  fileType?: "PDF" | "DOCX" | "XLSX" | "IMAGE" | "OTHER";
+  fileSize?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface EventPrerequisiteRule {
+  id: string; // e.g. "req-surat-sekolah", "req-bukti-bayar"
+  title: string;
+  description?: string;
+  isRequired: boolean;
+  allowedFormats?: string; // e.g. "PDF, PNG, JPG"
+}
+
 export interface EventCertificateConfig {
   eventHeading?: string; // e.g. "LKBB BARAVOS 2026" atau custom header teks pita emas
   certificateNumberFormat?: string; // e.g. "042/CETAS-LKBB/{YEAR}"
@@ -89,6 +109,12 @@ export interface UnifiedEvent {
 
   // Konfigurasi Nama & TTD E-Sertifikat
   certificateConfig?: EventCertificateConfig;
+
+  // Manajemen Berkas Resmi Event (Juknis, Undangan, Form List Peserta, Form Foto)
+  officialDocuments?: EventOfficialDocument[];
+
+  // Aturan Prasyarat Berkas yang Wajib Diunggah Peserta
+  prerequisiteRules?: EventPrerequisiteRule[];
 
   // Data Peserta & Peringkat LKBB (Cetas.Score)
   lkbbTeams?: LKBBTeamScore[];
@@ -256,6 +282,14 @@ export function mergeEventsWithLocal(
             ? srv.lkbbTeams
             : (Array.isArray(loc.lkbbTeams) ? loc.lkbbTeams : []),
         mascotUrl: loc.mascotUrl || srv.mascotUrl || DEFAULT_MASCOT_URL,
+        officialDocuments:
+          Array.isArray(loc.officialDocuments) && loc.officialDocuments.length > 0
+            ? loc.officialDocuments
+            : srv.officialDocuments,
+        prerequisiteRules:
+          Array.isArray(loc.prerequisiteRules) && loc.prerequisiteRules.length > 0
+            ? loc.prerequisiteRules
+            : srv.prerequisiteRules,
       };
     }
     return {
@@ -270,9 +304,109 @@ export function mergeEventsWithLocal(
           ? srv.registrationCategories
           : loc.registrationCategories,
       mascotUrl: srv.mascotUrl || loc?.mascotUrl || DEFAULT_MASCOT_URL,
+      officialDocuments:
+        Array.isArray(srv.officialDocuments) && srv.officialDocuments.length > 0
+          ? srv.officialDocuments
+          : loc?.officialDocuments,
+      prerequisiteRules:
+        Array.isArray(srv.prerequisiteRules) && srv.prerequisiteRules.length > 0
+          ? srv.prerequisiteRules
+          : loc?.prerequisiteRules,
     };
   });
 
   return merged;
+}
+
+export function getDefaultOfficialDocuments(): EventOfficialDocument[] {
+  return [
+    {
+      id: "doc-juknis",
+      title: "Petunjuk Teknis (Juknis) Resmi LKBB",
+      description: "Materi teknis gerakan PBB murni, variasi formasi, ketentuan danton, ukuran arena 18x12m, dan tata tertib lomba.",
+      fileUrl: "/docs/juknis-lkbb-2026.pdf",
+      fileName: "Juknis-Resmi-LKBB-2026.pdf",
+      fileType: "PDF",
+      fileSize: "2.4 MB",
+      updatedAt: "30 Oktober 2026",
+    },
+    {
+      id: "doc-undangan",
+      title: "Surat Undangan Sekolah & Izin Dispensasi",
+      description: "Surat permohonan delegasi sekolah resmi dari panitia pelaksana untuk diajukan ke Kepala Sekolah & Dinas Pendidikan.",
+      fileUrl: "/docs/surat-undangan-sekolah.pdf",
+      fileName: "Surat-Undangan-Resmi-Sekolah-Dispensasi.pdf",
+      fileType: "PDF",
+      fileSize: "1.1 MB",
+      updatedAt: "30 Oktober 2026",
+    },
+    {
+      id: "doc-form-peserta",
+      title: "Formulir List Susunan 16 Personel Pasukan",
+      description: "Template daftar susunan 1 Danton, 15 Pasukan inti, dan 2 Personel Cadangan berserta NISN dan identitas.",
+      fileUrl: "/docs/form-susunan-16-personel.xlsx",
+      fileName: "Form-List-Susunan-16-Personel.xlsx",
+      fileType: "XLSX",
+      fileSize: "145 KB",
+      updatedAt: "30 Oktober 2026",
+    },
+    {
+      id: "doc-form-foto",
+      title: "Formulir Pas Foto Personel & Danton",
+      description: "Lembar format pas foto seragam 3x4 berwarna resmi kontingen untuk verifikasi fisik hari-H lomba.",
+      fileUrl: "/docs/form-pas-foto-kontingen.docx",
+      fileName: "Form-Pas-Foto-Kontingen-3x4.docx",
+      fileType: "DOCX",
+      fileSize: "220 KB",
+      updatedAt: "30 Oktober 2026",
+    },
+  ];
+}
+
+export function getDefaultPrerequisiteRules(): EventPrerequisiteRule[] {
+  return [
+    {
+      id: "req-surat-sekolah",
+      title: "Surat Rekomendasi / Tugas Kepala Sekolah",
+      description: "Surat izin resmi bertanda tangan basah Kepala Sekolah dan cap stempel basah institusi sekolah.",
+      isRequired: true,
+      allowedFormats: "PDF, PNG, JPG",
+    },
+    {
+      id: "req-bukti-bayar",
+      title: "Bukti Transfer / Pelunasan Biaya Registrasi",
+      description: "Struk transfer ATM atau tangkapan layar m-banking pembayaran pendaftaran resmi kontingen.",
+      isRequired: true,
+      allowedFormats: "PDF, PNG, JPG",
+    },
+    {
+      id: "req-form-peserta",
+      title: "Formulir Susunan 16 Personel Terisi & Disahkan",
+      description: "Upload form list susunan 16 personel dan cadangan yang sudah diisi lengkap dan dicap sekolah.",
+      isRequired: true,
+      allowedFormats: "PDF, DOCX, XLSX",
+    },
+    {
+      id: "req-pas-foto",
+      title: "Berkas Pas Foto Pasukan & Danton (3x4)",
+      description: "Pas foto 3x4 berseragam resmi kontingen atau scan kartu pelajar seluruh anggota pasukan.",
+      isRequired: true,
+      allowedFormats: "PDF, PNG, JPG, ZIP",
+    },
+  ];
+}
+
+export function getEffectiveOfficialDocuments(event?: Partial<UnifiedEvent> | null): EventOfficialDocument[] {
+  if (event?.officialDocuments && Array.isArray(event.officialDocuments) && event.officialDocuments.length > 0) {
+    return event.officialDocuments;
+  }
+  return getDefaultOfficialDocuments();
+}
+
+export function getEffectivePrerequisiteRules(event?: Partial<UnifiedEvent> | null): EventPrerequisiteRule[] {
+  if (event?.prerequisiteRules && Array.isArray(event.prerequisiteRules) && event.prerequisiteRules.length > 0) {
+    return event.prerequisiteRules;
+  }
+  return getDefaultPrerequisiteRules();
 }
 

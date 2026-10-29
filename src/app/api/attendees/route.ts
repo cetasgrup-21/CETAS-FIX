@@ -1095,6 +1095,191 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
+    // Aksi 1J: Update Dokumen Resmi Event & Aturan Prasyarat (Admin)
+    if (action === "UPDATE_EVENT_DOCS" || action === "UPDATE_EVENT_DOCUMENTS") {
+      const events = await getEventsStore();
+      const evIdx = events.findIndex((e) => e.id === eventId);
+      if (evIdx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Event tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      if (Array.isArray(body.officialDocuments)) {
+        events[evIdx].officialDocuments = body.officialDocuments;
+      }
+      if (Array.isArray(body.prerequisiteRules)) {
+        events[evIdx].prerequisiteRules = body.prerequisiteRules;
+      }
+      events[evIdx].updatedAt = Date.now();
+
+      await saveEventsStore(events);
+
+      return NextResponse.json({
+        success: true,
+        message: `Dokumen resmi dan aturan prasyarat untuk event "${events[evIdx].title}" berhasil disimpan!`,
+        event: events[evIdx],
+        officialDocuments: events[evIdx].officialDocuments,
+        prerequisiteRules: events[evIdx].prerequisiteRules,
+      });
+    }
+
+    // Aksi 1K: Upload / Kirim Berkas Prasyarat oleh Kontingen / Pelatih
+    if (action === "SUBMIT_PREREQUISITE_DOC") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Akun kontingen / peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const ruleId = String(body.ruleId || "").trim();
+      if (!ruleId) {
+        return NextResponse.json(
+          { success: false, message: "ID prasyarat dokumen wajib disertakan" },
+          { status: 400 }
+        );
+      }
+
+      const fileUrl = String(body.fileUrl || "").trim();
+      if (!fileUrl) {
+        return NextResponse.json(
+          { success: false, message: "File dokumen wajib diunggah" },
+          { status: 400 }
+        );
+      }
+
+      const title = String(body.title || "Dokumen Prasyarat").trim();
+      const fileName = String(body.fileName || "berkas.pdf").trim();
+      const fileType = body.fileType ? String(body.fileType) : undefined;
+      const fileSize = body.fileSize ? String(body.fileSize) : undefined;
+
+      const docs = Array.isArray(attendees[idx].submittedDocuments)
+        ? [...attendees[idx].submittedDocuments!]
+        : [];
+
+      const docIdx = docs.findIndex((d) => d.ruleId === ruleId);
+      const docItem = {
+        ruleId,
+        title,
+        fileUrl,
+        fileName,
+        fileType,
+        fileSize,
+        uploadedAt: new Date().toISOString(),
+        status: "PENDING" as const,
+        reviewNote: docIdx !== -1 ? docs[docIdx].reviewNote : undefined,
+      };
+
+      if (docIdx !== -1) {
+        docs[docIdx] = {
+          ...docs[docIdx],
+          ...docItem,
+          status: "PENDING",
+          reviewedAt: undefined,
+          reviewedBy: undefined,
+        };
+      } else {
+        docs.push(docItem);
+      }
+
+      attendees[idx].submittedDocuments = docs;
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Berkas "${title}" berhasil diunggah dan sedang menunggu verifikasi panitia.`,
+        attendee: attendees[idx],
+        submittedDocuments: attendees[idx].submittedDocuments,
+      });
+    }
+
+    // Aksi 1L: Verifikasi / Minta Revisi Berkas Prasyarat oleh Admin
+    if (action === "REVIEW_PREREQUISITE_DOC") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Akun kontingen / peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const ruleId = String(body.ruleId || "").trim();
+      const reviewStatus = body.status === "VERIFIED" ? "VERIFIED" : body.status === "REVISION" ? "REVISION" : "PENDING";
+      const reviewNote = String(body.reviewNote || "").trim();
+      const reviewedBy = String(body.reviewedBy || "Admin CETAS").trim();
+
+      const docs = Array.isArray(attendees[idx].submittedDocuments)
+        ? [...attendees[idx].submittedDocuments!]
+        : [];
+
+      const docIdx = docs.findIndex((d) => d.ruleId === ruleId);
+      if (docIdx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Berkas prasyarat belum diunggah oleh peserta" },
+          { status: 404 }
+        );
+      }
+
+      docs[docIdx] = {
+        ...docs[docIdx],
+        status: reviewStatus,
+        reviewNote: reviewNote,
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: reviewedBy,
+      };
+
+      attendees[idx].submittedDocuments = docs;
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message:
+          reviewStatus === "VERIFIED"
+            ? `Berkas "${docs[docIdx].title}" berhasil diverifikasi VALID ✓`
+            : `Catatan revisi untuk berkas "${docs[docIdx].title}" berhasil dikirimkan ke pelatih ⚠️`,
+        attendee: attendees[idx],
+        submittedDocuments: attendees[idx].submittedDocuments,
+      });
+    }
+
+    // Aksi 1M: Hapus Berkas Prasyarat
+    if (action === "DELETE_PREREQUISITE_DOC") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const ruleId = String(body.ruleId || "").trim();
+      if (Array.isArray(attendees[idx].submittedDocuments)) {
+        attendees[idx].submittedDocuments = attendees[idx].submittedDocuments!.filter(
+          (d) => d.ruleId !== ruleId
+        );
+      }
+
+      await saveAttendeesStore(attendees);
+      return NextResponse.json({
+        success: true,
+        message: "Berkas berhasil dihapus.",
+        attendee: attendees[idx],
+        submittedDocuments: attendees[idx].submittedDocuments,
+      });
+    }
+
     // Aksi 2: Check-in Kehadiran di Gate (Tandai Hadir / Batal Hadir)
     if (action === "CHECK_IN" || action === "MARK_ATTENDANCE") {
       const attendees = await getAttendeesStore();

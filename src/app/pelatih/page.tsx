@@ -40,9 +40,23 @@ import {
   Save,
   FileSpreadsheet,
   CheckCircle,
+  FileCheck2,
+  Trash2,
 } from "lucide-react";
-import { RegisteredAttendee, SquadMemberItem } from "@/lib/events-registration-data";
-import { LKBBTeamScore, UnifiedEvent } from "@/lib/events-unified-data";
+import { FileUpload } from "@/components/ui/file-upload";
+import {
+  RegisteredAttendee,
+  SquadMemberItem,
+  SubmittedAttendeeDocument,
+} from "@/lib/events-registration-data";
+import {
+  LKBBTeamScore,
+  UnifiedEvent,
+  EventOfficialDocument,
+  EventPrerequisiteRule,
+  getEffectiveOfficialDocuments,
+  getEffectivePrerequisiteRules,
+} from "@/lib/events-unified-data";
 import { generateQRCodeDataUrl } from "@/lib/ticket-security";
 
 function PelatihPortalContent() {
@@ -95,6 +109,10 @@ function PelatihPortalContent() {
   const [isSquadModalOpen, setIsSquadModalOpen] = useState<boolean>(false);
   const [squadForm, setSquadForm] = useState<SquadMemberItem[]>([]);
   const [isSavingSquad, setIsSavingSquad] = useState<boolean>(false);
+
+  // Dokumen & Prasyarat State (Pelatih)
+  const [uploadingDocRuleId, setUploadingDocRuleId] = useState<string | null>(null);
+  const [previewDocModal, setPreviewDocModal] = useState<{ title: string; url: string; fileName?: string } | null>(null);
 
   // Protest Form State
   const [protesForm, setProtesForm] = useState({
@@ -355,6 +373,117 @@ function PelatihPortalContent() {
       alert("Terjadi kesalahan jaringan saat menyimpan data personel.");
     } finally {
       setIsSavingSquad(false);
+    }
+  };
+
+  // Unduh Berkas Resmi Event (Juknis, Undangan, Form List, Form Foto)
+  const handleDownloadOfficialDoc = (doc: EventOfficialDocument) => {
+    if (doc.fileUrl && doc.fileUrl.startsWith("data:")) {
+      const link = document.createElement("a");
+      link.href = doc.fileUrl;
+      link.download = doc.fileName || `${doc.title}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    if (doc.fileUrl && !doc.fileUrl.startsWith("/docs/")) {
+      window.open(doc.fileUrl, "_blank");
+      return;
+    }
+
+    // Generator unduhan cadangan jika file belum diunggah kustom oleh admin
+    const content = `=====================================================
+${doc.title.toUpperCase()}
+Turnamen: ${authEvent?.title || "LKBB CETAS 2026"}
+Penyelenggara: ${authEvent?.organizer || "CETAS Official"}
+Tanggal: ${authEvent?.date || "30 Oktober 2026"}
+Lokasi: ${authEvent?.location || "Arena Utama LKBB"}
+=====================================================
+
+KETERANGAN DOKUMEN:
+${doc.description || "Petunjuk resmi dan ketentuan teknis pelaksanaan turnamen."}
+
+IDENTITAS KONTINGEN TERDAFTAR:
+Nama Pasukan: ${authAttendee?.fullName || "-"}
+Sekolah / Pangkalan: ${authAttendee?.institution || "-"}
+Kode E-Badge: ${authAttendee?.badgeCode || "-"}
+Kategori: ${authAttendee?.category || "-"}
+Nomor Undian TM: #${authAttendee?.tmLotteryNumber || authAttendee?.candidateNumber || "-"}
+
+Dokumen resmi ini diterbitkan secara sah oleh Panitia Penyelenggara melalui Centralized Electronic Tournament & Award System (CETAS).
+Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = doc.fileName ? doc.fileName.replace(/\.pdf$/i, ".txt") : `${doc.title}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Unggah Berkas Prasyarat oleh Pelatih
+  const handleUploadPrerequisiteDoc = async (
+    rule: EventPrerequisiteRule,
+    dataUrl: string,
+    fileName?: string
+  ) => {
+    if (!authAttendee || !dataUrl) return;
+    setUploadingDocRuleId(rule.id);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SUBMIT_PREREQUISITE_DOC",
+          badgeCode: authAttendee.badgeCode,
+          ruleId: rule.id,
+          title: rule.title,
+          fileUrl: dataUrl,
+          fileName: fileName || `${rule.title}.pdf`,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.attendee) {
+        setAuthAttendee(data.attendee);
+        setEmailSentToast(`✓ Berkas "${rule.title}" berhasil diunggah dan disimpan!`);
+        setTimeout(() => setEmailSentToast(null), 4000);
+      } else {
+        alert(data.message || "Gagal mengunggah berkas");
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan saat mengunggah berkas.");
+    } finally {
+      setUploadingDocRuleId(null);
+    }
+  };
+
+  // Hapus Berkas Prasyarat oleh Pelatih
+  const handleDeletePrerequisiteDoc = async (ruleId: string, title: string) => {
+    if (!authAttendee) return;
+    if (!confirm(`Hapus berkas "${title}" yang telah diunggah?`)) return;
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "DELETE_PREREQUISITE_DOC",
+          badgeCode: authAttendee.badgeCode,
+          ruleId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.attendee) {
+        setAuthAttendee(data.attendee);
+        setEmailSentToast(`Berkas "${title}" berhasil dihapus.`);
+        setTimeout(() => setEmailSentToast(null), 4000);
+      }
+    } catch {
+      alert("Gagal menghapus berkas.");
     }
   };
 
@@ -1628,67 +1757,344 @@ function PelatihPortalContent() {
               </div>
             )}
 
-            {/* TAB CONTENT 4: JUKLAK & BERKAS */}
+            {/* TAB CONTENT 4: BERKAS & PRASYARAT TURNAMEN */}
             {activeTab === "berkas" && (
-              <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">
-                    Dokumen Teknis & Juklak Resmi Turnamen
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Unduh file petunjuk teknis pelaksanaan materi lomba dan lembar keabsahan
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900">
-                          Juklak & Juknis Resmi LKBB 2026.pdf
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          Ketentuan ukuran arena lapangan 18x12m, materi gerakan PBB murni & variasi formasi.
-                        </div>
-                      </div>
+              <div className="space-y-6">
+                {/* -------------------------------------------------------- */}
+                {/* BAGIAN 1: BERKAS RESMI EVENT DARI PANITIA */}
+                {/* -------------------------------------------------------- */}
+                <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-50">
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-purple-600" />
+                        Dokumen Resmi &amp; Panduan Turnamen
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Unduh Petunjuk Teknis (Juknis), Surat Undangan Resmi Sekolah, Form Susunan Personel, dan Formulir Pas Foto.
+                      </p>
                     </div>
-                    <a
-                      href="#unduh-juklak"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        alert("Mengunduh Petunjuk Pelaksana & Teknis Resmi turnamen...");
-                      }}
-                      className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition"
-                    >
-                      <Download className="h-4 w-4" />
-                      Unduh PDF
-                    </a>
+                    <span className="px-3 py-1 rounded-full bg-purple-50 text-purple-700 font-bold text-xs self-start sm:self-auto border border-purple-200">
+                      Turnamen: {authEvent?.title || "LKBB 2026"}
+                    </span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center justify-between gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(() => {
+                      const officialDocs = getEffectiveOfficialDocuments(authEvent);
+                      return officialDocs.map((doc, idx) => (
+                        <div
+                          key={doc.id || idx}
+                          className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/60 to-indigo-50/40 border border-purple-100 flex flex-col justify-between gap-3 hover:border-purple-300 transition shadow-xs"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="h-11 w-11 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-purple-600/20">
+                              <FileText className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-black text-slate-900 leading-tight">
+                                  {doc.title}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-white text-purple-700 border border-purple-200 shadow-2xs">
+                                  {doc.fileType || "PDF"}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed line-clamp-2">
+                                {doc.description || "Petunjuk resmi turnamen dari panitia pelaksana."}
+                              </p>
+                              {doc.updatedAt && (
+                                <span className="text-[10px] text-slate-400 block mt-1">
+                                  Diperbarui: {doc.updatedAt}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-purple-100/60">
+                            {doc.fileUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (doc.fileUrl.startsWith("data:")) {
+                                    setPreviewDocModal({
+                                      title: doc.title,
+                                      url: doc.fileUrl,
+                                      fileName: doc.fileName,
+                                    });
+                                  } else {
+                                    window.open(doc.fileUrl, "_blank");
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-xl border border-purple-200 bg-white hover:bg-purple-50 text-purple-700 text-xs font-bold transition flex items-center gap-1.5"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                <span>Lihat</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadOfficialDoc(doc)}
+                              className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-xs transition flex items-center gap-1.5"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span>Unduh Berkas</span>
+                            </button>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+
+                {/* -------------------------------------------------------- */}
+                {/* BAGIAN 2: UPLOAD BERKAS PRASYARAT KONTINGEN */}
+                {/* -------------------------------------------------------- */}
+                {(() => {
+                  const rules = getEffectivePrerequisiteRules(authEvent);
+                  const submitted = authAttendee.submittedDocuments || [];
+                  const verifiedCount = submitted.filter((d) => d.status === "VERIFIED").length;
+                  const revisionList = submitted.filter((d) => d.status === "REVISION");
+                  const requiredCount = rules.filter((r) => r.isRequired).length;
+                  const isAllRequiredVerified = requiredCount > 0 && verifiedCount >= requiredCount;
+
+                  return (
+                    <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-sm space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-purple-50">
+                        <div>
+                          <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                            <FileCheck2 className="h-5 w-5 text-indigo-600" />
+                            Unggah Berkas Prasyarat Kontingen
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Unggah dokumen yang dipersyaratkan panitia untuk verifikasi keabsahan peserta kontingen <strong>{authAttendee.fullName}</strong> ({authAttendee.institution}).
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span className={`px-3 py-1.5 rounded-xl text-xs font-black border ${
+                            isAllRequiredVerified
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                              : revisionList.length > 0
+                              ? "bg-rose-50 text-rose-700 border-rose-300"
+                              : "bg-purple-50 text-purple-700 border-purple-200"
+                          }`}>
+                            {isAllRequiredVerified
+                              ? "Semua Berkas Terverifikasi ✓"
+                              : `${submitted.length} / ${rules.length} Berkas Terunggah`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Alert jika ada revisi dari panitia */}
+                      {revisionList.length > 0 && (
+                        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5">
+                          <div className="flex items-center gap-2 font-black text-rose-800">
+                            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                            <span>Perhatian: Ada {revisionList.length} berkas yang memerlukan revisi dari Panitia!</span>
+                          </div>
+                          <p className="text-rose-700 text-[11px] leading-relaxed">
+                            Silakan periksa catatan revisi pada kartu berkas bertanda merah di bawah ini, lalu unggah ulang file yang telah diperbaiki.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Daftar Berkas Prasyarat */}
+                      <div className="space-y-4">
+                        {rules.map((rule, idx) => {
+                          const doc = submitted.find((d) => d.ruleId === rule.id);
+                          const isUploaded = Boolean(doc && doc.fileUrl);
+                          const isVerified = doc?.status === "VERIFIED";
+                          const isRevision = doc?.status === "REVISION";
+                          const isPending = doc?.status === "PENDING";
+                          const isUploading = uploadingDocRuleId === rule.id;
+
+                          return (
+                            <div
+                              key={rule.id || idx}
+                              className={`p-5 rounded-2xl border transition space-y-4 ${
+                                isVerified
+                                  ? "bg-emerald-50/30 border-emerald-200"
+                                  : isRevision
+                                  ? "bg-rose-50/40 border-rose-200"
+                                  : isPending
+                                  ? "bg-amber-50/30 border-amber-200"
+                                  : "bg-slate-50/50 border-slate-200"
+                              }`}
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-black text-slate-900">
+                                      {idx + 1}. {rule.title}
+                                    </span>
+                                    {rule.isRequired ? (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-700">
+                                        WAJIB
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-700">
+                                        OPSIONAL
+                                      </span>
+                                    )}
+                                    {rule.allowedFormats && (
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        Format: {rule.allowedFormats}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {rule.description && (
+                                    <p className="text-[11px] text-slate-600">
+                                      {rule.description}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Status Badge */}
+                                <div className="shrink-0">
+                                  {isVerified ? (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                      Terverifikasi Valid ✓
+                                    </span>
+                                  ) : isRevision ? (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                                      <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+                                      Perlu Revisi ⚠️
+                                    </span>
+                                  ) : isPending ? (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 border border-amber-300">
+                                      <Clock className="h-3.5 w-3.5 text-amber-600" />
+                                      Menunggu Verifikasi Panitia ⏳
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-600">
+                                      Belum Diunggah
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Alert Catatan Revisi jika ada */}
+                              {isRevision && doc?.reviewNote && (
+                                <div className="p-3.5 rounded-xl bg-rose-100/70 border border-rose-300 text-xs text-rose-900 space-y-1">
+                                  <div className="font-black text-rose-800 flex items-center gap-1.5">
+                                    <AlertCircle className="h-4 w-4 text-rose-600" />
+                                    <span>Catatan Revisi dari Panitia:</span>
+                                  </div>
+                                  <p className="text-[11px] text-rose-800 pl-5">
+                                    &ldquo;{doc.reviewNote}&rdquo;
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Dokumen Terunggah saat ini */}
+                              {isUploaded && (
+                                <div className="p-3 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="h-8 w-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                                      <FileText className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0 truncate">
+                                      <p className="text-xs font-bold text-slate-900 truncate">
+                                        {doc?.fileName || "Berkas Terunggah"}
+                                      </p>
+                                      <p className="text-[10px] text-slate-400">
+                                        Diunggah: {doc?.uploadedAt ? new Date(doc.uploadedAt).toLocaleString("id-ID") : "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (doc?.fileUrl) {
+                                          if (doc.fileUrl.startsWith("data:")) {
+                                            setPreviewDocModal({
+                                              title: rule.title,
+                                              url: doc.fileUrl,
+                                              fileName: doc.fileName,
+                                            });
+                                          } else {
+                                            window.open(doc.fileUrl, "_blank");
+                                          }
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 rounded-lg border border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-bold transition flex items-center gap-1"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                      <span>Buka Berkas</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePrerequisiteDoc(rule.id, rule.title)}
+                                      className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition"
+                                      title="Hapus Berkas Ini"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Form Unggah / Ganti Berkas */}
+                              <div className="space-y-1.5">
+                                <label className="block text-[11px] font-bold text-slate-700">
+                                  {isUploaded ? "Ganti / Upload Ulang Berkas:" : "Unggah Berkas Baru:"}
+                                </label>
+                                {isUploading ? (
+                                  <div className="p-4 rounded-xl border border-purple-200 bg-purple-50 flex items-center justify-center gap-2 text-xs font-bold text-purple-700">
+                                    <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />
+                                    <span>Mengunggah dan menyimpan berkas ke server...</span>
+                                  </div>
+                                ) : (
+                                  <FileUpload
+                                    label=""
+                                    description={`Format yang disarankan: ${rule.allowedFormats || "PDF, JPG, PNG"} (Maks. 10 MB)`}
+                                    accept="*/*"
+                                    aspectRatio="document"
+                                    onChange={(dataUrl, fileName) =>
+                                      handleUploadPrerequisiteDoc(rule, dataUrl, fileName)
+                                    }
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* -------------------------------------------------------- */}
+                {/* BAGIAN 3: SURAT KEABSAHAN MANDAT PASUKAN */}
+                {/* -------------------------------------------------------- */}
+                <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                      <div className="h-11 w-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-600/20">
                         <FileCheck className="h-5 w-5" />
                       </div>
                       <div>
-                        <div className="text-xs font-black text-slate-900">
-                          Surat Keabsahan Mandat Pasukan: {authAttendee.institution}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          Kode E-Badge: {authAttendee.badgeCode} • Terdaftar resmi di sistem CETAS
-                        </div>
+                        <h4 className="text-sm font-black text-slate-900">
+                          Surat Keabsahan Mandat Pasukan Resmi: {authAttendee.institution}
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Kode E-Badge: <strong className="font-mono text-indigo-700">{authAttendee.badgeCode}</strong> • Nomor Undian TM: <strong className="font-mono text-indigo-700">#{authAttendee.tmLotteryNumber || authAttendee.candidateNumber || "-"}</strong> • Terdaftar sah di sistem CETAS
+                        </p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => window.print()}
-                      className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
+                      className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
                     >
                       <Printer className="h-4 w-4" />
-                      Cetak Berkas
+                      Cetak Surat Keabsahan
                     </button>
                   </div>
                 </div>
@@ -1790,6 +2196,53 @@ function PelatihPortalContent() {
           </div>
         </div>
       </div>
+
+      {/* --------------------------------------------------------------------------------- */}
+      {/* MODAL: PRATINJAU DOKUMEN (PELATIH) */}
+      {/* --------------------------------------------------------------------------------- */}
+      {previewDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-4 bg-slate-900 text-white shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-purple-400" />
+                <span className="text-sm font-black truncate">{previewDocModal.title}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewDocModal(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-100 min-h-[400px]">
+              {previewDocModal.url.startsWith("data:image") ? (
+                <img
+                  src={previewDocModal.url}
+                  alt={previewDocModal.title}
+                  className="max-h-[70vh] object-contain rounded-xl shadow"
+                />
+              ) : (
+                <iframe
+                  src={previewDocModal.url}
+                  title={previewDocModal.title}
+                  className="w-full h-[70vh] rounded-xl border border-slate-300 bg-white"
+                />
+              )}
+            </div>
+            <div className="p-3 bg-white border-t border-slate-200 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPreviewDocModal(null)}
+                className="px-5 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs hover:bg-slate-900 transition"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --------------------------------------------------------------------------------- */}
       {/* MODAL: DAFTAR SUSUNAN 16 PERSONEL (VERIFIKASI & PENGESAHAN RESMI ADMIN) */}

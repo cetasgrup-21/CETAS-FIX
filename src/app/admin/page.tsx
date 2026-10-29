@@ -1979,16 +1979,62 @@ export default function AdminDashboardPage() {
     if (!selectedEvent) return;
     setIsSavingOfficialDocs(true);
     try {
+      // Pastikan jika ada file dengan data URL base64, diunggah ke endpoint /api/upload terlebih dahulu
+      // agar payload JSON ke /api/attendees berukuran sangat kecil (< 1KB) dan anti error 413
+      const cleanedDocs = await Promise.all(
+        officialDocsForm.map(async (doc) => {
+          if (doc.fileUrl && doc.fileUrl.startsWith("data:")) {
+            try {
+              const resBlob = await fetch(doc.fileUrl);
+              const blob = await resBlob.blob();
+              const formData = new FormData();
+              formData.append("file", blob, doc.fileName || `${doc.title}.pdf`);
+              const upRes = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+              if (upRes.ok) {
+                const upData = await upRes.json();
+                if (upData.success && upData.url) {
+                  return { ...doc, fileUrl: upData.url };
+                }
+              }
+            } catch (err) {
+              console.warn("Auto upload base64 file to /api/upload:", err);
+            }
+          }
+          return doc;
+        })
+      );
+
       const res = await fetch("/api/attendees", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "UPDATE_EVENT_DOCS",
           eventId: selectedEvent.id,
-          officialDocuments: officialDocsForm,
+          officialDocuments: cleanedDocs,
           prerequisiteRules: prerequisiteRulesForm,
         }),
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        let errorMsg = "Gagal menyimpan dokumen event";
+        try {
+          const jsonErr = JSON.parse(text);
+          errorMsg = jsonErr.message || errorMsg;
+        } catch {
+          if (res.status === 413) {
+            errorMsg = "Ukuran file terlalu besar untuk server. Gunakan file berukuran lebih kecil atau masukkan link URL.";
+          } else {
+            errorMsg = `Server merespon dengan status ${res.status}.`;
+          }
+        }
+        alert(errorMsg);
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         setEventsList((prev) =>
@@ -1996,19 +2042,21 @@ export default function AdminDashboardPage() {
             e.id === selectedEvent.id
               ? {
                   ...e,
-                  officialDocuments: officialDocsForm,
+                  officialDocuments: cleanedDocs,
                   prerequisiteRules: prerequisiteRulesForm,
                 }
               : e
           )
         );
+        setOfficialDocsForm(cleanedDocs);
         setIsOfficialDocsModalOpen(false);
         showSyncToast("✓ Dokumen resmi & aturan prasyarat event berhasil disimpan!");
       } else {
         alert(data.message || "Gagal menyimpan dokumen event");
       }
-    } catch {
-      alert("Terjadi kesalahan jaringan saat menyimpan dokumen event.");
+    } catch (err: any) {
+      console.error("Save official docs error:", err);
+      alert(`Terjadi kesalahan: ${err?.message || "Kesalahan jaringan saat menyimpan dokumen event."}`);
     } finally {
       setIsSavingOfficialDocs(false);
     }

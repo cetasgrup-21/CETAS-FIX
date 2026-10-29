@@ -435,6 +435,30 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
     if (!authAttendee || !dataUrl) return;
     setUploadingDocRuleId(rule.id);
     try {
+      let finalFileUrl = dataUrl;
+
+      // Jika masih berupa base64 data URL, upload ke /api/upload
+      if (dataUrl.startsWith("data:")) {
+        try {
+          const resBlob = await fetch(dataUrl);
+          const blob = await resBlob.blob();
+          const formData = new FormData();
+          formData.append("file", blob, fileName || `${rule.title}.pdf`);
+          const upRes = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          if (upRes.ok) {
+            const upData = await upRes.json();
+            if (upData.success && upData.url) {
+              finalFileUrl = upData.url;
+            }
+          }
+        } catch (err) {
+          console.warn("Direct /api/upload failed, using dataUrl:", err);
+        }
+      }
+
       const res = await fetch("/api/attendees", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -443,10 +467,28 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
           badgeCode: authAttendee.badgeCode,
           ruleId: rule.id,
           title: rule.title,
-          fileUrl: dataUrl,
+          fileUrl: finalFileUrl,
           fileName: fileName || `${rule.title}.pdf`,
         }),
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        let errorMsg = "Gagal mengunggah berkas";
+        try {
+          const jsonErr = JSON.parse(text);
+          errorMsg = jsonErr.message || errorMsg;
+        } catch {
+          if (res.status === 413) {
+            errorMsg = "Ukuran file terlalu besar. Gunakan file yang lebih kecil (maks. 10 MB).";
+          } else {
+            errorMsg = `Server merespon dengan status ${res.status}.`;
+          }
+        }
+        alert(errorMsg);
+        return;
+      }
+
       const data = await res.json();
       if (data.success && data.attendee) {
         setAuthAttendee(data.attendee);
@@ -455,8 +497,8 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
       } else {
         alert(data.message || "Gagal mengunggah berkas");
       }
-    } catch {
-      alert("Terjadi kesalahan jaringan saat mengunggah berkas.");
+    } catch (err: any) {
+      alert(`Terjadi kesalahan: ${err?.message || "Kesalahan jaringan saat mengunggah berkas."}`);
     } finally {
       setUploadingDocRuleId(null);
     }
@@ -492,6 +534,109 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
     setCertType(type);
     setCertPage(page);
     setIsCertModalOpen(true);
+  };
+
+  // Fungsi Cetak E-Sertifikat Terisolasi (Anti Halaman Putih / Blank PDF)
+  const handlePrintCertificate = () => {
+    const printArea = document.getElementById("cetas-cert-print-area");
+    if (!printArea) {
+      window.print();
+      return;
+    }
+
+    // Buat iframe terisolasi dengan ukuran layout nyata agar Chrome/Browser merender layout A4 secara proporsional
+    const iframe = document.createElement("iframe");
+    iframe.id = "cetas-print-iframe";
+    iframe.style.position = "fixed";
+    iframe.style.top = "-9999px";
+    iframe.style.left = "-9999px";
+    iframe.style.width = "1123px";
+    iframe.style.height = "794px";
+    iframe.style.border = "none";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    let stylesHtml = "";
+    document.querySelectorAll("link[rel='stylesheet'], style").forEach((node) => {
+      stylesHtml += node.outerHTML;
+    });
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="utf-8" />
+        <title>E-Sertifikat - ${authAttendee?.fullName || "CETAS"}</title>
+        ${stylesHtml}
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 6mm;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            box-sizing: border-box !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            width: 100% !important;
+          }
+          .cert-sheet-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .cert-page-break {
+            page-break-before: always !important;
+            break-before: page !important;
+            display: block !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        </style>
+      </head>
+      <body>
+        <div style="padding: 0; margin: 0; background: #ffffff;">
+          ${printArea.innerHTML}
+        </div>
+      </body>
+      </html>
+    `);
+    doc.close();
+
+    // Pastikan font & visual selesai di-parse sebelum membuka popup cetak
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error("Iframe print error fallback to window.print:", err);
+        window.print();
+      }
+      setTimeout(() => {
+        try {
+          document.body.removeChild(iframe);
+        } catch {}
+      }, 3000);
+    }, 600);
   };
 
   // Nomor Undian Hasil Technical Meeting (TM) - Bukan dari Pendaftaran
@@ -2364,40 +2509,83 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
       {/* MODAL: PRATINJAU E-SERTIFIKAT RESMI BER-QR & 2 LEMBAR PASUKAN */}
       {/* --------------------------------------------------------------------------------- */}
       {isCertModalOpen && authAttendee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto print:p-0 print:bg-white">
+        <div id="cetas-cert-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto print:static print:p-0 print:bg-white print:overflow-visible print:block">
           {/* Custom Print CSS */}
           <style dangerouslySetInnerHTML={{
             __html: `
               @media print {
-                body * {
-                  visibility: hidden !important;
+                /* Sembunyikan elemen latar belakang di luar cetas-cert-modal */
+                header, nav, footer, aside, .dock-container, .mobile-dock, #mascot-widget, .no-print {
+                  display: none !important;
                 }
-                #cetas-cert-print-area, #cetas-cert-print-area * {
-                  visibility: visible !important;
+                html, body {
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  width: 100% !important;
+                  overflow: visible !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                #cetas-cert-modal {
+                  display: block !important;
+                  position: static !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  background: #ffffff !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  overflow: visible !important;
+                }
+                #cetas-cert-dialog {
+                  display: block !important;
+                  position: static !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  border-radius: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: transparent !important;
+                  overflow: visible !important;
                 }
                 #cetas-cert-print-area {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
+                  display: block !important;
+                  position: static !important;
                   width: 100% !important;
                   margin: 0 !important;
                   padding: 0 !important;
-                  background: white !important;
+                  background: #ffffff !important;
+                  overflow: visible !important;
+                }
+                @page {
+                  size: A4 landscape;
+                  margin: 6mm;
+                }
+                .cert-sheet-container {
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  margin: 0 auto !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
                 .cert-page-break {
-                  page-break-after: always !important;
-                  break-after: page !important;
+                  page-break-before: always !important;
+                  break-before: page !important;
                   display: block !important;
-                  margin-bottom: 0 !important;
-                }
-                .no-print {
-                  display: none !important;
+                  height: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
                 }
               }
             `
           }} />
 
-          <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border-4 border-[#D4AF37]/70 overflow-hidden my-6 animate-in zoom-in-95 print:border-none print:shadow-none print:rounded-none print:my-0">
+          <div id="cetas-cert-dialog" className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border-4 border-[#D4AF37]/70 overflow-hidden my-6 animate-in zoom-in-95 print:border-none print:shadow-none print:rounded-none print:my-0">
             {/* Modal Header Toolbar */}
             <div className="no-print flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-slate-950 text-white border-b border-slate-800">
               <div className="flex items-center gap-2 text-xs font-black">
@@ -2446,7 +2634,7 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintCertificate}
                   className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
                 >
                   <Printer className="h-3.5 w-3.5" />
@@ -2536,9 +2724,7 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
                     {/* LEMBAR 1: SERTIFIKAT UTAMA (PELATIH / DANTON / PASUKAN LEMBAR 1) */}
                     {/* ============================================================== */}
                     {(certType !== "PASUKAN" || certPage === 1 || certPage === "ALL") && (
-                      <div className={`relative bg-gradient-to-br from-[#FFFDF9] via-[#FAF6EC] to-[#F5EEDC] text-slate-900 rounded-2xl shadow-xl overflow-hidden border-4 border-[#C5A059] p-8 sm:p-12 text-center aspect-[1.414/1] min-h-[560px] flex flex-col justify-between ${
-                        certType === "PASUKAN" && certPage === "ALL" ? "cert-page-break" : ""
-                      }`}>
+                      <div className="cert-sheet-container relative bg-gradient-to-br from-[#FFFDF9] via-[#FAF6EC] to-[#F5EEDC] text-slate-900 rounded-2xl shadow-xl overflow-hidden border-4 border-[#C5A059] p-8 sm:p-12 text-center aspect-[1.414/1] min-h-[560px] flex flex-col justify-between">
                         {/* Layered Decorative Borders */}
                         <div className="absolute inset-2 border border-[#C5A059]/40 rounded-xl pointer-events-none" />
                         <div className="absolute inset-3 border-2 border-[#D4AF37] rounded-lg pointer-events-none" />
@@ -2716,11 +2902,16 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
                       </div>
                     )}
 
+                    {/* Page Break Antara Lembar 1 dan Lembar 2 untuk Mode Cetak Semua */}
+                    {certType === "PASUKAN" && certPage === "ALL" && (
+                      <div className="cert-page-break print:block hidden" style={{ pageBreakBefore: "always", breakBefore: "page", height: 0, margin: 0, padding: 0 }} />
+                    )}
+
                     {/* ============================================================== */}
                     {/* LEMBAR 2: LAMPIRAN 16 PERSONEL INTI & CADANGAN */}
                     {/* ============================================================== */}
                     {certType === "PASUKAN" && (certPage === 2 || certPage === "ALL") && (
-                      <div className="relative bg-gradient-to-br from-[#FFFDF9] via-[#FAF6EC] to-[#F5EEDC] text-slate-900 rounded-2xl shadow-xl overflow-hidden border-4 border-[#C5A059] p-8 sm:p-10 text-center aspect-[1.414/1] min-h-[560px] flex flex-col justify-between">
+                      <div className="cert-sheet-container relative bg-gradient-to-br from-[#FFFDF9] via-[#FAF6EC] to-[#F5EEDC] text-slate-900 rounded-2xl shadow-xl overflow-hidden border-4 border-[#C5A059] p-8 sm:p-10 text-center aspect-[1.414/1] min-h-[560px] flex flex-col justify-between">
                         {/* Layered Decorative Borders */}
                         <div className="absolute inset-2 border border-[#C5A059]/40 rounded-xl pointer-events-none" />
                         <div className="absolute inset-3 border-2 border-[#D4AF37] rounded-lg pointer-events-none" />
@@ -2889,7 +3080,7 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintCertificate}
                   className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
                 >
                   <Printer className="h-4 w-4" />

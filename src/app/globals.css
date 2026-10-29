@@ -109,7 +109,7 @@ body {
   .dock-container,
   footer,
   aside,
-  .fixed {
+  .fixed:not(#cetas-cert-modal):not(.print-allow) {
     display: none !important;
   }
 

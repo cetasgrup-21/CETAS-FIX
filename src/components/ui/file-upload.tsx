@@ -25,12 +25,47 @@ export function FileUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [showUrlFallback, setShowUrlFallback] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isImage = accept.includes("image") || value.startsWith("data:image") || value.match(/\.(jpg|jpeg|png|webp|gif)$/i);
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     setUploadedFileName(file.name);
+
+    // If it's a document (PDF, Word, Excel, etc.) or aspectRatio is "document" or file > 300KB:
+    // Upload directly to server via /api/upload to avoid giant base64 payloads that crash Nginx / server JSON limits
+    const isDocType =
+      aspectRatio === "document" ||
+      !file.type.startsWith("image/") ||
+      Boolean(file.name.match(/\.(pdf|docx?|xlsx?|csv|zip)$/i));
+
+    if (isDocType) {
+      try {
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.url) {
+            setIsUploading(false);
+            onChange(data.url, file.name);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Direct upload to /api/upload failed, falling back to local reader:", err);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
@@ -136,7 +171,17 @@ export function FileUpload({
         <p className="text-[10px] text-slate-500 dark:text-slate-400">{description}</p>
       )}
 
-      {showUrlFallback ? (
+      {isUploading ? (
+        <div className="border-2 border-dashed border-purple-400 bg-purple-50/60 dark:bg-purple-950/20 rounded-2xl p-5 flex flex-col items-center justify-center text-center animate-pulse">
+          <RefreshCw className="h-6 w-6 animate-spin text-purple-600 mb-2" />
+          <span className="text-xs font-black text-purple-900 dark:text-purple-200">
+            Mengunggah berkas ke server...
+          </span>
+          <span className="text-[10px] text-purple-600/80 mt-0.5">
+            {uploadedFileName}
+          </span>
+        </div>
+      ) : showUrlFallback ? (
         <input
           type="text"
           placeholder="https://..."

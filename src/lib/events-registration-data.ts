@@ -25,6 +25,14 @@ export interface EventRegistrationItem {
   requiresPortfolio?: boolean;
 }
 
+export interface SquadMemberItem {
+  id?: string;
+  name: string;
+  role?: string; // e.g. "Danton", "Pasukan Saf 1", "Cadangan 1"
+  nisnOrId?: string;
+  isReserve?: boolean;
+}
+
 export interface RegisteredAttendee {
   id: string;
   badgeCode: string; // e.g. CETAS-ATD-2026-98124
@@ -64,6 +72,15 @@ export interface RegisteredAttendee {
   // Status Check-in Hari-H di DP 1
   checkedInDP1?: boolean;
   checkedInDP1At?: string;
+
+  // 16 Anggota Pasukan + Cadangan (Lembar 2 E-Sertifikat)
+  squadMembers?: SquadMemberItem[];
+
+  // Piagam Prestasi Juara (diunggah manual oleh Admin CETAS jika meraih kejuaraan)
+  championCertificateUrl?: string;
+  championCertificateTitle?: string;
+  championCertificateUploadedAt?: string;
+  championCertificateUploadedBy?: string;
 }
 
 // Data awal registrasi bersih

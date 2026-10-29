@@ -35,8 +35,13 @@ import {
   QrCode,
   ArrowRight,
   ExternalLink,
+  Trophy,
+  Edit3,
+  Save,
+  FileSpreadsheet,
+  CheckCircle,
 } from "lucide-react";
-import { RegisteredAttendee } from "@/lib/events-registration-data";
+import { RegisteredAttendee, SquadMemberItem } from "@/lib/events-registration-data";
 import { LKBBTeamScore, UnifiedEvent } from "@/lib/events-unified-data";
 import { generateQRCodeDataUrl } from "@/lib/ticket-security";
 
@@ -84,6 +89,12 @@ function PelatihPortalContent() {
   const [isCertModalOpen, setIsCertModalOpen] = useState<boolean>(false);
   const [certType, setCertType] = useState<"PELATIH" | "DANTON" | "PASUKAN" | "JUARA">("PELATIH");
   const [certQrUrl, setCertQrUrl] = useState<string>("");
+  const [certPage, setCertPage] = useState<1 | 2 | "ALL">(1);
+
+  // Squad Members Modal State (16 Personel + Cadangan)
+  const [isSquadModalOpen, setIsSquadModalOpen] = useState<boolean>(false);
+  const [squadForm, setSquadForm] = useState<SquadMemberItem[]>([]);
+  const [isSavingSquad, setIsSavingSquad] = useState<boolean>(false);
 
   // Protest Form State
   const [protesForm, setProtesForm] = useState({
@@ -274,9 +285,80 @@ function PelatihPortalContent() {
     setTimeout(() => setEmailSentToast(null), 5000);
   };
 
+  // Helper generator daftar 16 personel inti + danton + cadangan
+  const getInitialSquadMembers = (existing?: SquadMemberItem[], danton?: string) => {
+    if (existing && existing.length > 0) return existing;
+    const list: SquadMemberItem[] = [];
+    list.push({
+      name: danton || "",
+      role: "Komandan Peleton (Danton)",
+      isReserve: false,
+      nisnOrId: "",
+    });
+    for (let i = 1; i <= 16; i++) {
+      const saf = Math.ceil(i / 3);
+      const posLabel = i === 1 ? "Penjuru Kanan" : i === 16 ? "Penutup Kiri" : `Saf ${saf} - Banjar ${((i - 1) % 3) + 1}`;
+      list.push({
+        name: "",
+        role: `Personel ${String(i).padStart(2, "0")} (${posLabel})`,
+        isReserve: false,
+        nisnOrId: "",
+      });
+    }
+    list.push({
+      name: "",
+      role: "Cadangan 01",
+      isReserve: true,
+      nisnOrId: "",
+    });
+    list.push({
+      name: "",
+      role: "Cadangan 02",
+      isReserve: true,
+      nisnOrId: "",
+    });
+    return list;
+  };
+
+  const handleOpenSquadModal = () => {
+    setSquadForm(getInitialSquadMembers(authAttendee?.squadMembers, authAttendee?.dantonName));
+    setIsSquadModalOpen(true);
+  };
+
+  const handleSaveSquadMembers = async () => {
+    if (!authAttendee) return;
+    setIsSavingSquad(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPDATE_SQUAD_MEMBERS",
+          attendeeId: authAttendee.id,
+          squadMembers: squadForm,
+          dantonName: squadForm[0]?.name || authAttendee.dantonName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.attendee) {
+        setAuthAttendee(data.attendee);
+        setIsSquadModalOpen(false);
+        setEmailSentToast("✓ Susunan 16 personel dan cadangan berhasil disimpan!");
+        setTimeout(() => setEmailSentToast(null), 4000);
+      } else {
+        alert(data.message || "Gagal menyimpan daftar personel");
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan saat menyimpan data personel.");
+    } finally {
+      setIsSavingSquad(false);
+    }
+  };
+
   // Open Certificate Preview Modal
-  const handleOpenCertModal = (type: "PELATIH" | "DANTON" | "PASUKAN" | "JUARA") => {
+  const handleOpenCertModal = (type: "PELATIH" | "DANTON" | "PASUKAN" | "JUARA", page: 1 | 2 | "ALL" = 1) => {
     setCertType(type);
+    setCertPage(page);
     setIsCertModalOpen(true);
   };
 
@@ -1358,7 +1440,7 @@ function PelatihPortalContent() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Sertifikat Pelatih */}
+                  {/* Sertifikat Pelatih / Pembina */}
                   <div className="p-5 rounded-2xl bg-gradient-to-tr from-purple-50 via-white to-purple-50/60 border border-purple-200 space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0">
@@ -1366,7 +1448,7 @@ function PelatihPortalContent() {
                       </div>
                       <div>
                         <div className="text-xs font-black text-slate-900">
-                          E-Sertifikat Pelatih / Pembina
+                          E-Sertifikat Pembina / Pelatih
                         </div>
                         <div className="text-[11px] text-slate-500">
                           Atas nama: {authAttendee.coachName || authAttendee.fullName}
@@ -1380,7 +1462,7 @@ function PelatihPortalContent() {
                         className="flex-1 py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        Pratinjau & Unduh
+                        Pratinjau &amp; Unduh
                       </button>
                     </div>
                   </div>
@@ -1407,62 +1489,106 @@ function PelatihPortalContent() {
                         className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        Pratinjau & Unduh
+                        Pratinjau &amp; Unduh
                       </button>
                     </div>
                   </div>
 
-                  {/* Sertifikat Personel Pasukan */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-tr from-slate-50 via-white to-slate-50/60 border border-slate-200 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0">
-                        <Users className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900">
-                          E-Sertifikat Anggota Pasukan (16 Personel)
+                  {/* Sertifikat Personel Pasukan (2 Lembar) */}
+                  {(() => {
+                    const filledCount = (authAttendee.squadMembers || []).filter((m) => m.name && m.name.trim() && !m.isReserve).length;
+                    return (
+                      <div className="p-5 rounded-2xl bg-gradient-to-tr from-slate-50 via-white to-slate-50/60 border border-slate-200 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0">
+                            <Users className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                              <span>E-Sertifikat Pasukan (2 Lembar)</span>
+                              <span className="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 text-[10px] font-black">
+                                {filledCount}/16 Nama
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              Lembar 1: Sertifikat Kontingen • Lembar 2: Lampiran 16 Anggota &amp; Cadangan
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-500">
-                          Paket sertifikat seluruh anggota kontingen
+                        <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCertModal("PASUKAN", "ALL")}
+                            className="w-full sm:flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Pratinjau 2 Lembar &amp; Cetak
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenSquadModal}
+                            className="w-full sm:w-auto py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition flex items-center justify-center gap-1.5"
+                          >
+                            <Users className="h-3.5 w-3.5 text-purple-600" />
+                            Lihat Personel (Panitia)
+                          </button>
                         </div>
                       </div>
-                    </div>
-                    <div className="pt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCertModal("PASUKAN")}
-                        className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Pratinjau & Unduh
-                      </button>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
-                  {/* Piagam Penghargaan Juara */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-tr from-amber-50 via-white to-amber-50/60 border border-amber-200 space-y-3">
+                  {/* Piagam Penghargaan Juara Kontingen */}
+                  <div className={`p-5 rounded-2xl border space-y-3 transition ${
+                    authAttendee.championCertificateUrl
+                      ? "bg-gradient-to-tr from-amber-50 via-white to-amber-50/60 border-amber-300"
+                      : "bg-slate-50/60 border-slate-200"
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                        <Sparkles className="h-5 w-5" />
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        authAttendee.championCertificateUrl ? "bg-amber-500 text-white shadow-md shadow-amber-500/20" : "bg-slate-300 text-slate-500"
+                      }`}>
+                        <Trophy className="h-5 w-5" />
                       </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900">
-                          Piagam Prestasi Juara Kontingen
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-black text-slate-900 truncate">
+                            {authAttendee.championCertificateTitle || "Piagam Prestasi Juara Kontingen"}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                            authAttendee.championCertificateUrl
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-slate-200 text-slate-600"
+                          }`}>
+                            {authAttendee.championCertificateUrl ? "✓ Terbit dari Panitia" : "Belum Diunggah Panitia"}
+                          </span>
                         </div>
-                        <div className="text-[11px] text-slate-500">
-                          Piagam resmi jalur prestasi kedinasan/PPDB
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {authAttendee.championCertificateUrl
+                            ? "Piagam resmi jalur prestasi kedinasan/PPDB telah diunggah panitia"
+                            : "Menunggu sidang & unggahan sertifikat kejuaraan resmi dari panitia event"}
                         </div>
                       </div>
                     </div>
                     <div className="pt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCertModal("JUARA")}
-                        className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Pratinjau & Unduh
-                      </button>
+                      {authAttendee.championCertificateUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCertModal("JUARA")}
+                          className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Pratinjau &amp; Unduh Piagam Juara
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="flex-1 py-2 px-3 rounded-xl bg-slate-200 text-slate-400 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-1.5"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          Belum Tersedia (Menunggu Unggahan Admin)
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1663,108 +1789,617 @@ function PelatihPortalContent() {
       </div>
 
       {/* --------------------------------------------------------------------------------- */}
-      {/* MODAL: PRATINJAU E-SERTIFIKAT RESMI BER-QR */}
+      {/* MODAL: DAFTAR SUSUNAN 16 PERSONEL (VERIFIKASI & PENGESAHAN RESMI ADMIN) */}
       {/* --------------------------------------------------------------------------------- */}
-      {isCertModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border-4 border-amber-300/60 overflow-hidden my-8 animate-in zoom-in-95">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 bg-slate-900 text-white border-b border-slate-800">
-              <div className="flex items-center gap-2 text-xs font-black">
-                <Award className="h-4 w-4 text-amber-400" />
-                <span>Pratinjau E-Sertifikat Resmi CETAS (Ber-QR Code)</span>
+      {isSquadModalOpen && authAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-white border-b border-purple-800/40">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-purple-600/40 text-purple-300 border border-purple-500/30 flex items-center justify-center">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Susunan Personel Pasukan (Resmi Panitia)
+                  </h3>
+                  <p className="text-[11px] text-purple-200/80">
+                    Pasukan: <strong>{authAttendee.fullName}</strong> • {authAttendee.institution} (Kategori: {authAttendee.category})
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setIsCertModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
+                type="button"
+                onClick={() => setIsSquadModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Certificate Canvas / Container */}
-            <div className="p-8 sm:p-12 text-center bg-gradient-to-b from-amber-50/50 via-white to-amber-50/30 relative">
-              {/* Ornate Gold Border Inner */}
-              <div className="absolute inset-4 border-2 border-dashed border-amber-400/50 rounded-2xl pointer-events-none" />
-
-              <div className="space-y-4 relative z-10">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black uppercase tracking-widest">
-                  ★ SERTIFIKAT DIGITAL RESMI TURNAMEN ★
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong>Keaslian Data Terlindungi (Anti-Manipulasi):</strong> Seluruh susunan nama personel pada Lembar ke-2 E-Sertifikat diinput dan diverifikasi langsung oleh <strong>Admin / Panitia Penyelenggara</strong> guna menjamin validitas berkas resmi untuk keperluan kedinasan/PPDB.
                 </div>
+              </div>
 
-                <div className="space-y-1">
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    {certType === "PELATIH" && "SERTIFIKAT PEMBINA / PELATIH TERBAIK"}
-                    {certType === "DANTON" && "SERTIFIKAT KOMANDAN PELETON (DANTON)"}
-                    {certType === "PASUKAN" && "SERTIFIKAT KONTINGEN & ANGGOTA PASUKAN"}
-                    {certType === "JUARA" && "PIAGAM PENGHARGAAN JUARA KONTINGEN"}
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Diberikan atas partisipasi dan dedikasi luar biasa dalam ajang turnamen resmi
-                  </p>
-                </div>
-
-                <div className="py-2">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Dianugerahkan Kepada:</span>
-                  <div className="text-2xl sm:text-3xl font-black text-purple-900 mt-1 font-serif">
-                    {certType === "PELATIH" && (authAttendee.coachName || authAttendee.fullName)}
-                    {certType === "DANTON" && (authAttendee.dantonName || "Komandan Peleton")}
-                    {certType === "PASUKAN" && authAttendee.fullName}
-                    {certType === "JUARA" && authAttendee.institution}
-                  </div>
-                  <div className="text-xs font-bold text-slate-700 mt-1">
-                    {authAttendee.institution} ({authAttendee.category})
-                  </div>
-                </div>
-
-                {/* Event Name */}
-                <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed italic">
-                  &ldquo;Telah menunjukkan integritas baris-berbaris, kedisiplinan, kekompakan formasi, serta kepemimpinan unggul dalam kejuaraan {authEvent?.title || "LKBB CETAS NASIONAL 2026"}.&rdquo;
-                </p>
-
-                {/* QR Code Validation Badge */}
-                <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-amber-200/80">
-                  <div className="flex items-center gap-3 text-left">
-                    {certQrUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={certQrUrl} alt="Certificate QR" className="h-16 w-16 rounded-lg border border-slate-200 bg-white p-1" />
-                    ) : (
-                      <div className="h-16 w-16 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] text-slate-400">
-                        QR Valid
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {squadForm.map((member, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-2xl border transition ${
+                        member.isReserve
+                          ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50"
+                          : idx === 0
+                          ? "bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50"
+                          : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                            member.isReserve
+                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                              : idx === 0
+                              ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                              : "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200"
+                          }`}>
+                            {idx === 0 ? "DANTON" : member.isReserve ? `CADANGAN ${idx - 16}` : `#${String(idx).padStart(2, "0")}`}
+                          </span>
+                          <span>{member.role || `Personel ${idx}`}</span>
+                        </span>
+                        {member.name ? (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                            ✓ Terdaftar
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                            Menunggu Admin
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div className="text-[10px] text-slate-500">
-                      <div className="font-mono font-bold text-slate-800">{authAttendee.badgeCode}</div>
-                      <div>Tanda Tangan Digital SHA-256</div>
-                      <div className="text-emerald-600 font-bold">✓ Terverifikasi Asli CETAS</div>
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className={`text-xs font-bold truncate ${member.name ? "text-slate-900 dark:text-white" : "text-slate-400 italic font-normal"}`}>
+                            {member.name || "[Menunggu Pengesahan Nama oleh Admin]"}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                            NISN: {member.nisnOrId || "-"}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="text-right text-[10px] text-slate-600 space-y-1">
-                    <div className="font-bold">Ketua Dewan Juri CETAS</div>
-                    <div className="font-serif italic text-slate-800 text-xs">M. Rian Arifin, S.Pd., M.Han</div>
-                    <div className="text-slate-400">NIP. 19880412 201101 1 003</div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={handleSendEmailCertificate}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 hover:text-purple-900"
-              >
-                <Mail className="h-4 w-4" />
-                Kirim Salinan ke Email
-              </button>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs text-slate-500">
+                Terverifikasi: <strong className="text-slate-800 dark:text-slate-200">{squadForm.filter((m) => m.name.trim()).length}</strong> dari {squadForm.length} anggota
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20pelatih%20dari%20${encodeURIComponent(authAttendee.institution)}%20(${encodeURIComponent(authAttendee.fullName)})%20ingin%20mengajukan%20koreksi%20nama%20personel%20pada%20E-Sertifikat.`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-md transition flex items-center gap-1.5"
+                >
+                  <MessageCircle className="h-4 w-4 fill-white" />
+                  Hubungi Admin untuk Koreksi Nama
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsSquadModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 transition"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------------------------------- */}
+      {/* MODAL: PRATINJAU E-SERTIFIKAT RESMI BER-QR & 2 LEMBAR PASUKAN */}
+      {/* --------------------------------------------------------------------------------- */}
+      {isCertModalOpen && authAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto print:p-0 print:bg-white">
+          {/* Custom Print CSS */}
+          <style dangerouslySetInnerHTML={{
+            __html: `
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #cetas-cert-print-area, #cetas-cert-print-area * {
+                  visibility: visible !important;
+                }
+                #cetas-cert-print-area {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: white !important;
+                }
+                .cert-page-break {
+                  page-break-after: always !important;
+                  break-after: page !important;
+                  display: block !important;
+                  margin-bottom: 0 !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `
+          }} />
+
+          <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border-4 border-[#D4AF37]/70 overflow-hidden my-6 animate-in zoom-in-95 print:border-none print:shadow-none print:rounded-none print:my-0">
+            {/* Modal Header Toolbar */}
+            <div className="no-print flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-slate-950 text-white border-b border-slate-800">
+              <div className="flex items-center gap-2 text-xs font-black">
+                <Award className="h-4 w-4 text-amber-400" />
+                <span>
+                  {certType === "PELATIH" && "Pratinjau E-Sertifikat Pembina / Pelatih"}
+                  {certType === "DANTON" && "Pratinjau E-Sertifikat Komandan Peleton"}
+                  {certType === "PASUKAN" && "Pratinjau E-Sertifikat Pasukan (Format Resmi 2 Lembar)"}
+                  {certType === "JUARA" && "Pratinjau Piagam Prestasi Juara Kontingen"}
+                </span>
+              </div>
+
+              {/* Page Switcher khusus Sertifikat Pasukan */}
+              {certType === "PASUKAN" && (
+                <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setCertPage(1)}
+                    className={`px-3 py-1 rounded-lg transition ${
+                      certPage === 1 ? "bg-amber-500 text-slate-950 font-black shadow-xs" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Lembar 1 (Sertifikat)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCertPage(2)}
+                    className={`px-3 py-1 rounded-lg transition ${
+                      certPage === 2 ? "bg-amber-500 text-slate-950 font-black shadow-xs" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Lembar 2 (Lampiran 16 Nama)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCertPage("ALL")}
+                    className={`px-3 py-1 rounded-lg transition ${
+                      certPage === "ALL" ? "bg-amber-500 text-slate-950 font-black shadow-xs" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Keduanya (2 Lembar)
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Cetak / PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCertModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* PRINT & PREVIEW CANVAS */}
+            <div id="cetas-cert-print-area" className="p-3 sm:p-6 bg-slate-100 print:bg-white print:p-0 space-y-6">
+              {(() => {
+                const certConfig = authEvent?.certificateConfig || {};
+                const signer1 = certConfig.signer1 || {
+                  role: "Ketua Panitia Penyelenggara",
+                  name: "Ardi Purwanto, S.Pd.",
+                  nipOrId: "NIP. 19910523 201502 1 002",
+                  signatureUrl: "",
+                };
+                const signer2 = certConfig.signer2 || {
+                  role: "Ketua Dewan Juri CETAS",
+                  name: "M. Rian Arifin, S.Pd., M.Han",
+                  nipOrId: "NIP. 19880412 201101 1 003",
+                  signatureUrl: "",
+                };
+                const issueCity = certConfig.issueCity || "Jakarta";
+                const issueDate = certConfig.issueDate || (authEvent?.date ? new Date(authEvent.date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "30 Oktober 2026");
+                const institutionName = certConfig.institutionName || "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA";
+                const certNumber = `${authAttendee.badgeCode ? authAttendee.badgeCode.replace("CETAS-ATD-", "042/CETAS-LKBB/") : "042/CETAS-LKBB/2026/01"}`;
+
+                // Jika Tipe JUARA dan ada file upload manual dari panitia
+                if (certType === "JUARA" && authAttendee.championCertificateUrl) {
+                  return (
+                    <div className="relative bg-white rounded-3xl p-6 sm:p-10 shadow-lg border-2 border-amber-300 text-center space-y-4">
+                      <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black uppercase">
+                        <Trophy className="h-4 w-4 text-amber-600" />
+                        <span>{authAttendee.championCertificateTitle || "PIAGAM PRESTASI JUARA KONTINGEN"}</span>
+                      </div>
+                      <h3 className="text-xl font-black text-slate-900 font-serif">
+                        {authAttendee.fullName} — {authAttendee.institution}
+                      </h3>
+                      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900/5 max-h-[600px] flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={authAttendee.championCertificateUrl}
+                          alt="Piagam Kejuaraan"
+                          className="max-h-[580px] w-auto object-contain shadow-md"
+                        />
+                      </div>
+                      <div className="pt-2 flex justify-center gap-3 no-print">
+                        <a
+                          href={authAttendee.championCertificateUrl}
+                          download={`Piagam_Juara_${authAttendee.fullName}.png`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md transition flex items-center gap-2"
+                        >
+                          <Download className="h-4 w-4" />
+                          Unduh Berkas Piagam Asli
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    {/* ============================================================== */}
+                    {/* LEMBAR 1: SERTIFIKAT UTAMA (PELATIH / DANTON / PASUKAN LEMBAR 1) */}
+                    {/* ============================================================== */}
+                    {(certType !== "PASUKAN" || certPage === 1 || certPage === "ALL") && (
+                      <div className={`relative bg-gradient-to-br from-[#FFFDF9] via-[#FAF6EC] to-[#F5EEDC] text-slate-900 rounded-2xl shadow-xl overflow-hidden border-4 border-[#C5A059] p-8 sm:p-12 text-center aspect-[1.414/1] min-h-[560px] flex flex-col justify-between ${
+                        certType === "PASUKAN" && certPage === "ALL" ? "cert-page-break" : ""
+                      }`}>
+                        {/* Layered Decorative Borders */}
+                        <div className="absolute inset-2 border border-[#C5A059]/40 rounded-xl pointer-events-none" />
+                        <div className="absolute inset-3 border-2 border-[#D4AF37] rounded-lg pointer-events-none" />
+                        <div className="absolute inset-4 border border-dashed border-[#B38728]/30 rounded-md pointer-events-none" />
+
+                        {/* Corner Baroque Flourish SVGs */}
+                        <svg className="absolute top-4 left-4 w-12 h-12 text-[#C5A059] opacity-80 pointer-events-none" viewBox="0 0 100 100" fill="currentColor">
+                          <path d="M0,0 L45,0 C30,12 18,22 12,38 C8,48 5,65 5,90 L0,90 Z M12,12 C22,22 35,26 50,28 C38,38 28,48 28,65 C18,52 15,38 12,12 Z" />
+                        </svg>
+                        <svg className="absolute top-4 right-4 w-12 h-12 text-[#C5A059] opacity-80 pointer-events-none -scale-x-100" viewBox="0 0 100 100" fill="currentColor">
+                          <path d="M0,0 L45,0 C30,12 18,22 12,38 C8,48 5,65 5,90 L0,90 Z M12,12 C22,22 35,26 50,28 C38,38 28,48 28,65 C18,52 15,38 12,12 Z" />
+                        </svg>
+                        <svg className="absolute bottom-4 left-4 w-12 h-12 text-[#C5A059] opacity-80 pointer-events-none -scale-y-100" viewBox="0 0 100 100" fill="currentColor">
+                          <path d="M0,0 L45,0 C30,12 18,22 12,38 C8,48 5,65 5,90 L0,90 Z M12,12 C22,22 35,26 50,28 C38,38 28,48 28,65 C18,52 15,38 12,12 Z" />
+                        </svg>
+                        <svg className="absolute bottom-4 right-4 w-12 h-12 text-[#C5A059] opacity-80 pointer-events-none -scale-x-100 -scale-y-100" viewBox="0 0 100 100" fill="currentColor">
+                          <path d="M0,0 L45,0 C30,12 18,22 12,38 C8,48 5,65 5,90 L0,90 Z M12,12 C22,22 35,26 50,28 C38,38 28,48 28,65 C18,52 15,38 12,12 Z" />
+                        </svg>
+
+                        {/* Subtle Center Rosette Watermark */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none select-none">
+                          <svg viewBox="0 0 200 200" className="w-[420px] h-[420px] text-amber-950" fill="currentColor">
+                            <circle cx="100" cy="100" r="90" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path d="M100 20 L120 70 L175 75 L135 110 L148 165 L100 135 L52 165 L65 110 L25 75 L80 70 Z" />
+                          </svg>
+                        </div>
+
+                        {/* Top Header Information */}
+                        <div className="relative z-10 space-y-2 pt-2">
+                          <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 text-amber-950 border border-amber-400 text-[10px] font-black uppercase tracking-widest shadow-xs">
+                            ★ KOMPETISI BARIS BERBARIS TINGKAT NASIONAL ★
+                          </div>
+                          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                            {institutionName}
+                          </div>
+                          <div className="font-mono text-[10px] text-slate-400 tracking-wider">
+                            Nomor Registrasi Resmi: <strong>{certNumber}</strong>
+                          </div>
+
+                          {/* CERTIFICATE MAIN TITLE */}
+                          <div className="pt-2">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-slate-900 font-serif uppercase text-amber-950">
+                              {certType === "PELATIH" && "SERTIFIKAT PEMBINA / PELATIH"}
+                              {certType === "DANTON" && "SERTIFIKAT KOMANDAN PELETON (DANTON)"}
+                              {certType === "PASUKAN" && "SERTIFIKAT KONTINGEN & ANGGOTA PASUKAN"}
+                              {certType === "JUARA" && (authAttendee.championCertificateTitle || "PIAGAM PENGHARGAAN JUARA KONTINGEN")}
+                            </h1>
+                            <p className="text-xs text-slate-500 italic mt-1 font-serif">
+                              Dianugerahkan dengan penuh kehormatan dan apresiasi setinggi-tingginya kepada:
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* RECIPIENT BODY */}
+                        <div className="relative z-10 py-3 sm:py-5 space-y-2">
+                          <div className="font-serif font-black text-2xl sm:text-4xl text-[#1E1B4B] tracking-tight">
+                            {certType === "PELATIH" && (authAttendee.coachName || authAttendee.fullName)}
+                            {certType === "DANTON" && (authAttendee.dantonName || "Komandan Peleton")}
+                            {certType === "PASUKAN" && authAttendee.fullName}
+                            {certType === "JUARA" && authAttendee.fullName}
+                          </div>
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="h-0.5 w-12 bg-gradient-to-r from-transparent to-[#C5A059]" />
+                            <div className="text-sm font-bold text-[#8C6D23] font-serif">
+                              {authAttendee.institution} • {authAttendee.category}
+                            </div>
+                            <div className="h-0.5 w-12 bg-gradient-to-l from-transparent to-[#C5A059]" />
+                          </div>
+
+                          <p className="text-xs sm:text-sm text-slate-700 max-w-2xl mx-auto leading-relaxed italic font-serif pt-1">
+                            &ldquo;Atas dedikasi, kedisiplinan, integritas baris-berbaris, kekompakan formasi, serta sportivitas tinggi yang ditunjukkan dalam rangkaian kejuaraan {authEvent?.title || "LKBB CETAS NASIONAL 2026"}.&rdquo;
+                          </p>
+                        </div>
+
+                        {/* FOOTER: DUAL SIGNATURES & OFFICIAL SEALS */}
+                        <div className="relative z-10 pt-4 border-t border-[#C5A059]/40 grid grid-cols-3 items-end gap-2 text-slate-800">
+                          {/* Signature 1: Ketua Panitia Penyelenggara */}
+                          <div className="text-left space-y-1 relative">
+                            <div className="text-[10px] font-bold text-slate-600 uppercase">
+                              {signer1.role}
+                            </div>
+                            {/* Realistic Signature or Digital Script */}
+                            <div className="h-14 flex items-center relative">
+                              {signer1.signatureUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={signer1.signatureUrl} alt="TTD 1" className="h-12 w-auto object-contain" />
+                              ) : (
+                                <div className="font-serif italic text-lg sm:text-xl text-purple-950 font-bold tracking-wider rotate-[-3deg]">
+                                  {signer1.name}
+                                </div>
+                              )}
+                              {/* Wet Official Purple Ink Stamp */}
+                              <div className="absolute -left-2 top-0 pointer-events-none select-none">
+                                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-2 border-purple-700/80 text-purple-800 flex flex-col items-center justify-center -rotate-12 bg-purple-500/10 backdrop-blur-2xs shadow-inner">
+                                  <div className="text-[7px] font-black tracking-widest text-center leading-tight">
+                                    ★ CETAS LKBB ★<br />TERVERIFIKASI
+                                  </div>
+                                  <div className="text-[6px] font-bold text-center mt-0.5 text-purple-900">
+                                    RESMI 2026
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="font-serif font-black text-xs text-slate-900">
+                              {signer1.name}
+                            </div>
+                            <div className="text-[9px] text-slate-500 font-mono">
+                              {signer1.nipOrId || "Panitia Penyelenggara"}
+                            </div>
+                          </div>
+
+                          {/* Center: 3D Golden Wax Medal & QR Code Validation */}
+                          <div className="flex flex-col items-center justify-center space-y-1.5 pb-1">
+                            <div className="flex items-center gap-2">
+                              {certQrUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={certQrUrl}
+                                  alt="Certificate QR"
+                                  className="h-14 w-14 rounded-lg border-2 border-[#C5A059] bg-white p-0.5 shadow-sm"
+                                />
+                              ) : (
+                                <div className="h-14 w-14 bg-white rounded-lg border border-[#C5A059] flex items-center justify-center text-[9px] text-slate-400 font-mono">
+                                  QR Valid
+                                </div>
+                              )}
+                              <div className="text-left text-[9px] text-slate-600 leading-tight">
+                                <div className="font-mono font-bold text-slate-900">{authAttendee.badgeCode}</div>
+                                <div className="text-[8px] text-slate-400">Digital Seal SHA-256</div>
+                                <div className="text-emerald-700 font-bold">✓ Terverifikasi Asli</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Signature 2: Ketua Dewan Juri */}
+                          <div className="text-right space-y-1">
+                            <div className="text-[10px] text-slate-500">
+                              {issueCity}, {issueDate}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-600 uppercase">
+                              {signer2.role}
+                            </div>
+                            {/* Realistic Signature or Digital Script */}
+                            <div className="h-14 flex items-center justify-end">
+                              {signer2.signatureUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={signer2.signatureUrl} alt="TTD 2" className="h-12 w-auto object-contain" />
+                              ) : (
+                                <div className="font-serif italic text-lg sm:text-xl text-purple-950 font-bold tracking-wider rotate-[3deg]">
+                                  {signer2.name}
+                                </div>
+                              )}
+                            </div>
+                            <div className="font-serif font-black text-xs text-slate-900">
+                              {signer2.name}
+                            </div>
+                            <div className="text-[9px] text-slate-500 font-mono">
+                              {signer2.nipOrId || "Ketua Dewan Juri"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ============================================================== */}
+                    {/* LEMBAR 2: LAMPIRAN 16 PERSONEL INTI & CADANGAN */}
+                    {/* ============================================================== */}
+                    {certType === "PASUKAN" && (certPage === 2 || certPage === "ALL") && (
+                      <div className="relative bg-gradient-to-br from-[#FFFDF9] via-[#FAF6EC] to-[#F5EEDC] text-slate-900 rounded-2xl shadow-xl overflow-hidden border-4 border-[#C5A059] p-8 sm:p-10 text-center aspect-[1.414/1] min-h-[560px] flex flex-col justify-between">
+                        {/* Layered Decorative Borders */}
+                        <div className="absolute inset-2 border border-[#C5A059]/40 rounded-xl pointer-events-none" />
+                        <div className="absolute inset-3 border-2 border-[#D4AF37] rounded-lg pointer-events-none" />
+
+                        {/* Top Header Lampiran */}
+                        <div className="relative z-10 space-y-1.5 pt-2">
+                          <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-slate-900 text-amber-300 border border-amber-400 text-[10px] font-black uppercase tracking-widest">
+                            ★ LAMPIRAN RESMI E-SERTIFIKAT KONTINGEN ★
+                          </div>
+                          <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-serif uppercase tracking-tight">
+                            DAFTAR NAMA 16 PERSONEL PASUKAN &amp; CADANGAN
+                          </h2>
+                          <div className="text-xs text-slate-600 font-serif flex items-center justify-center gap-2 flex-wrap">
+                            <span>Pasukan: <strong>&ldquo;{authAttendee.fullName}&rdquo;</strong></span>
+                            <span>•</span>
+                            <span>Sekolah: <strong>{authAttendee.institution}</strong></span>
+                            <span>•</span>
+                            <span>Kategori: <strong>{authAttendee.category}</strong></span>
+                            <span>•</span>
+                            <span>No. Undian TM: <strong>{tmDisplayNumber}</strong></span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Lampiran E-Sertifikat Nomor: {certNumber}
+                          </div>
+                        </div>
+
+                        {/* 2-Column Table of 16 Core Personnel + Danton + Reserves */}
+                        <div className="relative z-10 py-3">
+                          {(() => {
+                            const fullSquad = getInitialSquadMembers(authAttendee.squadMembers, authAttendee.dantonName);
+                            const col1 = fullSquad.slice(0, 9); // Danton + Personel 1-8
+                            const col2 = fullSquad.slice(9); // Personel 9-16 + Cadangan 1-2
+
+                            return (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                                {/* Column 1 */}
+                                <div className="space-y-1 border border-[#C5A059]/40 rounded-xl bg-white/70 p-2 text-xs">
+                                  {col1.map((item, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="flex items-center justify-between p-1.5 rounded-lg border-b border-slate-100 last:border-b-0 text-[11px]"
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 ${
+                                          idx === 0
+                                            ? "bg-purple-100 text-purple-900 font-black"
+                                            : "bg-slate-200 text-slate-800"
+                                        }`}>
+                                          {idx === 0 ? "DANTON" : `#${String(idx).padStart(2, "0")}`}
+                                        </span>
+                                        <div className="truncate">
+                                          <span className={`font-bold block truncate ${item.name ? "text-slate-900" : "text-amber-800 italic"}`}>
+                                            {item.name || `[Menunggu Input Panitia]`}
+                                          </span>
+                                          <span className="text-[9px] text-slate-400 block truncate">
+                                            {item.role}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                                        {item.nisnOrId || "-"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Column 2 */}
+                                <div className="space-y-1 border border-[#C5A059]/40 rounded-xl bg-white/70 p-2 text-xs">
+                                  {col2.map((item, idx) => {
+                                    const actualNum = idx + 9;
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className={`flex items-center justify-between p-1.5 rounded-lg border-b border-slate-100 last:border-b-0 text-[11px] ${
+                                          item.isReserve ? "bg-amber-50/70" : ""
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 ${
+                                            item.isReserve
+                                              ? "bg-amber-200 text-amber-900 font-black"
+                                              : "bg-slate-200 text-slate-800"
+                                          }`}>
+                                            {item.isReserve ? `CAD ${actualNum - 16}` : `#${String(actualNum).padStart(2, "0")}`}
+                                          </span>
+                                          <div className="truncate">
+                                            <span className={`font-bold block truncate ${item.name ? "text-slate-900" : "text-amber-800 italic"}`}>
+                                              {item.name || `[Menunggu Input Panitia]`}
+                                            </span>
+                                            <span className="text-[9px] text-slate-400 block truncate">
+                                              {item.role}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                                          {item.nisnOrId || "-"}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Bottom Footnote & Verification */}
+                        <div className="relative z-10 pt-2 border-t border-[#C5A059]/40 flex items-center justify-between text-left text-[10px] text-slate-600">
+                          <div>
+                            <div className="font-bold text-slate-800">
+                              Keterangan Resmi Personel Kontingen:
+                            </div>
+                            <p className="text-[9px] text-slate-500 max-w-lg">
+                              Daftar 16 personel inti, 1 danton, dan cadangan di atas merupakan susunan resmi pasukan yang didaftarkan ke dewan juri CETAS.
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-serif font-black text-xs text-slate-900">
+                              Disahkan: {signer1.name}
+                            </div>
+                            <div className="text-[9px] text-slate-400">
+                              {signer1.role}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Modal Bottom Actions */}
+            <div className="no-print p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendEmailCertificate}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 hover:text-purple-900"
+                >
+                  <Mail className="h-4 w-4" />
+                  Kirim ke Email: {authAttendee.email}
+                </button>
+                {certType === "PASUKAN" && (
+                  <button
+                    type="button"
+                    onClick={handleOpenSquadModal}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-purple-700 ml-3"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    Edit 16 Nama Personel
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
                 >
                   <Printer className="h-4 w-4" />
                   Cetak / Simpan PDF

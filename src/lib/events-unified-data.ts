@@ -33,6 +33,23 @@ export interface LKBBTeamScore {
   status: "BELUM_TAMPIL" | "SEDANG_DINILAI" | "TERVERIFIKASI";
 }
 
+export interface CertificateSignerConfig {
+  role: string; // e.g. "Ketua Dewan Juri"
+  name: string; // e.g. "M. Rian Arifin, S.Pd., M.Han"
+  nipOrId?: string; // e.g. "NIP. 19880412 201101 1 003"
+  signatureUrl?: string; // scan/image TTD, atau kosong untuk kaligrafi resmi
+}
+
+export interface EventCertificateConfig {
+  certificateNumberFormat?: string; // e.g. "042/CETAS-LKBB/{YEAR}"
+  issueCity?: string; // e.g. "Jakarta"
+  issueDate?: string; // e.g. "30 Oktober 2026"
+  institutionName?: string; // e.g. "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA"
+  signer1?: CertificateSignerConfig; // Penyelenggara / Ketua Panitia
+  signer2?: CertificateSignerConfig; // Ketua Dewan Juri
+  stampUrl?: string; // Stempel panitia / stempel bulat cetas
+}
+
 export interface UnifiedEvent {
   id: string;
   slug: string;
@@ -68,6 +85,9 @@ export interface UnifiedEvent {
   isScorePublishedToCoaches?: boolean;
   scorePublishedAt?: string;
   scorePublishedBy?: string;
+
+  // Konfigurasi Nama & TTD E-Sertifikat
+  certificateConfig?: EventCertificateConfig;
 
   // Data Peserta & Peringkat LKBB (Cetas.Score)
   lkbbTeams?: LKBBTeamScore[];

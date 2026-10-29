@@ -990,6 +990,111 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
+    // Aksi 1F: Update 16 Personel Pasukan & Cadangan (Lembar 2 Sertifikat)
+    if (action === "UPDATE_SQUAD_MEMBERS") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      attendees[idx].squadMembers = Array.isArray(body.squadMembers) ? body.squadMembers : [];
+      if (body.dantonName) attendees[idx].dantonName = body.dantonName;
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Daftar susunan 16 personel dan cadangan untuk "${attendees[idx].fullName}" berhasil diperbarui!`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1G: Upload / Kelola Piagam Prestasi Juara Kontingen
+    if (action === "UPLOAD_CHAMPION_CERTIFICATE" || action === "UPDATE_CHAMPION_CERTIFICATE") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      attendees[idx].championCertificateUrl = body.certificateUrl || body.championCertificateUrl || "";
+      attendees[idx].championCertificateTitle = body.certificateTitle || body.championCertificateTitle || "Piagam Prestasi Juara Kontingen";
+      attendees[idx].championCertificateUploadedAt = new Date().toISOString();
+      attendees[idx].championCertificateUploadedBy = verifiedBy || "Admin CETAS";
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Piagam kejuaraan untuk "${attendees[idx].fullName}" berhasil disimpan!`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1H: Hapus Piagam Prestasi Juara
+    if (action === "DELETE_CHAMPION_CERTIFICATE") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Peserta tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      attendees[idx].championCertificateUrl = undefined;
+      attendees[idx].championCertificateTitle = undefined;
+      attendees[idx].championCertificateUploadedAt = undefined;
+      attendees[idx].championCertificateUploadedBy = undefined;
+
+      await saveAttendeesStore(attendees);
+
+      return NextResponse.json({
+        success: true,
+        message: `Piagam kejuaraan untuk "${attendees[idx].fullName}" berhasil dihapus.`,
+        attendee: attendees[idx],
+      });
+    }
+
+    // Aksi 1I: Update Konfigurasi Tanda Tangan & Sertifikat Event
+    if (action === "UPDATE_CERTIFICATE_CONFIG") {
+      const events = await getEventsStore();
+      const evIdx = events.findIndex((e) => e.id === eventId);
+      if (evIdx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Event tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      events[evIdx].certificateConfig = {
+        ...(events[evIdx].certificateConfig || {}),
+        ...(body.certificateConfig || {}),
+      };
+
+      await saveEventsStore(events);
+
+      return NextResponse.json({
+        success: true,
+        message: `Konfigurasi nama, TTD, dan stempel sertifikat untuk event "${events[evIdx].title}" berhasil disimpan!`,
+        event: events[evIdx],
+        certificateConfig: events[evIdx].certificateConfig,
+      });
+    }
+
     // Aksi 2: Check-in Kehadiran di Gate (Tandai Hadir / Batal Hadir)
     if (action === "CHECK_IN" || action === "MARK_ATTENDANCE") {
       const attendees = await getAttendeesStore();

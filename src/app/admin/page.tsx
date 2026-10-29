@@ -44,6 +44,10 @@ import {
   ChevronRight,
   RefreshCw,
   MessageCircle,
+  Trophy,
+  FileText,
+  Settings,
+  Save,
 } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { EVENT_THEME_PRESETS, getEventTheme, EventThemePreset } from "@/lib/event-theme";
@@ -72,6 +76,7 @@ import {
   mergeEventsWithLocal,
   CETAS_MASCOT_PRESETS,
   DEFAULT_MASCOT_URL,
+  EventCertificateConfig,
 } from "@/lib/events-unified-data";
 import {
   INITIAL_UNIFIED_PRODUCTS,
@@ -82,6 +87,7 @@ import {
 import {
   INITIAL_ATTENDEES,
   RegisteredAttendee,
+  SquadMemberItem,
 } from "@/lib/events-registration-data";
 import {
   INITIAL_EVENT_VOTINGS,
@@ -291,6 +297,42 @@ export default function AdminDashboardPage() {
   const [teamCategoryFilter, setTeamCategoryFilter] = useState("ALL");
   const [teamStatusFilter, setTeamStatusFilter] = useState<"ALL" | "CONFIRMED" | "WAITLIST">("ALL");
   const [isTogglingScoreRelease, setIsTogglingScoreRelease] = useState(false);
+
+  // Certificate Settings & Signatures State
+  const [isCertConfigModalOpen, setIsCertConfigModalOpen] = useState(false);
+  const [certConfigForm, setCertConfigForm] = useState<EventCertificateConfig>({
+    issueCity: "Jakarta",
+    issueDate: "30 Oktober 2026",
+    certificateNumberFormat: "042/CETAS-LKBB/X/2026",
+    institutionName: "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA",
+    signer1: {
+      role: "Ketua Panitia Penyelenggara",
+      name: "Ardi Purwanto, S.Pd.",
+      nipOrId: "NIP. 19910523 201502 1 002",
+      signatureUrl: "",
+    },
+    signer2: {
+      role: "Ketua Dewan Juri CETAS",
+      name: "M. Rian Arifin, S.Pd., M.Han",
+      nipOrId: "NIP. 19880412 201101 1 003",
+      signatureUrl: "",
+    },
+    stampUrl: "",
+  });
+  const [isSavingCertConfig, setIsSavingCertConfig] = useState(false);
+
+  // Champion Certificate Management State
+  const [championModalAttendee, setChampionModalAttendee] = useState<RegisteredAttendee | null>(null);
+  const [championCertTitle, setChampionCertTitle] = useState("");
+  const [championCertUrl, setChampionCertUrl] = useState("");
+  const [isSavingChampionCert, setIsSavingChampionCert] = useState(false);
+
+  // Admin Squad Members (16 Personel) State
+  const [adminSquadAttendee, setAdminSquadAttendee] = useState<RegisteredAttendee | null>(null);
+  const [adminSquadForm, setAdminSquadForm] = useState<SquadMemberItem[]>([]);
+  const [isSavingAdminSquad, setIsSavingAdminSquad] = useState(false);
+  const [showQuickPaste, setShowQuickPaste] = useState(false);
+  const [quickPasteText, setQuickPasteText] = useState("");
 
   // Real-time Tickets & Audience Attendance State
   const [eventTickets, setEventTickets] = useState<any[]>([]);
@@ -1645,6 +1687,237 @@ export default function AdminDashboardPage() {
       showSyncToast("Gagal memperbarui status publikasi nilai");
     } finally {
       setIsTogglingScoreRelease(false);
+    }
+  };
+
+  // Open and configure certificate TTD & data
+  const handleOpenCertConfigModal = () => {
+    if (!selectedEvent) return;
+    const existing = selectedEvent.certificateConfig;
+    setCertConfigForm({
+      issueCity: existing?.issueCity || "Jakarta",
+      issueDate: existing?.issueDate || (selectedEvent.date ? new Date(selectedEvent.date).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "30 Oktober 2026"),
+      certificateNumberFormat: existing?.certificateNumberFormat || "042/CETAS-LKBB/X/2026",
+      institutionName: existing?.institutionName || "LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA",
+      signer1: {
+        role: existing?.signer1?.role || "Ketua Panitia Penyelenggara",
+        name: existing?.signer1?.name || "Ardi Purwanto, S.Pd.",
+        nipOrId: existing?.signer1?.nipOrId || "NIP. 19910523 201502 1 002",
+        signatureUrl: existing?.signer1?.signatureUrl || "",
+      },
+      signer2: {
+        role: existing?.signer2?.role || "Ketua Dewan Juri CETAS",
+        name: existing?.signer2?.name || "M. Rian Arifin, S.Pd., M.Han",
+        nipOrId: existing?.signer2?.nipOrId || "NIP. 19880412 201101 1 003",
+        signatureUrl: existing?.signer2?.signatureUrl || "",
+      },
+      stampUrl: existing?.stampUrl || "",
+    });
+    setIsCertConfigModalOpen(true);
+  };
+
+  const handleSaveCertConfig = async () => {
+    if (!selectedEvent) return;
+    setIsSavingCertConfig(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPDATE_CERTIFICATE_CONFIG",
+          eventId: selectedEvent.id,
+          certificateConfig: certConfigForm,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEventsList((prev) =>
+          prev.map((e) =>
+            e.id === selectedEvent.id ? { ...e, certificateConfig: certConfigForm } : e
+          )
+        );
+        setIsCertConfigModalOpen(false);
+        showSyncToast("✓ Konfigurasi TTD & Nama Sertifikat berhasil disimpan!");
+      } else {
+        alert(data.message || "Gagal menyimpan konfigurasi sertifikat");
+      }
+    } catch {
+      alert("Terjadi kesalahan jaringan saat menyimpan konfigurasi sertifikat.");
+    } finally {
+      setIsSavingCertConfig(false);
+    }
+  };
+
+  // Champion certificate handlers
+  const handleOpenChampionCertModal = (attendee: RegisteredAttendee) => {
+    setChampionModalAttendee(attendee);
+    setChampionCertTitle(attendee.championCertificateTitle || "Juara 1 Utama LKBB");
+    setChampionCertUrl(attendee.championCertificateUrl || "");
+  };
+
+  const handleSaveChampionCert = async () => {
+    if (!championModalAttendee) return;
+    setIsSavingChampionCert(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPLOAD_CHAMPION_CERTIFICATE",
+          attendeeId: championModalAttendee.id,
+          certificateTitle: championCertTitle,
+          certificateUrl: championCertUrl,
+          verifiedBy: currentUser?.name || "Admin CETAS",
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.attendee) {
+        setAttendees((prev: RegisteredAttendee[]) =>
+          prev.map((a: RegisteredAttendee) => (a.id === championModalAttendee.id ? data.attendee : a))
+        );
+        setChampionModalAttendee(null);
+        showSyncToast("✓ Piagam kejuaraan pasukan berhasil disimpan!");
+      }
+    } catch {
+      alert("Gagal menyimpan piagam kejuaraan.");
+    } finally {
+      setIsSavingChampionCert(false);
+    }
+  };
+
+  const handleDeleteChampionCert = async () => {
+    if (!championModalAttendee) return;
+    if (!confirm("Hapus piagam kejuaraan dari pasukan ini?")) return;
+    setIsSavingChampionCert(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "DELETE_CHAMPION_CERTIFICATE",
+          attendeeId: championModalAttendee.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAttendees((prev: RegisteredAttendee[]) =>
+          prev.map((a: RegisteredAttendee) =>
+            a.id === championModalAttendee.id
+              ? {
+                  ...a,
+                  championCertificateUrl: undefined,
+                  championCertificateTitle: undefined,
+                }
+              : a
+          )
+        );
+        setChampionModalAttendee(null);
+        showSyncToast("Piagam kejuaraan berhasil dihapus.");
+      }
+    } catch {
+      alert("Gagal menghapus piagam.");
+    } finally {
+      setIsSavingChampionCert(false);
+    }
+  };
+
+  // Squad members handlers (Admin)
+  const handleOpenAdminSquadModal = (attendee: RegisteredAttendee) => {
+    setAdminSquadAttendee(attendee);
+    setShowQuickPaste(false);
+    setQuickPasteText("");
+    const existing = attendee.squadMembers;
+    if (existing && existing.length > 0) {
+      setAdminSquadForm(existing);
+    } else {
+      const list: SquadMemberItem[] = [];
+      list.push({
+        name: attendee.dantonName || "",
+        role: "Komandan Peleton (Danton)",
+        isReserve: false,
+        nisnOrId: "",
+      });
+      for (let i = 1; i <= 16; i++) {
+        const saf = Math.ceil(i / 3);
+        const posLabel = i === 1 ? "Penjuru Kanan" : i === 16 ? "Penutup Kiri" : `Saf ${saf} - Banjar ${((i - 1) % 3) + 1}`;
+        list.push({
+          name: "",
+          role: `Personel ${String(i).padStart(2, "0")} (${posLabel})`,
+          isReserve: false,
+          nisnOrId: "",
+        });
+      }
+      list.push({ name: "", role: "Cadangan 01", isReserve: true, nisnOrId: "" });
+      list.push({ name: "", role: "Cadangan 02", isReserve: true, nisnOrId: "" });
+      setAdminSquadForm(list);
+    }
+  };
+
+  const handleApplyQuickPaste = () => {
+    if (!quickPasteText.trim()) return;
+    const lines = quickPasteText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    const updated = [...adminSquadForm];
+    lines.forEach((line, idx) => {
+      if (idx >= updated.length) return;
+      // Strip leading numbering, e.g. "1.", "1. ", "1 -", "1)", "#1"
+      const cleaned = line.replace(/^#?\d+[\.\)\-\:\s]+\s*/, "").trim();
+      
+      let namePart = cleaned;
+      let nisnPart = updated[idx].nisnOrId || "";
+
+      if (cleaned.includes("\t")) {
+        const parts = cleaned.split("\t");
+        namePart = parts[0].trim();
+        nisnPart = parts.slice(1).join(" ").trim();
+      } else if (cleaned.includes(",")) {
+        const parts = cleaned.split(",");
+        namePart = parts[0].trim();
+        nisnPart = parts.slice(1).join(" ").trim();
+      }
+
+      updated[idx] = {
+        ...updated[idx],
+        name: namePart,
+        nisnOrId: nisnPart,
+      };
+    });
+
+    setAdminSquadForm(updated);
+    setShowQuickPaste(false);
+    setQuickPasteText("");
+    showSyncToast(`✓ Berhasil memuat ${Math.min(lines.length, updated.length)} nama peserta ke susunan formulir!`);
+  };
+
+  const handleSaveAdminSquad = async () => {
+    if (!adminSquadAttendee) return;
+    setIsSavingAdminSquad(true);
+    try {
+      const res = await fetch("/api/attendees", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "UPDATE_SQUAD_MEMBERS",
+          attendeeId: adminSquadAttendee.id,
+          squadMembers: adminSquadForm,
+          dantonName: adminSquadForm[0]?.name || adminSquadAttendee.dantonName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.attendee) {
+        setAttendees((prev: RegisteredAttendee[]) =>
+          prev.map((a: RegisteredAttendee) => (a.id === adminSquadAttendee.id ? data.attendee : a))
+        );
+        setAdminSquadAttendee(null);
+        showSyncToast("✓ Susunan 16 personel kontingen berhasil disimpan!");
+      }
+    } catch {
+      alert("Gagal menyimpan susunan personel.");
+    } finally {
+      setIsSavingAdminSquad(false);
     }
   };
 
@@ -4277,41 +4550,54 @@ export default function AdminDashboardPage() {
                         </p>
                       </div>
 
-                      {/* Kontrol Publikasi Nilai Final ke Pelatih */}
+                      {/* Kontrol Sertifikat & Publikasi Nilai Final ke Pelatih */}
                       {!isPanitia && (
-                        <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex flex-col sm:flex-row items-center gap-3 shrink-0">
-                          <div className="text-left sm:text-right">
-                            <span className="text-[10px] uppercase font-bold text-purple-200 block">
-                              Akses Lembar Nilai Pelatih
-                            </span>
-                            <span className={`text-xs font-black ${selectedEvent.isScorePublishedToCoaches ? "text-emerald-300" : "text-amber-300"}`}>
-                              {selectedEvent.isScorePublishedToCoaches ? "✓ Terbuka (Nilai Final Dirilis)" : "🔒 Tertutup (Nilai Dirahasiakan)"}
-                            </span>
-                          </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                          {/* Tombol Pengaturan Sertifikat & TTD */}
                           <button
                             type="button"
-                            disabled={isTogglingScoreRelease}
-                            onClick={handleToggleScoreRelease}
-                            className={`px-4 py-2.5 rounded-xl font-black text-xs transition shadow-md flex items-center gap-2 ${
-                              selectedEvent.isScorePublishedToCoaches
-                                ? "bg-slate-900 hover:bg-slate-950 text-purple-200 border border-purple-400/30"
-                                : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30"
-                            }`}
+                            onClick={handleOpenCertConfigModal}
+                            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-white/10 hover:bg-white/20 text-white border border-white/20 transition shadow-sm flex items-center justify-center gap-2"
                           >
-                            {isTogglingScoreRelease ? (
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            ) : selectedEvent.isScorePublishedToCoaches ? (
-                              <>
-                                <Lock className="h-3.5 w-3.5 text-amber-300" />
-                                Tutup/Kunci Nilai
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                                Rilis Nilai Final ke Pelatih
-                              </>
-                            )}
+                            <Settings className="h-4 w-4 text-amber-300" />
+                            <span>Pengaturan TTD &amp; Format Sertifikat</span>
                           </button>
+
+                          {/* Kontrol Publikasi Nilai Final ke Pelatih */}
+                          <div className="p-3 sm:p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 flex flex-col sm:flex-row items-center gap-3">
+                            <div className="text-left sm:text-right">
+                              <span className="text-[10px] uppercase font-bold text-purple-200 block">
+                                Akses Nilai Pelatih
+                              </span>
+                              <span className={`text-xs font-black ${selectedEvent.isScorePublishedToCoaches ? "text-emerald-300" : "text-amber-300"}`}>
+                                {selectedEvent.isScorePublishedToCoaches ? "✓ Terbuka" : "🔒 Tertutup"}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={isTogglingScoreRelease}
+                              onClick={handleToggleScoreRelease}
+                              className={`px-3.5 py-2 rounded-xl font-black text-xs transition shadow-md flex items-center gap-2 ${
+                                selectedEvent.isScorePublishedToCoaches
+                                  ? "bg-slate-900 hover:bg-slate-950 text-purple-200 border border-purple-400/30"
+                                  : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/30"
+                              }`}
+                            >
+                              {isTogglingScoreRelease ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : selectedEvent.isScorePublishedToCoaches ? (
+                                <>
+                                  <Lock className="h-3.5 w-3.5 text-amber-300" />
+                                  Tutup/Kunci Nilai
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                                  Rilis Nilai ke Pelatih
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -4655,6 +4941,33 @@ export default function AdminDashboardPage() {
                                           Tangguhkan
                                         </button>
                                       ) : null}
+
+                                      {!isPanitia && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenChampionCertModal(item)}
+                                          title="Upload / Kelola Piagam Prestasi Juara Kontingen"
+                                          className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black transition flex items-center gap-1 border ${
+                                            item.championCertificateUrl
+                                              ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
+                                              : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                                          }`}
+                                        >
+                                          <Trophy className="h-3 w-3 text-amber-500" />
+                                          <span>{item.championCertificateUrl ? "Juara ✓" : "Piagam"}</span>
+                                        </button>
+                                      )}
+
+                                      {!isPanitia && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenAdminSquadModal(item)}
+                                          title="Kelola Susunan 16 Personel &amp; Cadangan"
+                                          className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 hover:bg-slate-100 dark:text-slate-300 transition"
+                                        >
+                                          <Users className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
 
                                       {!isPanitia && (
                                         <button
@@ -8150,6 +8463,542 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: PENGATURAN TTD, NAMA & FORMAT SERTIFIKAT */}
+      {/* ------------------------------------------------------------------ */}
+      {isCertConfigModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-800/40">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center">
+                  <Award className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Pengaturan Nama, TTD Digital &amp; Format E-Sertifikat
+                  </h3>
+                  <p className="text-[11px] text-purple-200/80">
+                    Kustomisasi nama pejabat penandatangan, gelar, NIP, stempel resmi, dan format tanggal sertifikat.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCertConfigModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveCertConfig();
+              }}
+              className="p-6 space-y-5 max-h-[72vh] overflow-y-auto text-xs"
+            >
+              {/* Bagian Penerbitan & Lembaga */}
+              <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 block tracking-wider">
+                  1. Informasi Penerbitan &amp; Penomoran
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Kota Penerbitan:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Jakarta"
+                      value={certConfigForm.issueCity || ""}
+                      onChange={(e) => setCertConfigForm({ ...certConfigForm, issueCity: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tanggal Terbit Sertifikat:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 30 Oktober 2026"
+                      value={certConfigForm.issueDate || ""}
+                      onChange={(e) => setCertConfigForm({ ...certConfigForm, issueDate: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nama Lembaga / Federasi Penyelenggara:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. LEMBAGA KOMPETISI BARIS BERBARIS INDONESIA"
+                      value={certConfigForm.institutionName || ""}
+                      onChange={(e) => setCertConfigForm({ ...certConfigForm, institutionName: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Penandatangan 1 (Ketua Panitia) */}
+              <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 block tracking-wider">
+                  2. Penandatangan 1 (Ketua Panitia / Pimpinan Penyelenggara)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Jabatan Penandatangan 1:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ketua Panitia Penyelenggara"
+                      value={certConfigForm.signer1?.role || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer1: { ...(certConfigForm.signer1 || { name: "", role: "" }), role: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nama Lengkap &amp; Gelar:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ardi Purwanto, S.Pd."
+                      value={certConfigForm.signer1?.name || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer1: { ...(certConfigForm.signer1 || { name: "", role: "" }), name: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      NIP / Nomor Identitas (Opsional):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. NIP. 19910523 201502 1 002"
+                      value={certConfigForm.signer1?.nipOrId || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer1: { ...(certConfigForm.signer1 || { name: "", role: "" }), nipOrId: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      URL Gambar Scan TTD 1 (Opsional, jika kosong menggunakan kaligrafi digital resmi):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://... atau data:image/png..."
+                      value={certConfigForm.signer1?.signatureUrl || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer1: { ...(certConfigForm.signer1 || { name: "", role: "" }), signatureUrl: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Penandatangan 2 (Ketua Dewan Juri) */}
+              <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 block tracking-wider">
+                  3. Penandatangan 2 (Ketua Dewan Juri)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Jabatan Penandatangan 2:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Ketua Dewan Juri CETAS"
+                      value={certConfigForm.signer2?.role || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer2: { ...(certConfigForm.signer2 || { name: "", role: "" }), role: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nama Lengkap &amp; Gelar:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. M. Rian Arifin, S.Pd., M.Han"
+                      value={certConfigForm.signer2?.name || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer2: { ...(certConfigForm.signer2 || { name: "", role: "" }), name: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      NIP / Nomor Identitas (Opsional):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. NIP. 19880412 201101 1 003"
+                      value={certConfigForm.signer2?.nipOrId || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer2: { ...(certConfigForm.signer2 || { name: "", role: "" }), nipOrId: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      URL Gambar Scan TTD 2 (Opsional, jika kosong menggunakan kaligrafi digital resmi):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://... atau data:image/png..."
+                      value={certConfigForm.signer2?.signatureUrl || ""}
+                      onChange={(e) =>
+                        setCertConfigForm({
+                          ...certConfigForm,
+                          signer2: { ...(certConfigForm.signer2 || { name: "", role: "" }), signatureUrl: e.target.value },
+                        })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCertConfigModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCertConfig}
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-md transition flex items-center gap-1.5"
+                >
+                  {isSavingCertConfig ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  {isSavingCertConfig ? "Menyimpan..." : "Simpan Pengaturan Sertifikat ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: UPLOAD / KELOLA PIAGAM PRESTASI JUARA KONTINGEN */}
+      {/* ------------------------------------------------------------------ */}
+      {championModalAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-amber-600 via-amber-700 to-amber-900 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-white/20 text-white flex items-center justify-center">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Kelola Piagam Prestasi Juara Kontingen
+                  </h3>
+                  <p className="text-[11px] text-amber-100">
+                    Pasukan: <strong>{championModalAttendee.fullName}</strong> ({championModalAttendee.institution})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChampionModalAttendee(null)}
+                className="p-1.5 rounded-lg text-amber-200 hover:text-white hover:bg-white/10 transition"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveChampionCert();
+              }}
+              className="p-6 space-y-4 text-xs"
+            >
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Gelar / Judul Kejuaraan:
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Juara 1 Utama LKBB, Juara Umum, Harapan 1"
+                  value={championCertTitle}
+                  onChange={(e) => setChampionCertTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <FileUpload
+                  label="Upload Berkas / Gambar Piagam Sertifikat Resmi"
+                  description="Format JPG, PNG, atau WebP bersolusi tinggi (Maks. 5 MB)"
+                  accept="image/*"
+                  value={championCertUrl}
+                  onChange={(url) => setChampionCertUrl(url)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Atau Tempel URL Berkas Piagam:
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://... atau data:image/..."
+                  value={championCertUrl}
+                  onChange={(e) => setChampionCertUrl(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                {championModalAttendee.championCertificateUrl ? (
+                  <button
+                    type="button"
+                    onClick={handleDeleteChampionCert}
+                    className="px-3.5 py-2 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold transition flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Hapus Piagam
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChampionModalAttendee(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingChampionCert || !championCertUrl}
+                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-slate-950 font-black text-xs shadow-md transition flex items-center gap-1.5"
+                  >
+                    {isSavingChampionCert ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Simpan Piagam ✓
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL: KELOLA SUSUNAN 16 PERSONEL OLEH ADMIN */}
+      {/* ------------------------------------------------------------------ */}
+      {adminSquadAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 text-white border-b border-purple-800/40">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-purple-600/40 text-purple-300 border border-purple-500/30 flex items-center justify-center">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Susunan 16 Personel &amp; Cadangan Kontingen
+                  </h3>
+                  <p className="text-[11px] text-purple-200/80">
+                    Pasukan: <strong>{adminSquadAttendee.fullName}</strong> • {adminSquadAttendee.institution}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminSquadAttendee(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Quick Paste Assistant for Admin */}
+              <div className="bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800/40 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-purple-600/10 text-purple-700 dark:text-purple-300">
+                      📋
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Input Cepat via Salin/Tempel (WhatsApp / Excel)
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        Urutan susunan: Baris 1 = Danton, Baris 2..17 = 16 Personel Inti, Baris 18..19 = Cadangan.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickPaste(!showQuickPaste)}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition shadow-xs"
+                  >
+                    {showQuickPaste ? "Tutup Tempel" : "Buka Tempel Cepat ▾"}
+                  </button>
+                </div>
+
+                {showQuickPaste && (
+                  <div className="pt-2 border-t border-purple-200/60 dark:border-purple-800/40 space-y-2">
+                    <textarea
+                      rows={6}
+                      value={quickPasteText}
+                      onChange={(e) => setQuickPasteText(e.target.value)}
+                      placeholder={`Contoh tempel (langsung salin dari WA atau Excel):\n1. Arya Pratama\n2. Budi Santoso\n3. Citra Dewi\n... atau dengan NISN dipisah koma/tab:\nArya Pratama, 008123456`}
+                      className="w-full p-2.5 rounded-xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-purple-500/30"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-500">
+                        {quickPasteText.trim() ? `${quickPasteText.split("\n").filter((l) => l.trim()).length} baris terdeteksi` : "Belum ada teks ditempel"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleApplyQuickPaste}
+                        disabled={!quickPasteText.trim()}
+                        className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition"
+                      >
+                        Terapkan ke Formulir ↵
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {adminSquadForm.map((member, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-2xl border transition ${
+                      member.isReserve
+                        ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50"
+                        : idx === 0
+                        ? "bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50"
+                        : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                          member.isReserve
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                            : idx === 0
+                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                            : "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200"
+                        }`}>
+                          {idx === 0 ? "DANTON" : member.isReserve ? `CADANGAN ${idx - 16}` : `#${String(idx).padStart(2, "0")}`}
+                        </span>
+                        <span>{member.role || `Personel ${idx}`}</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nama Lengkap Siswa"
+                        value={member.name}
+                        onChange={(e) => {
+                          const updated = [...adminSquadForm];
+                          updated[idx].name = e.target.value;
+                          setAdminSquadForm(updated);
+                        }}
+                        className="sm:col-span-2 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                      />
+                      <input
+                        type="text"
+                        placeholder="NISN / ID"
+                        value={member.nisnOrId || ""}
+                        onChange={(e) => {
+                          const updated = [...adminSquadForm];
+                          updated[idx].nisnOrId = e.target.value;
+                          setAdminSquadForm(updated);
+                        }}
+                        className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-purple-600"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-500">
+                Terisi: <strong className="text-slate-800 dark:text-slate-200">{adminSquadForm.filter((m) => m.name.trim()).length}</strong> dari {adminSquadForm.length} anggota
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAdminSquadAttendee(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingAdminSquad}
+                  onClick={handleSaveAdminSquad}
+                  className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md transition flex items-center gap-1.5"
+                >
+                  {isSavingAdminSquad ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Simpan Susunan Personel ✓
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

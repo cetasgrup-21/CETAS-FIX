@@ -111,6 +111,8 @@ export default function AdminPage() {
   const [interval, setInterval] = useState("2");
   const [materialId, setMaterialId] = useState("");
   const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
+  const [materialSessionIndex, setMaterialSessionIndex] = useState(0);
+  const [showMaterialSuggestions, setShowMaterialSuggestions] = useState(false);
 
   // EDIT MATERI
   const [editingCriterionId, setEditingCriterionId] = useState<string | null>(null);
@@ -158,6 +160,43 @@ export default function AdminPage() {
         .sort((a, b) => a.sortOrder - b.sortOrder),
     [levels]
   );
+
+  // ============================================================
+  // RIWAYAT MATERI & SESI ABJAD (5 PER SESI)
+  // ============================================================
+  const sortedAlphabeticalMaterials = useMemo(() => {
+    return [...masterMaterials].sort((a, b) =>
+      a.name.localeCompare(b.name, "id", { sensitivity: "base" })
+    );
+  }, [masterMaterials]);
+
+  const totalMaterialSessions = Math.max(
+    1,
+    Math.ceil(sortedAlphabeticalMaterials.length / 5)
+  );
+
+  const currentSessionMaterials = useMemo(() => {
+    const start = materialSessionIndex * 5;
+    return sortedAlphabeticalMaterials.slice(start, start + 5);
+  }, [sortedAlphabeticalMaterials, materialSessionIndex]);
+
+  const currentSessionRange = useMemo(() => {
+    if (currentSessionMaterials.length === 0) return "";
+    const first = currentSessionMaterials[0].name.trim().charAt(0).toUpperCase();
+    const last = currentSessionMaterials[currentSessionMaterials.length - 1].name.trim().charAt(0).toUpperCase();
+    return first === last ? first : (first + " - " + last);
+  }, [currentSessionMaterials]);
+
+  // Autocomplete suggestion saat mengetik (misal "sik" -> "Sikap Sempurna")
+  const filteredMaterialSuggestions = useMemo(() => {
+    const q = materialName.trim().toLowerCase();
+    if (!q) {
+      return sortedAlphabeticalMaterials.slice(0, 8);
+    }
+    return masterMaterials
+      .filter((m) => m.name.toLowerCase().includes(q))
+      .slice(0, 10);
+  }, [masterMaterials, sortedAlphabeticalMaterials, materialName]);
 
   function intervalDifficulty(value: number | string | null | undefined) {
     switch (Number(value)) {
@@ -869,7 +908,7 @@ export default function AdminPage() {
         categoryId: selectedCategory,
         subCategoryId: subCategory.id,
         materialId: materialId || null,
-        name: materialId ? "" : materialName.trim(),
+        name: materialName.trim(),
         categoryName: category.name,
         section: subCategory.name,
         interval: Number(interval),
@@ -916,6 +955,7 @@ export default function AdminPage() {
       setMaterialName("");
       setMaterialId("");
       setInterval("2");
+      setShowMaterialSuggestions(false);
 
       // Segera sinkronkan daftar master materi agar materi baru langsung muncul di dropdown riwayat
       void loadMaterials(category.name);
@@ -1107,7 +1147,10 @@ export default function AdminPage() {
 
       if (materialId === id) {
         setMaterialId("");
+        setMaterialName("");
       }
+
+      setMasterMaterials((prev) => prev.filter((item) => item.id !== id));
 
       const category = event?.categories.find(
         (item) => item.id === selectedCategory
@@ -2162,67 +2205,257 @@ export default function AdminPage() {
                             </p>
                           </div>
 
-                          <div className="grid gap-2 md:grid-cols-3">
-                            {/* MASTER MATERIAL */}
-                            <div className="flex gap-2 md:col-span-2">
-                              <select
-                                value={materialId}
-                                onChange={(e) => {
-                                  const mId = e.target.value;
-                                  setMaterialId(mId);
-                                  const found = masterMaterials.find((m) => m.id === mId);
-                                  if (found) {
-                                    setMaterialName(found.name);
-                                    if ((found as any).defaultInterval) {
-                                      setInterval(String((found as any).defaultInterval));
-                                    }
-                                  } else {
-                                    setMaterialName("");
-                                  }
-                                }}
-                                className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm font-semibold"
-                              >
-                                <option value="">
-                                  + Materi baru (atau pilih dari riwayat...)
-                                </option>
+                          {/* ========================================================
+                              1. RIWAYAT CEPAT 5-5 SESUAI ABJAD (DAPAT DIGESER KE KANAN)
+                          ========================================================= */}
+                          <div className="mb-4 rounded-xl border border-blue-200/80 bg-white p-3 shadow-xs">
+                            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#071a3d]">
+                                  📚 Riwayat Abjad (5 per sesi)
+                                </span>
+                                {currentSessionRange && (
+                                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 border border-blue-200/60">
+                                    Abjad: {currentSessionRange}
+                                  </span>
+                                )}
+                              </div>
 
-                                {masterMaterials.map((m) => (
-                                  <option
-                                    key={m.id}
-                                    value={m.id}
+                              {/* NAVIGASI GESER SESI */}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-slate-500">
+                                  Sesi {materialSessionIndex + 1} / {totalMaterialSessions}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={materialSessionIndex <= 0}
+                                    onClick={() => setMaterialSessionIndex((prev) => Math.max(0, prev - 1))}
+                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-700 transition active:scale-95 disabled:opacity-30 hover:bg-slate-50 hover:border-slate-300"
+                                    title="Geser ke 5 materi sebelumnya"
                                   >
-                                    {m.name} — Interval {(m as any).defaultInterval || 2} ({m.section})
-                                  </option>
-                                ))}
-                              </select>
-
-                              {materialId && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    deleteMasterMaterial(materialId)
-                                  }
-                                  className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition active:scale-95 hover:bg-red-50"
-                                  title="Hapus materi dari history pilihan"
-                                >
-                                  Hapus history
-                                </button>
-                              )}
+                                    ◀
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={materialSessionIndex >= totalMaterialSessions - 1}
+                                    onClick={() => setMaterialSessionIndex((prev) => Math.min(totalMaterialSessions - 1, prev + 1))}
+                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-black text-slate-700 transition active:scale-95 disabled:opacity-30 hover:bg-slate-50 hover:border-slate-300"
+                                    title="Geser ke 5 materi berikutnya"
+                                  >
+                                    ▶
+                                  </button>
+                                </div>
+                              </div>
                             </div>
 
-                            {/* MATERI BARU */}
-                            {!materialId && (
-                              <input
-                                value={materialName}
-                                onChange={(e) =>
-                                  setMaterialName(
-                                    e.target.value
-                                  )
-                                }
-                                placeholder="Nama materi baru"
-                                className="rounded-lg border px-3 py-2 text-sm"
-                              />
+                            {/* 5 CHIPS PER SESI */}
+                            {currentSessionMaterials.length > 0 ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
+                                {currentSessionMaterials.map((m) => {
+                                  const isSelected =
+                                    materialId === m.id ||
+                                    materialName.trim().toLowerCase() === m.name.toLowerCase();
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      onClick={() => {
+                                        setMaterialId(m.id);
+                                        setMaterialName(m.name);
+                                        if ((m as any).defaultInterval) {
+                                          setInterval(String((m as any).defaultInterval));
+                                        }
+                                        setShowMaterialSuggestions(false);
+                                      }}
+                                      className={`group relative flex cursor-pointer items-center justify-between gap-1.5 rounded-xl border p-2.5 text-left transition active:scale-95 ${
+                                        isSelected
+                                          ? "border-blue-600 bg-blue-600 text-white shadow-sm ring-2 ring-blue-300"
+                                          : "border-slate-200 bg-slate-50/60 text-slate-800 hover:border-blue-300 hover:bg-blue-50/50"
+                                      }`}
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <p
+                                          className={`truncate text-xs font-black ${
+                                            isSelected ? "text-white" : "text-[#071a3d]"
+                                          }`}
+                                          title={m.name}
+                                        >
+                                          {m.name}
+                                        </p>
+                                        <div className="mt-0.5 flex items-center gap-1">
+                                          <span
+                                            className={`rounded-md px-1.5 py-0.2 text-[10px] font-black ${
+                                              isSelected
+                                                ? "bg-blue-700 text-blue-100"
+                                                : "bg-blue-100/70 text-blue-800"
+                                            }`}
+                                          >
+                                            Int. {(m as any).defaultInterval || 2}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* TOMBOL HAPUS 1 MATERI INI */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void deleteMasterMaterial(m.id);
+                                        }}
+                                        className={`shrink-0 rounded-lg p-1.5 text-xs transition ${
+                                          isSelected
+                                            ? "text-blue-200 hover:bg-blue-700 hover:text-white"
+                                            : "text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                        }`}
+                                        title={`Hapus "${m.name}" dari riwayat master`}
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs italic text-slate-500 py-1">
+                                Belum ada riwayat materi. Ketik nama materi di kolom pencarian bawah untuk mulai.
+                              </p>
                             )}
+                          </div>
+
+                          {/* ========================================================
+                              2. INPUT PENCARIAN AUTOCOMPLETE & INTERVAL
+                          ========================================================= */}
+                          <div className="grid gap-3 md:grid-cols-3">
+                            {/* SEARCHABLE INPUT DENGAN AUTOCOMPLETE */}
+                            <div className="relative md:col-span-2">
+                              <label className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
+                                Cari / Ketik Nama Materi
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={materialName}
+                                  onChange={(e) => {
+                                    setMaterialName(e.target.value);
+                                    setMaterialId("");
+                                    setShowMaterialSuggestions(true);
+                                  }}
+                                  onFocus={() => setShowMaterialSuggestions(true)}
+                                  placeholder='Ketik nama materi (misal: "Sikap sempurna", "Berkumpul")...'
+                                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 pr-8 text-sm font-bold text-[#071a3d] outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                />
+                                {materialName && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMaterialName("");
+                                      setMaterialId("");
+                                      setShowMaterialSuggestions(false);
+                                    }}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-xs font-black text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                    title="Bersihkan teks"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* AUTOCOMPLETE DROPDOWN */}
+                              {showMaterialSuggestions && (
+                                <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl animate-in fade-in">
+                                  <div className="flex items-center justify-between border-b border-slate-100 px-2 py-1 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                    <span>Riwayat Cocok ({filteredMaterialSuggestions.length})</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowMaterialSuggestions(false)}
+                                      className="font-bold text-slate-400 hover:text-slate-700"
+                                    >
+                                      ✕ Tutup
+                                    </button>
+                                  </div>
+
+                                  {filteredMaterialSuggestions.length > 0 ? (
+                                    <div className="mt-1 divide-y divide-slate-100">
+                                      {filteredMaterialSuggestions.map((item) => (
+                                        <div
+                                          key={item.id}
+                                          onClick={() => {
+                                            setMaterialId(item.id);
+                                            setMaterialName(item.name);
+                                            if ((item as any).defaultInterval) {
+                                              setInterval(String((item as any).defaultInterval));
+                                            }
+                                            setShowMaterialSuggestions(false);
+                                          }}
+                                          className="flex cursor-pointer items-center justify-between rounded-xl p-2 transition hover:bg-blue-50 active:scale-[0.99]"
+                                        >
+                                          <div className="min-w-0 flex-1">
+                                            <span className="text-sm font-bold text-[#071a3d]">
+                                              {item.name}
+                                            </span>
+                                            <span className="ml-2 inline-block rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-700">
+                                              Interval {(item as any).defaultInterval || 2}
+                                            </span>
+                                            {item.section && (
+                                              <span className="ml-1.5 text-[11px] text-slate-400">
+                                                ({item.section})
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* TOMBOL HAPUS 1 MATERI INI */}
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              void deleteMasterMaterial(item.id);
+                                            }}
+                                            className="rounded-lg p-1.5 text-xs text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                            title={`Hapus "${item.name}" dari riwayat master`}
+                                          >
+                                            🗑️
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-3 text-center text-xs text-slate-500">
+                                      Tidak ada riwayat materi yang cocok dengan &ldquo;{materialName}&rdquo;.
+                                    </div>
+                                  )}
+
+                                  {materialName.trim() && (
+                                    <div
+                                      onClick={() => {
+                                        setMaterialId("");
+                                        setShowMaterialSuggestions(false);
+                                      }}
+                                      className="mt-2 cursor-pointer rounded-xl border border-dashed border-blue-200 bg-blue-50/60 p-2.5 text-center text-xs font-black text-blue-700 transition hover:bg-blue-100"
+                                    >
+                                      ✨ Tambah sebagai materi baru: &ldquo;{materialName.trim()}&rdquo;
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {materialId && (
+                                <div className="mt-1 flex items-center justify-between text-xs text-blue-700">
+                                  <span className="font-semibold">
+                                    ✓ Memakai riwayat: <strong className="font-bold text-blue-900">{materialName}</strong>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setMaterialId("");
+                                      setMaterialName("");
+                                    }}
+                                    className="font-bold text-slate-400 hover:text-red-600"
+                                  >
+                                    ✕ Batal Pilih
+                                  </button>
+                                </div>
+                              )}
+                            </div>
 
                             {/* INTERVAL MATERI */}
                             <div className="md:col-span-1">
@@ -2232,7 +2465,7 @@ export default function AdminPage() {
                               <select
                                 value={interval}
                                 onChange={(e) => setInterval(e.target.value)}
-                                className="w-full rounded-lg border px-3 py-2"
+                                className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-bold text-[#071a3d] outline-none focus:border-blue-500"
                               >
                                 <option value="2">2 — Mudah</option>
                                 <option value="3">3 — Cenderung mudah</option>

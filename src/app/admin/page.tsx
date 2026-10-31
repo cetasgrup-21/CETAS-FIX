@@ -2232,15 +2232,11 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Daftar Pasukan & Pelatih untuk Event yang Sedang Dibuka
+  // Daftar Pasukan & Pelatih untuk Event yang Sedang Dibuka (Isolasi ketat berdasarkan ID event unik)
   const currentEventAttendees: RegisteredAttendee[] = useMemo(() => {
     if (!selectedEventId) return [];
-    return attendees.filter(
-      (a: RegisteredAttendee) =>
-        a.eventId === selectedEventId ||
-        (selectedEvent && a.eventName?.toLowerCase().trim() === selectedEvent.title?.toLowerCase().trim())
-    );
-  }, [attendees, selectedEventId, selectedEvent]);
+    return attendees.filter((a: RegisteredAttendee) => a.eventId === selectedEventId);
+  }, [attendees, selectedEventId]);
 
   // Prioritize selectedEventId FIRST so activeVoteEvent NEVER falls back to a different event when inside an Event Workspace
   const activeVoteEvent: EventVotingConfig | undefined =
@@ -2939,8 +2935,8 @@ export default function AdminDashboardPage() {
   );
 
   const currentEventRecentOrders = (currentEventFinances?.recentOrders && currentEventFinances.recentOrders.length > 0)
-    ? currentEventFinances.recentOrders
-    : globalRecentOrders.filter((ord: any) => ord.eventId === selectedEvent?.id || ord.eventName?.toLowerCase().includes("baravos"));
+    ? currentEventFinances.recentOrders.filter((ord: any) => ord.eventId === selectedEvent?.id)
+    : globalRecentOrders.filter((ord: any) => ord.eventId === selectedEvent?.id);
 
   // Computed live / fallback finances across all events:
   const effectiveTicketOmzet = Math.max(

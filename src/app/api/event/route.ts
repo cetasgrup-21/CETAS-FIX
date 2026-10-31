@@ -160,6 +160,11 @@ export async function GET(req: Request) {
 
                   include: {
                     material: true,
+                    options: {
+                      orderBy: {
+                        sortOrder: "asc",
+                      },
+                    },
                   },
                 },
               },

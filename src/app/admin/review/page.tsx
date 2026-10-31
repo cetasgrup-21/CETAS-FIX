@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getCategoryMaximum,
+  getPerJudgeMaximum,
+  generateCategoryScoreOptions,
+} from "@/lib/scoring-engine";
 
 type ScoreOption = {
   id: string;
@@ -245,10 +250,53 @@ function ScoreTable({
   subCategory: SubCategory | null;
   criteria: Criterion[];
 }) {
-  const reviewOptions = criteria.map((criterion) => ({
+  let reviewOptions = criteria.map((criterion) => ({
     criterion,
     options: getReviewOptions(criterion),
   }));
+
+  // Fallback pengaman jika opsi di DB belum terisi / belum ter-fetch:
+  // Hitung langsung menggunakan scoring engine resmi CETAS agar lembar penilaian
+  // tidak pernah kosong ("Belum ada nilai yang dapat ditampilkan").
+  const hasMissingOptions = reviewOptions.some((item) => item.options.length === 0);
+  if (hasMissingOptions && criteria.length > 0) {
+    const categoryMax = getCategoryMaximum(event.totalPoints || 5000, category.percentage || 0);
+    const judgeCount = Math.max(1, category.judgeLinks?.length || 1);
+    const maxPerJudge = getPerJudgeMaximum(categoryMax, judgeCount);
+
+    const allCategoryCriteria = [
+      ...(category.criteria || []),
+      ...(category.subCategories || []).flatMap((s) => s.criteria || []),
+    ];
+
+    const generatedAll = generateCategoryScoreOptions(allCategoryCriteria, maxPerJudge);
+    const generatedMap = new Map<string, ScoreOption[]>();
+    allCategoryCriteria.forEach((crit, idx) => {
+      const generated = generatedAll[idx]?.options || [];
+      generatedMap.set(
+        crit.id,
+        generated
+          .filter((opt) => opt.score > 0)
+          .map((opt) => ({
+            id: `fallback-${crit.id}-${opt.sortOrder}`,
+            label: opt.label,
+            score: Math.floor(opt.score),
+            sortOrder: opt.sortOrder,
+          }))
+      );
+    });
+
+    reviewOptions = criteria.map((criterion) => {
+      const dbOptions = getReviewOptions(criterion);
+      if (dbOptions.length > 0) {
+        return { criterion, options: dbOptions };
+      }
+      return {
+        criterion,
+        options: generatedMap.get(criterion.id) || [],
+      };
+    });
+  }
 
   const maxOptions = Math.max(
     0,

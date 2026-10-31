@@ -11,22 +11,57 @@ export async function GET(req: Request) {
     const category = clean(searchParams.get("category"));
     const section = clean(searchParams.get("section"));
 
+    // Ambil seluruh master materi aktif secara global (lintas event dan tingkatan)
     const materials = await db.masterMaterial.findMany({
       where: {
         status: "ACTIVE",
-        ...(category ? { category } : {}),
-        ...(section ? { section } : {}),
+      },
+      include: {
+        criteria: {
+          take: 1,
+          select: { interval: true },
+        },
       },
       orderBy: [
-        { section: "asc" },
         { name: "asc" },
       ],
     });
 
-    return NextResponse.json({
-      success: true,
-      materials,
+    // Urutkan: yang cocok dengan subkategori/kategori saat ini diletakkan paling atas
+    const sorted = [...materials].sort((a, b) => {
+      const aMatch =
+        (section && a.section.toLowerCase() === section.toLowerCase()) ||
+        (category && a.category.toLowerCase() === category.toLowerCase());
+      const bMatch =
+        (section && b.section.toLowerCase() === section.toLowerCase()) ||
+        (category && b.category.toLowerCase() === category.toLowerCase());
+
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+      return a.name.localeCompare(b.name);
     });
+
+    // Bersihkan duplikat nama materi agar dropdown riwayat rapi
+    const seen = new Set<string>();
+    const deduplicated: typeof sorted = [];
+    for (const item of sorted) {
+      const key = item.name.trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(item);
+      }
+    }
+
+    const formatted = deduplicated.map((m: any) => ({
+      id: m.id,
+      category: m.category,
+      section: m.section,
+      name: m.name,
+      status: m.status,
+      defaultInterval: m.criteria?.[0]?.interval || 2,
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error("GET MASTER MATERIAL ERROR:", error);
     return NextResponse.json(

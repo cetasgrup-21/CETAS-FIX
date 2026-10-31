@@ -4,7 +4,16 @@ import { db } from "@/lib/db";
 import { regenerateCategoryScoreOptions } from "@/lib/scoring-server";
 
 
-async function syncMasterEvents() {
+let lastSyncMasterEventsTime = 0;
+const SYNC_COOLDOWN = 60 * 1000; // 60 detik cooldown agar GET tidak melambat
+
+async function syncMasterEvents(force = false) {
+  const now = Date.now();
+  if (!force && now - lastSyncMasterEventsTime < SYNC_COOLDOWN) {
+    return;
+  }
+  lastSyncMasterEventsTime = now;
+
   try {
     const masterEvents = await getEventsStore().catch(() => []);
     if (!masterEvents || !masterEvents.length) return;
@@ -22,7 +31,8 @@ async function syncMasterEvents() {
             name: mEv.title || "Event Cetas",
             date: validDate,
             location: mEv.location || "Jakarta",
-            logo: mEv.bannerUrl || null,
+            logo: (mEv as any).logoUrl || null,
+            banner: mEv.bannerUrl || null,
             totalPoints: 5000,
             status: "ACTIVE",
             inputMode: "DIGITAL",
@@ -35,6 +45,9 @@ async function syncMasterEvents() {
             name: mEv.title,
             date: validDate,
             location: mEv.location || "Jakarta",
+            banner: mEv.bannerUrl || existing.banner,
+            // Jaga logo kustom event yang diunggah pengguna, jangan timpa dengan banner
+            logo: existing.logo || (mEv as any).logoUrl || null,
           },
         });
       }
@@ -378,6 +391,13 @@ export async function PUT(req: Request) {
           body.logo !== undefined
             ? body.logo
               ? String(body.logo)
+              : null
+            : undefined,
+
+        banner:
+          body.banner !== undefined
+            ? body.banner
+              ? String(body.banner)
               : null
             : undefined,
 

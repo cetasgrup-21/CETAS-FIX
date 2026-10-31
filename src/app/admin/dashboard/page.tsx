@@ -28,6 +28,7 @@ type EventData = {
   name: string;
   date?: string | null;
   location?: string | null;
+  logo?: string | null;
   totalPoints: number;
   status?: string;
   categories?: CategoryData[];
@@ -38,6 +39,7 @@ type EventSummary = {
   name: string;
   date?: string | null;
   location?: string | null;
+  logo?: string | null;
   totalPoints: number;
   status: string;
 };
@@ -77,40 +79,33 @@ export default function AdminDashboardPage() {
 
   async function loadDashboard() {
     try {
-      const activeRes = await fetch("/api/event", {
-        cache: "no-store",
-      });
+      // Parallelize fetches for maximum speed
+      const [activeRes, allRes] = await Promise.all([
+        fetch("/api/event", { cache: "no-store" }),
+        fetch("/api/event?all=true", { cache: "no-store" }),
+      ]);
 
-      const activeData = await activeRes.json();
+      const [activeData, allData] = await Promise.all([
+        activeRes.json(),
+        allRes.json(),
+      ]);
 
       if (activeRes.ok && activeData?.id) {
         setEvent(activeData);
 
-        try {
-          const levelsRes = await fetch(
-            `/api/event-levels?eventId=${encodeURIComponent(activeData.id)}`,
-            { cache: "no-store" }
-          );
-          const levelsData = await levelsRes.json();
-
-          if (levelsRes.ok && Array.isArray(levelsData?.levels)) {
-            setLevels(levelsData.levels);
-          } else {
-            setLevels([]);
-          }
-        } catch {
-          setLevels([]);
-        }
+        // Fetch levels quickly
+        fetch(`/api/event-levels?eventId=${encodeURIComponent(activeData.id)}`, { cache: "no-store" })
+          .then((r) => r.json())
+          .then((lData) => {
+            if (Array.isArray(lData?.levels)) {
+              setLevels(lData.levels);
+            }
+          })
+          .catch(() => setLevels([]));
       } else {
         setEvent(null);
         setLevels([]);
       }
-
-      const allRes = await fetch("/api/event?all=true", {
-        cache: "no-store",
-      });
-
-      const allData = await allRes.json();
 
       if (allRes.ok && Array.isArray(allData)) {
         setEvents(allData);
@@ -134,7 +129,12 @@ export default function AdminDashboardPage() {
   async function activateEvent(id: string) {
     if (!id || id === event?.id) return;
 
+    // Optimistic UI feedback
     setSwitchingEvent(true);
+    const targetSummary = events.find((item) => item.id === id);
+    if (targetSummary) {
+      setEvent((prev) => (prev ? { ...prev, id: targetSummary.id, name: targetSummary.name } : null));
+    }
 
     try {
       const res = await fetch("/api/event", {
@@ -325,14 +325,27 @@ export default function AdminDashboardPage() {
 
           {event ? (
             <div className="flex flex-col gap-3 bg-[#071a3d] px-6 py-4 text-white md:flex-row md:items-center md:justify-between md:px-8">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200">
-                  Event Aktif
-                </p>
+              <div className="flex items-center gap-3">
+                {event.logo ? (
+                  <img
+                    src={event.logo}
+                    alt={`Logo ${event.name}`}
+                    className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 shadow-sm border border-white/20"
+                  />
+                ) : (
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/10 text-[9px] font-black text-blue-200 border border-white/20">
+                    LOGO
+                  </div>
+                )}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200">
+                    Event Aktif
+                  </p>
 
-                <p className="mt-1 text-lg font-black">
-                  {event.name}
-                </p>
+                  <p className="mt-1 text-lg font-black">
+                    {event.name}
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-bold">

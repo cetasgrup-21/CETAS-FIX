@@ -425,32 +425,10 @@ export async function POST(req: Request) {
         );
       }
 
-      /**
-       * Materi harus berasal dari kategori
-       * yang sama.
-       */
-      if (
-        master.category
-          .trim()
-          .toLowerCase() !==
-        category.name
-          .trim()
-          .toLowerCase()
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Materi tersebut berasal dari kategori lain.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
-
       name = master.name;
-      section = master.section;
+      if (!section) {
+        section = master.section;
+      }
     }
 
     /**
@@ -959,13 +937,7 @@ export async function PATCH(req: Request) {
         where: { categoryId, name: section },
       });
 
-      const deleted =
-        await db.masterMaterial.deleteMany({
-          where: {
-            category: categoryName,
-            section,
-          },
-        });
+      const deleted = { count: 0 }; // Master material tetap dipertahankan secara global
 
       return NextResponse.json({
         success: true,
@@ -1419,12 +1391,7 @@ export async function DELETE(req: Request) {
         );
       }
 
-      const deleted = await db.masterMaterial.deleteMany({
-        where: {
-          category: categoryName,
-          section,
-        },
-      });
+      const deleted = { count: 0 }; // Master material tetap dipertahankan secara global
 
       await db.subCategory.deleteMany({
         where: {

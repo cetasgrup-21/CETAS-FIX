@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { regenerateCategoryScoreOptions } from "@/lib/scoring-server";
 
 async function activeEvent() {
   return db.event.findFirst({
@@ -164,6 +165,129 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+
+    // =========================================================
+    // FITUR DUPLIKAT KATEGORI
+    // =========================================================
+    if (body.action === "duplicate") {
+      const sourceCategoryId = clean(body.sourceCategoryId || body.id);
+      if (!sourceCategoryId) {
+        return NextResponse.json(
+          { error: "ID kategori sumber wajib diisi." },
+          { status: 400 }
+        );
+      }
+
+      const source = await db.category.findUnique({
+        where: { id: sourceCategoryId },
+        include: {
+          subCategories: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              criteria: {
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          },
+          criteria: {
+            where: { subCategoryId: null },
+            orderBy: { sortOrder: "asc" },
+          },
+        },
+      });
+
+      if (!source) {
+        return NextResponse.json(
+          { error: "Kategori asal tidak ditemukan." },
+          { status: 404 }
+        );
+      }
+
+      const targetLevelId = body.targetEventLevelId !== undefined
+        ? (body.targetEventLevelId ? clean(body.targetEventLevelId) : null)
+        : source.eventLevelId;
+
+      const targetName = clean(body.targetName) ||
+        (targetLevelId === source.eventLevelId ? `${source.name} (Duplikat)` : source.name);
+
+      const count = await db.category.count({
+        where: {
+          eventId: event.id,
+          eventLevelId: targetLevelId,
+        },
+      });
+
+      const newCategory = await db.$transaction(async (tx) => {
+        const cat = await tx.category.create({
+          data: {
+            eventId: event.id,
+            eventLevelId: targetLevelId,
+            name: targetName,
+            percentage: source.percentage,
+            sortOrder: count + 1,
+            status: "ACTIVE",
+          },
+        });
+
+        for (const sub of source.subCategories) {
+          const newSub = await tx.subCategory.create({
+            data: {
+              categoryId: cat.id,
+              name: sub.name,
+              percentage: sub.percentage,
+              sortOrder: sub.sortOrder,
+              status: "ACTIVE",
+            },
+          });
+
+          for (const crit of sub.criteria) {
+            await tx.criterion.create({
+              data: {
+                categoryId: cat.id,
+                subCategoryId: newSub.id,
+                materialId: crit.materialId,
+                name: crit.name,
+                section: crit.section,
+                interval: crit.interval,
+                difficulty: crit.difficulty,
+                sortOrder: crit.sortOrder,
+                inputType: crit.inputType,
+              },
+            });
+          }
+        }
+
+        for (const crit of source.criteria) {
+          await tx.criterion.create({
+            data: {
+              categoryId: cat.id,
+              subCategoryId: null,
+              materialId: crit.materialId,
+              name: crit.name,
+              section: crit.section,
+              interval: crit.interval,
+              difficulty: crit.difficulty,
+              sortOrder: crit.sortOrder,
+              inputType: crit.inputType,
+            },
+          });
+        }
+
+        return cat;
+      });
+
+      try {
+        await regenerateCategoryScoreOptions(newCategory.id);
+      } catch (err) {
+        console.warn("Regenerate options warning on duplicate:", err);
+      }
+
+      return NextResponse.json(
+        { success: true, category: newCategory, message: `Kategori "${targetName}" berhasil diduplikat.` },
+        { status: 201 }
+      );
+    }
+
     const name = clean(body.name);
     const percentage = Number(body.percentage);
     const eventLevelId = body.eventLevelId

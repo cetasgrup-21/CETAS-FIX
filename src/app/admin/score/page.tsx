@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -92,6 +92,12 @@ export default function AdminPage() {
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [editingCategoryWeight, setEditingCategoryWeight] = useState("0");
   const [editingCategoryLevelId, setEditingCategoryLevelId] = useState("");
+
+  // DUPLICATE CATEGORY
+  const [duplicatingCategory, setDuplicatingCategory] = useState<Category | null>(null);
+  const [duplicateTargetLevelId, setDuplicateTargetLevelId] = useState<string>("");
+  const [duplicateTargetName, setDuplicateTargetName] = useState<string>("");
+  const [duplicatingLoading, setDuplicatingLoading] = useState(false);
 
   // SUBCATEGORY
   const [subName, setSubName] = useState("");
@@ -331,7 +337,24 @@ export default function AdminPage() {
 
       const data = await res.json();
 
-      setMasterMaterials(Array.isArray(data) ? data : []);
+      let list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.materials)
+          ? data.materials
+          : [];
+
+      // Jika filter kategori belum menemukan riwayat, muat seluruh master materi agar selalu ada di pilihan
+      if (list.length === 0 && (category || section)) {
+        const allRes = await fetch("/api/master-materials", { cache: "no-store" });
+        const allData = await allRes.json();
+        list = Array.isArray(allData)
+          ? allData
+          : Array.isArray(allData?.materials)
+            ? allData.materials
+            : [];
+      }
+
+      setMasterMaterials(list);
     } catch (error) {
       console.error("LOAD MASTER MATERIAL ERROR:", error);
       setMasterMaterials([]);
@@ -584,6 +607,38 @@ export default function AdminPage() {
     setEditingCategoryName("");
     setEditingCategoryWeight("0");
     setEditingCategoryLevelId("");
+  }
+
+  function openDuplicateModal(c: Category) {
+    setDuplicatingCategory(c);
+    setDuplicateTargetLevelId(c.eventLevelId || activeLevels[0]?.id || "");
+    setDuplicateTargetName(`${c.name} (Copy)`);
+  }
+
+  function cancelDuplicateCategory() {
+    setDuplicatingCategory(null);
+    setDuplicateTargetLevelId("");
+    setDuplicateTargetName("");
+  }
+
+  async function handleDuplicateCategory() {
+    if (!duplicatingCategory) return;
+    setDuplicatingLoading(true);
+    try {
+      await api("/api/categories", "POST", {
+        action: "duplicate",
+        sourceCategoryId: duplicatingCategory.id,
+        targetEventLevelId: duplicateTargetLevelId || null,
+        targetName: duplicateTargetName.trim(),
+      });
+      setMessage(`Kategori "${duplicatingCategory.name}" berhasil diduplikat.`);
+      cancelDuplicateCategory();
+      await load();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal menduplikat kategori.");
+    } finally {
+      setDuplicatingLoading(false);
+    }
   }
 
   async function saveCategoryEdit() {
@@ -861,6 +916,9 @@ export default function AdminPage() {
       setMaterialName("");
       setMaterialId("");
       setInterval("2");
+
+      // Segera sinkronkan daftar master materi agar materi baru langsung muncul di dropdown riwayat
+      void loadMaterials(category.name);
 
       // Tetap buka form di subkategori yang sama agar bisa input materi berikutnya.
       setActiveMaterialSubCategory(subCategoryId);
@@ -1690,15 +1748,23 @@ export default function AdminPage() {
                                 <div className="flex justify-end gap-2">
                                   <button
                                     type="button"
+                                    onClick={() => openDuplicateModal(c)}
+                                    className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-bold text-purple-700 transition active:scale-95 hover:bg-purple-100"
+                                    title="Duplikat kategori beserta seluruh subkategori & materinya"
+                                  >
+                                    📑 Duplikat
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => startEditCategory(c)}
-                                    className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700"
+                                    className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700 transition active:scale-95 hover:bg-blue-100"
                                   >
                                     Edit
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => deleteCategory(c.id)}
-                                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-500"
+                                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-500 transition active:scale-95 hover:bg-red-50"
                                   >
                                     Hapus
                                   </button>
@@ -1720,22 +1786,37 @@ export default function AdminPage() {
               )}
 
               <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                <p className="mb-3 text-sm font-black text-[#071a3d]">
-                  Tambah Kategori
-                </p>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-black text-[#071a3d]">
+                    Tambah Kategori
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-bold text-slate-500">Pilihan Cepat:</span>
+                    {["PBB", "VARIASI & FORMASI", "KOMANDAN / DANTON", "KOSTUM", "PASUKAN TERFAVORIT"].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setCategoryName(tag)}
+                        className="rounded-full bg-white border border-blue-200 px-2.5 py-0.5 text-xs font-bold text-blue-700 transition active:scale-95 hover:bg-blue-100 shadow-xs"
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="grid gap-2 md:grid-cols-[1fr_190px_150px_130px]">
                   <input
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
                     placeholder="Nama kategori"
-                    className="rounded-lg border bg-white px-3 py-2"
+                    className="rounded-lg border bg-white px-3 py-2 text-sm"
                   />
 
                   <select
                     value={categoryLevelId}
                     onChange={(e) => setCategoryLevelId(e.target.value)}
-                    className="rounded-lg border bg-white px-3 py-2"
+                    className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold"
                   >
                     <option value="">Pilih tingkatan</option>
                     {activeLevels.map((level) => (
@@ -1752,16 +1833,16 @@ export default function AdminPage() {
                     min="1"
                     max="100"
                     placeholder="Bobot %"
-                    className="rounded-lg border bg-white px-3 py-2"
+                    className="rounded-lg border bg-white px-3 py-2 text-sm"
                   />
 
                   <button
                     type="button"
                     onClick={() => void addCategory()}
                     disabled={!categoryLevelId}
-                    className="rounded-lg bg-[#1769e0] px-4 py-2 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg bg-[#1769e0] px-4 py-2 font-bold text-white transition active:scale-95 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    + Kategori
+                    + Tambah
                   </button>
                 </div>
               </div>
@@ -2086,23 +2167,31 @@ export default function AdminPage() {
                             <div className="flex gap-2 md:col-span-2">
                               <select
                                 value={materialId}
-                                onChange={(e) =>
-                                  setMaterialId(
-                                    e.target.value
-                                  )
-                                }
-                                className="min-w-0 flex-1 rounded-lg border px-3 py-2"
+                                onChange={(e) => {
+                                  const mId = e.target.value;
+                                  setMaterialId(mId);
+                                  const found = masterMaterials.find((m) => m.id === mId);
+                                  if (found) {
+                                    setMaterialName(found.name);
+                                    if ((found as any).defaultInterval) {
+                                      setInterval(String((found as any).defaultInterval));
+                                    }
+                                  } else {
+                                    setMaterialName("");
+                                  }
+                                }}
+                                className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm font-semibold"
                               >
-                              <option value="">
-                                + Materi baru
-                              </option>
+                                <option value="">
+                                  + Materi baru (atau pilih dari riwayat...)
+                                </option>
 
                                 {masterMaterials.map((m) => (
                                   <option
                                     key={m.id}
                                     value={m.id}
                                   >
-                                    {m.name} — {m.section}
+                                    {m.name} — Interval {(m as any).defaultInterval || 2} ({m.section})
                                   </option>
                                 ))}
                               </select>
@@ -2113,7 +2202,7 @@ export default function AdminPage() {
                                   onClick={() =>
                                     deleteMasterMaterial(materialId)
                                   }
-                                  className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600"
+                                  className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition active:scale-95 hover:bg-red-50"
                                   title="Hapus materi dari history pilihan"
                                 >
                                   Hapus history
@@ -2131,7 +2220,7 @@ export default function AdminPage() {
                                   )
                                 }
                                 placeholder="Nama materi baru"
-                                className="rounded-lg border px-3 py-2"
+                                className="rounded-lg border px-3 py-2 text-sm"
                               />
                             )}
 
@@ -2161,7 +2250,7 @@ export default function AdminPage() {
                             onClick={() =>
                               addMaterial(s.id)
                             }
-                            className="mt-3 rounded-lg bg-[#1769e0] px-5 py-2 font-bold text-white"
+                            className="mt-3 rounded-lg bg-[#1769e0] px-5 py-2 font-bold text-white transition active:scale-95 hover:bg-blue-600 shadow-xs"
                           >
                             + Tambahkan ke {s.name}
                           </button>
@@ -2177,21 +2266,36 @@ export default function AdminPage() {
                 TAMBAH SUBKATEGORI
             ====================================================== */}
             <div className="mt-5 border-t pt-5">
-              <p className="mb-2 text-sm font-bold">
-                Tambah Subkategori
-              </p>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-bold text-[#071a3d]">
+                  Tambah Subkategori
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="font-bold text-slate-500">Pilihan Cepat:</span>
+                  {["GERAKAN DASAR", "GERAKAN BERJALAN", "GERAKAN DI TEMPAT", "ABA-ABA TAMBAHAN", "TATA TERTIB"].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSubName(tag)}
+                      className="rounded-full bg-white border border-blue-200 px-2.5 py-0.5 text-xs font-bold text-blue-700 transition active:scale-95 hover:bg-blue-100 shadow-xs"
+                    >
+                      + {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="grid gap-2 md:grid-cols-[1fr_180px]">
                 <input
                   value={subName}
                   onChange={(e) => setSubName(e.target.value)}
                   placeholder="Nama subkategori"
-                  className="rounded-lg border px-3 py-2"
+                  className="rounded-lg border px-3 py-2 text-sm"
                 />
 
                 <button
                   onClick={addSubCategory}
-                  className="rounded-lg bg-[#1769e0] px-4 py-2 font-bold text-white"
+                  className="rounded-lg bg-[#1769e0] px-4 py-2 font-bold text-white transition active:scale-95 hover:bg-blue-600 shadow-xs"
                 >
                   + Subkategori
                 </button>
@@ -2300,6 +2404,89 @@ export default function AdminPage() {
           </section>
           </>
         ) : null}
+
+        {/* =========================================================
+            MODAL DUPLIKAT KATEGORI
+        ========================================================== */}
+        {duplicatingCategory && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="text-lg font-black text-[#071a3d] flex items-center gap-2">
+                  📑 Duplikat Kategori
+                </h3>
+                <button
+                  type="button"
+                  onClick={cancelDuplicateCategory}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Kategori Asal
+                  </label>
+                  <p className="mt-1 rounded-xl bg-slate-50 p-3 text-sm font-black text-[#071a3d]">
+                    {duplicatingCategory.name} ({duplicatingCategory.percentage}% • {duplicatingCategory.subCategories?.length || 0} Subkategori)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Nama Kategori Baru
+                  </label>
+                  <input
+                    value={duplicateTargetName}
+                    onChange={(e) => setDuplicateTargetName(e.target.value)}
+                    placeholder="Nama kategori hasil duplikat"
+                    className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm font-bold text-[#071a3d] outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Duplikat ke Tingkatan
+                  </label>
+                  <select
+                    value={duplicateTargetLevelId}
+                    onChange={(e) => setDuplicateTargetLevelId(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-[#071a3d] outline-none focus:border-blue-500"
+                  >
+                    {activeLevels.map((lvl) => (
+                      <option key={lvl.id} value={lvl.id}>
+                        {lvl.name} {lvl.id === duplicatingCategory.eventLevelId ? "(Tingkatan yang sama)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Seluruh subkategori dan materi penilaian akan otomatis disalin secara lengkap.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t">
+                  <button
+                    type="button"
+                    onClick={cancelDuplicateCategory}
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition active:scale-95 hover:bg-slate-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={duplicatingLoading || !duplicateTargetName.trim()}
+                    onClick={() => void handleDuplicateCategory()}
+                    className="rounded-xl bg-[#1769e0] px-5 py-2.5 text-sm font-bold text-white transition active:scale-95 hover:bg-blue-600 disabled:opacity-50"
+                  >
+                    {duplicatingLoading ? "Menduplikasi..." : "🚀 Duplikat Sekarang"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

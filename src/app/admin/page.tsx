@@ -2035,6 +2035,17 @@ export default function AdminDashboardPage() {
         })
       );
 
+      // Cek apakah masih ada file lokal raksasa yang belum terunggah ke server
+      for (const doc of cleanedDocs) {
+        if (doc.fileUrl && doc.fileUrl.startsWith("data:") && doc.fileUrl.length > 200_000) {
+          alert(
+            `Berkas "${doc.title}" belum selesai diunggah ke server.\n\nSilakan pastikan koneksi lancar lalu unggah ulang file ini, atau gunakan opsi "Atau masukkan link URL" (Google Drive / Dropbox) agar penyimpanan berhasil tanpa ditolak server (Error 413).`
+          );
+          setIsSavingOfficialDocs(false);
+          return;
+        }
+      }
+
       const res = await fetch("/api/attendees", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

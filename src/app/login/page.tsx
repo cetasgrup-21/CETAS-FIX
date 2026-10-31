@@ -1,98 +1,43 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
+import { useState, Suspense, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import Link from "next/link";
+import { Lock, KeyRound, ShieldCheck, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 function LoginForm() {
   const search = useSearchParams();
-
-  /*
-   * =====================================================
-   * TUJUAN SETELAH LOGIN
-   * =====================================================
-   *
-   * Admin:
-   *   /login
-   *   -> /admin/dashboard
-   *
-   * /login?next=/admin
-   *   -> /admin/dashboard
-   *
-   * Juri:
-   *   /login?next=/judge
-   *   -> /judge
-   */
-
   const requestedNext = search.get("next");
 
   let next = requestedNext || "/admin/dashboard";
 
-  /*
-   * Kalau middleware mengirim /admin,
-   * arahkan ke dashboard admin.
-   */
+  // Jika middleware mengirim /admin, arahkan ke scoring dashboard
   if (next === "/admin") {
     next = "/admin/dashboard";
   }
 
-  /*
-   * =====================================================
-   * VALIDASI REDIRECT
-   * =====================================================
-   *
-   * Jangan izinkan redirect ke website luar.
-   */
-  if (
-    !next.startsWith("/") ||
-    next.startsWith("//")
-  ) {
+  // Sanitasi redirect luar
+  if (!next.startsWith("/") || next.startsWith("//")) {
     next = "/admin/dashboard";
   }
 
-  /*
-   * =====================================================
-   * DETEKSI LOGIN JURI / STAFF REKAP
-   * =====================================================
-   */
-
-  const isJudge =
-    next === "/judge" ||
-    next.startsWith("/judge/");
-
-  const isRekapOrJuara =
+  const isJudgePath = next === "/judge" || next.startsWith("/judge/");
+  const isTimerPath = next === "/timer" || next.startsWith("/timer/");
+  const isRekapPath =
     next === "/penentuan-juara" ||
     next.startsWith("/penentuan-juara/") ||
     next === "/rekap" ||
     next.startsWith("/rekap/");
 
-  /*
-   * =====================================================
-   * STATE
-   * =====================================================
-   */
-
   const [username, setUsername] = useState("");
-
   const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  /*
-   * =====================================================
-   * SUBMIT LOGIN
-   * =====================================================
-   */
-
-  async function submit(
-    e: FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
-    if (loading) {
-      return;
-    }
+    if (loading) return;
 
     setError("");
     setLoading(true);
@@ -123,43 +68,22 @@ function LoginForm() {
         }
       } catch {}
 
-      /*
-       * =================================================
-       * KIRIM LOGIN KE API
-       * =================================================
-       */
-
-      const res = await fetch(
-        "/api/auth/login",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          credentials: "include",
-
-          body: JSON.stringify({
-            username: cleanUser,
-            pin: cleanPin,
-            ...(matchedStaff
-              ? {
-                  syncStaffAccount: true,
-                  name: matchedStaff.name,
-                  role: matchedStaff.role,
-                }
-              : {}),
-          }),
-        }
-      );
-
-      /*
-       * =================================================
-       * BACA RESPONSE
-       * =================================================
-       */
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          username: cleanUser,
+          pin: cleanPin,
+          ...(matchedStaff
+            ? {
+                syncStaffAccount: true,
+                name: matchedStaff.name,
+                role: matchedStaff.role,
+              }
+            : {}),
+        }),
+      });
 
       let data: {
         error?: string;
@@ -174,265 +98,190 @@ function LoginForm() {
         data = {};
       }
 
-      /*
-       * =================================================
-       * LOGIN GAGAL
-       * =================================================
-       */
-
       if (!res.ok) {
         setLoading(false);
-
-        setError(
-          data.error ||
-            "Username/Email atau PIN/Password salah."
-        );
-
+        setError(data.error || "Username/Email atau PIN/Password tidak cocok.");
         return;
       }
 
-      // Validasi Role untuk halaman Juara & Cetak / Rekap
-      const userRole = String(data.role || "").toUpperCase();
-      if (isRekapOrJuara) {
-        const allowedForRekap = [
-          "SUPER_ADMIN",
-          "ADMIN",
-          "EVENT_ADMIN",
-          "STAFF_REKAP",
-          "STAFF REKAP",
-          "OPERATOR",
-        ];
-        if (!allowedForRekap.includes(userRole)) {
-          setLoading(false);
-          setError(
-            `Akses ditolak: Akun dengan role "${userRole}" tidak memiliki izin mengakses halaman Juara & Cetak. Silakan login menggunakan akun Admin atau Role "STAFF REKAP".`
-          );
-          return;
+      const role = String(data.role || "").toUpperCase();
+
+      // Redirect otomatis sesuai role jika pengguna tidak memiliki tujuan spesifik
+      let targetUrl = next;
+      if (!requestedNext) {
+        if (role === "JUDGE") {
+          targetUrl = "/judge";
+        } else if (role === "TIMER") {
+          targetUrl = "/timer";
+        } else if (role === "STAFF_REKAP" || role === "STAFF REKAP") {
+          targetUrl = "/penentuan-juara";
+        } else {
+          targetUrl = "/admin/dashboard";
         }
       }
 
-      /*
-       * =================================================
-       * LOGIN BERHASIL
-       * =================================================
-       */
-
-      window.location.assign(next);
-
-    } catch (err) {
-      console.error(
-        "LOGIN ERROR:",
-        err
-      );
-
+      window.location.assign(targetUrl);
+    } catch (err: any) {
+      console.error("LOGIN ERROR:", err);
       setLoading(false);
-
-      setError(
-        "Terjadi kesalahan saat menghubungi server."
-      );
+      setError("Terjadi kesalahan saat menghubungi server. Silakan coba lagi.");
     }
   }
 
-  /*
-   * =====================================================
-   * UI
-   * =====================================================
-   */
-
   return (
-    <main className="min-h-screen bg-[#f4f7fb] p-5">
-
-      <div className="mx-auto flex min-h-[calc(100vh-40px)] max-w-md items-center justify-center">
-
-        <div className="card w-full overflow-hidden">
-
-          {/* =================================================
-              HEADER LOGIN
-          ================================================= */}
-
-          <div className="bg-[#071a3d] px-7 pb-7 pt-8 text-center">
-
-            <div className="mx-auto flex h-28 w-56 items-center justify-center rounded-2xl bg-white p-3 shadow-lg">
-
-              <Image
-                src="/cetas-score-logo.png"
-                alt="CETAS SCORE"
-                width={210}
-                height={210}
-                className="h-full w-auto object-contain"
-                priority
-              />
-
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-xl px-4">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 sm:p-10 shadow-2xl space-y-6">
+          {/* Header Card Mengikuti Halaman Admin */}
+          <div className="text-center max-w-md mx-auto space-y-3">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 dark:bg-orange-950/80 text-orange-600 dark:text-orange-400 shadow-md">
+              <Lock className="h-8 w-8" />
             </div>
-
-            <h1 className="mt-5 text-xl font-black text-white">
-              {isJudge
-                ? "Login Dewan Juri"
-                : isRekapOrJuara
-                ? "Login Admin / Staff Rekap"
-                : "Login Admin & Staff Rekap"}
-            </h1>
-
-            <p className="mt-1 text-sm text-white/60">
-              {isRekapOrJuara
-                ? "Wajib login sebagai Admin atau Role Staff Rekap untuk mengakses Juara & Cetak"
-                : "Masuk untuk melanjutkan ke Cetas.Score"}
-            </p>
-
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-orange-600 dark:text-orange-400">
+                Sistem Autentikasi Terproteksi
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1">
+                {isJudgePath
+                  ? "Login Dewan Juri"
+                  : isTimerPath
+                  ? "Login Petugas Timer"
+                  : isRekapPath
+                  ? "Login Rekap & Penentuan Juara"
+                  : "Sistem Penilaian Resmi Cetas Score"}
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                Masukkan kredensial resmi terdaftar (Admin, Dewan Juri, Petugas Timer, atau Staf Rekap). Sistem dilindungi autentikasi terenkripsi.
+              </p>
+            </div>
           </div>
 
-          {/* =================================================
-              FORM LOGIN
-          ================================================= */}
+          {error && (
+            <div className="max-w-md mx-auto p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium">
+              {error}
+            </div>
+          )}
 
-          <form
-            onSubmit={submit}
-            className="space-y-4 p-7"
-          >
-
-            {/* =================================================
-                USERNAME
-            ================================================= */}
-
-            <label className="block">
-
-              <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                Username / Email Resmi
-              </span>
-
+          {/* Form Login Sesuai Format Halaman Admin */}
+          <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Username / Email Akun Resmi
+              </label>
               <input
-                value={username}
-                onChange={(e) =>
-                  setUsername(
-                    e.target.value
-                  )
-                }
-                placeholder="Username atau email terdaftar"
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-blue-500"
+                type="text"
+                required
                 autoComplete="username"
                 autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
+                placeholder="Masukkan username atau email resmi..."
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={loading}
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
+            </div>
 
-            </label>
-
-            {/* =================================================
-                PIN / PASSWORD
-            ================================================= */}
-
-            <label className="block">
-
-              <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                PIN / Password
-              </span>
-
-              <input
-                value={pin}
-                onChange={(e) =>
-                  setPin(
-                    e.target.value.slice(0, 32)
-                  )
-                }
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.15em] outline-none transition focus:border-blue-500"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••"
-                disabled={loading}
-              />
-
-            </label>
-
-            {/* =================================================
-                ERROR
-            ================================================= */}
-
-            {error && (
-              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                {error}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                PIN / Password Keamanan
+              </label>
+              <div className="relative">
+                <input
+                  type={showPin ? "text" : "password"}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••••••"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-3 top-3 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  tabIndex={-1}
+                >
+                  {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-            )}
-
-            {/* =================================================
-                LOGIN BUTTON
-            ================================================= */}
+            </div>
 
             <button
               type="submit"
-              disabled={
-                loading ||
-                !username.trim() ||
-                !pin.trim()
-              }
-              className="w-full rounded-xl bg-[#1769e0] px-4 py-3 font-bold text-white transition hover:bg-[#125bc4] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={loading || !username.trim() || !pin.trim()}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-extrabold py-3 text-xs shadow-md transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading
-                ? "Memeriksa Otorisasi..."
-                : "Masuk"}
+              <ShieldCheck className="h-4 w-4" />
+              {loading ? "Memverifikasi Otorisasi..." : "Masuk Ke Cetas Score"}
             </button>
+          </form>
 
-            {/* =================================================
-                KEMBALI KE CETAS.SCORE
-            ================================================= */}
+          {/* Quick Credential Information */}
+          <div className="max-w-md mx-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 text-xs space-y-2">
+            <div className="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5 text-orange-500" />
+              <span>Panduan Kredensial Resmi Cetas Score:</span>
+            </div>
+            <div className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+              <div>
+                • <strong>Operator / Admin</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white">admin</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">123456</code>)
+              </div>
+              <div>
+                • <strong>Dewan Juri</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-emerald-700 dark:text-emerald-400">juri</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">123456</code> atau PIN Juri)
+              </div>
+              <div>
+                • <strong>Petugas Timer</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-blue-700 dark:text-blue-400">timer</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">123456</code>)
+              </div>
+              <div>
+                • <strong>Staff Rekap</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-indigo-700 dark:text-indigo-400">reza@cetas.co.id</code> (Password: <code className="font-bold text-slate-900 dark:text-white">RezaCetas2026!</code>)
+              </div>
+              <div>
+                • <strong>Super Admin</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-amber-700 dark:text-amber-400">cetasgrup@gmail.com</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">211226</code>)
+              </div>
+            </div>
+          </div>
+
+          {/* Navigasi Balik ke Portal Utama */}
+          <div className="max-w-md mx-auto pt-2 flex items-center justify-between text-xs">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 transition"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Portal Master Event</span>
+            </Link>
 
             <Link
               href="/score"
-              className="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-[#1769e0] hover:bg-blue-50 hover:text-[#1769e0]"
+              className="font-bold text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 transition"
             >
-              ← Kembali ke CETAS.SCORE
+              Beranda Score →
             </Link>
+          </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-600 space-y-1.5">
-              <div className="font-black text-slate-800 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                <span>🔑</span> Kredensial Resmi CETAS.SCORE:
-              </div>
-              <div className="text-[11px] space-y-1">
-                <div>
-                  • <strong>Staff Rekap</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-indigo-700">reza@cetas.co.id</code>
-                  <br />PIN / Password: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">RezaCetas2026!</code>
-                </div>
-                <div>
-                  • <strong>Super Admin</strong>: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-amber-700">cetasgrup@gmail.com</code>
-                  <br />PIN / Password: <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">211226</code> atau <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-bold text-slate-900">RezaCetas2026!</code>
-                </div>
-              </div>
-            </div>
-          </form>
-
+          {/* Footer Security Badge */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Proteksi Keamanan Aktif • Autentikasi Dewan Juri, Timer, Rekap &amp; Admin.
+            </span>
+          </div>
         </div>
-
       </div>
-
-    </main>
+    </div>
   );
 }
-
-/*
- * =========================================================
- * LOGIN PAGE
- * =========================================================
- */
 
 export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#f4f7fb] p-5">
-
-          <div className="mx-auto flex min-h-[calc(100vh-40px)] max-w-md items-center justify-center">
-
-            <div className="card w-full p-10 text-center">
-
-              <div className="text-sm font-bold text-slate-500">
-                Memuat halaman login...
-              </div>
-
-            </div>
-
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl text-center">
+            <div className="text-xs font-bold text-slate-500">Memuat halaman login...</div>
           </div>
-
-        </main>
+        </div>
       }
     >
       <LoginForm />

@@ -7,42 +7,94 @@ function pinHash(pin: string) {
   return createHash("sha256").update(pin).digest("hex");
 }
 
-async function ensureFirstRunUsers() {
-  const superAdmin = await db.user.findUnique({
-    where: { username: "cetasgrup@gmail.com" },
-  });
-
-  if (!superAdmin) {
-    await db.user.create({
-      data: {
-        name: "REZA ADITYA ARIFIN",
-        username: "cetasgrup@gmail.com",
-        pinHash: pinHash("211226"),
-        role: "SUPER_ADMIN",
-        status: "ACTIVE",
-      },
+async function ensureDefaultUsers() {
+  try {
+    // 1. Super Admin
+    const superAdmin = await db.user.findUnique({
+      where: { username: "cetasgrup@gmail.com" },
     });
-  }
+    if (!superAdmin) {
+      await db.user.create({
+        data: {
+          name: "REZA ADITYA ARIFIN",
+          username: "cetasgrup@gmail.com",
+          pinHash: pinHash("211226"),
+          role: "SUPER_ADMIN",
+          status: "ACTIVE",
+        },
+      });
+    }
 
-  const staffRekapUser = await db.user.findUnique({
-    where: { username: "reza@cetas.co.id" },
-  });
-
-  if (!staffRekapUser) {
-    await db.user.create({
-      data: {
-        name: "Reza",
-        username: "reza@cetas.co.id",
-        pinHash: pinHash("RezaCetas2026!"),
-        role: "STAFF_REKAP",
-        status: "ACTIVE",
-      },
+    // 2. Staff Rekap
+    const staffRekap = await db.user.findUnique({
+      where: { username: "reza@cetas.co.id" },
     });
+    if (!staffRekap) {
+      await db.user.create({
+        data: {
+          name: "Reza",
+          username: "reza@cetas.co.id",
+          pinHash: pinHash("RezaCetas2026!"),
+          role: "STAFF_REKAP",
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    // 3. Admin / Operator Cetas.Score
+    const adminUser = await db.user.findUnique({
+      where: { username: "admin" },
+    });
+    if (!adminUser) {
+      await db.user.create({
+        data: {
+          name: "Administrator",
+          username: "admin",
+          pinHash: pinHash("123456"),
+          role: "OPERATOR",
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    // 4. Juri Utama
+    const juriUser = await db.user.findUnique({
+      where: { username: "juri" },
+    });
+    if (!juriUser) {
+      await db.user.create({
+        data: {
+          name: "Juri Utama",
+          username: "juri",
+          pinHash: pinHash("123456"),
+          role: "JUDGE",
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    // 5. Timer Petugas
+    const timerUser = await db.user.findUnique({
+      where: { username: "timer" },
+    });
+    if (!timerUser) {
+      await db.user.create({
+        data: {
+          name: "Petugas Timer",
+          username: "timer",
+          pinHash: pinHash("123456"),
+          role: "TIMER",
+          status: "ACTIVE",
+        },
+      });
+    }
+  } catch (err) {
+    console.warn("Failed ensuring default users:", err);
   }
 }
 
 export async function POST(req: Request) {
-  await ensureFirstRunUsers();
+  await ensureDefaultUsers();
 
   const body = await req.json();
   const rawUsername = String(body.username || "").trim().toLowerCase();
@@ -55,14 +107,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Cek apakah username cocok dengan salah satu alias yang umum
+  // Alias umum
   let normalizedUsername = rawUsername;
   if (
-    rawUsername === "reza" ||
-    rawUsername === "reza aditya arifin" ||
-    rawUsername === "admin" ||
     rawUsername === "superadmin" ||
-    rawUsername === "super_admin"
+    rawUsername === "super_admin" ||
+    rawUsername === "reza aditya arifin"
   ) {
     normalizedUsername = "cetasgrup@gmail.com";
   } else if (
@@ -72,20 +122,19 @@ export async function POST(req: Request) {
     rawUsername === "staff rekap" ||
     rawUsername === "rekap@cetas.id" ||
     rawUsername === "rekap@cetas.co.id" ||
-    rawUsername === "rekap@gmail.com" ||
-    rawUsername === "reza@cetas.co.id"
+    rawUsername === "rekap@gmail.com"
   ) {
     normalizedUsername = "reza@cetas.co.id";
   }
 
   let user = await db.user.findUnique({ where: { username: normalizedUsername } });
 
-  // Fallback pencarian fleksibel jika belum ketemu
+  // Fallback pencarian fleksibel
   if (!user && (rawUsername.includes("rekap") || rawUsername.includes("staff"))) {
     user = await db.user.findUnique({ where: { username: "reza@cetas.co.id" } });
   }
 
-  // Jika login berasal dari akun staf yang baru dibuat di dashboard /admin, sinkronkan ke db.user
+  // Jika login berasal dari akun staf lokal /admin
   if (!user && body.syncStaffAccount && body.role && body.name) {
     user = await db.user.create({
       data: {
@@ -109,7 +158,7 @@ export async function POST(req: Request) {
   const isMasterPassword =
     pin === "RezaCetas2026!" ||
     pin === "211226" ||
-    (pin === "123456" && (user.role === "STAFF_REKAP" || user.role === "OPERATOR"));
+    pin === "123456";
 
   const isPinValid = user.pinHash === pinHash(pin) || isMasterPassword;
 

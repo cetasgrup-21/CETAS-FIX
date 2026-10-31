@@ -1,21 +1,12 @@
+
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import { verifySessionToken } from "@/lib/auth";
 import { regenerateCategoryScoreOptions } from "@/lib/scoring-server";
 
-/*
- * =========================================================
- * CETAS SCORE - REFRESH REVIEW
- * =========================================================
- *
- * /api/event tetap dibiarkan seperti versi awal.
- * Endpoint ini hanya memastikan ScoreOption di database dihitung
- * ulang sebelum halaman Review membaca data event terbaru.
- *
- * Dipakai oleh Admin Review, bukan oleh Juri.
- * =========================================================
- */
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 async function getSession(req: Request) {
   const cookieHeader = req.headers.get("cookie") || "";
@@ -40,6 +31,8 @@ async function getSession(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
+
   try {
     const session = await getSession(req);
 
@@ -100,23 +93,37 @@ export async function POST(req: Request) {
       },
     });
 
-    // Jalankan generator yang sama dengan endpoint Juri.
-    // Sengaja sequential agar aman untuk SQLite dan menghindari
-    // concurrent write/"database is locked" ketika banyak kategori.
+    const results = [];
+
     for (const category of categories) {
-      await regenerateCategoryScoreOptions(category.id);
+      const result = await regenerateCategoryScoreOptions(
+        category.id
+      );
+
+      results.push({
+        categoryId: category.id,
+        ...result,
+      });
     }
+
+    console.info("[REVIEW REFRESH] Completed", {
+      eventId: event.id,
+      refreshedCategories: results.length,
+      totalOptions: results.reduce(
+        (sum, item) => sum + item.optionCount,
+        0
+      ),
+      durationMs: Date.now() - startedAt,
+    });
 
     return NextResponse.json({
       success: true,
       eventId: event.id,
-      refreshedCategories: categories.length,
+      refreshedCategories: results.length,
+      results,
     });
   } catch (error) {
-    console.error(
-      "REVIEW SCORE REFRESH ERROR:",
-      error
-    );
+    console.error("REVIEW SCORE REFRESH ERROR:", error);
 
     return NextResponse.json(
       {

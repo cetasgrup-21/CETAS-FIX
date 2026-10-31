@@ -1,3 +1,4 @@
+
 import { db } from "@/lib/db";
 
 import {
@@ -6,9 +7,15 @@ import {
   generateCategoryScoreOptions,
 } from "@/lib/scoring-engine";
 
+const TRANSACTION_TIMEOUT = 60_000;
+const TRANSACTION_MAX_WAIT = 10_000;
+const INSERT_BATCH_SIZE = 500;
+
 export async function regenerateCategoryScoreOptions(
   categoryId: string
 ) {
+  const startedAt = Date.now();
+
   const category = await db.category.findUnique({
     where: {
       id: categoryId,
@@ -62,21 +69,12 @@ export async function regenerateCategoryScoreOptions(
     };
   }
 
-  /**
-   * ==========================================================
-   * GENERATE SEMUA NILAI DI MEMORY
-   * ==========================================================
-   */
+  // Generate semua opsi di memory sebelum memulai transaksi.
   const generated = generateCategoryScoreOptions(
     criteria,
     maximumPerJudge
   );
 
-  /**
-   * Gabungkan seluruh ScoreOption menjadi SATU array.
-   *
-   * Nilai <= 0 sudah dibuang oleh scoring-engine.
-   */
   const allOptions = generated.flatMap(
     (generatedItem, index) => {
       const criterion = criteria[index];
@@ -94,25 +92,24 @@ export async function regenerateCategoryScoreOptions(
     }
   );
 
-  /**
-   * ==========================================================
-   * SIMPAN SEKALIGUS
-   * ==========================================================
-   *
-   * Hanya:
-   *
-   * 1. DELETE semua ScoreOption untuk materi kategori
-   * 2. INSERT semua ScoreOption baru
-   *
-   * Tidak ada loop query per materi.
-   */
   const criterionIds = criteria.map(
     (criterion) => criterion.id
   );
 
+  console.info("[SCORE REFRESH] Prepared", {
+    categoryId,
+    criteriaCount: criteria.length,
+    optionCount: allOptions.length,
+    preparationMs: Date.now() - startedAt,
+  });
+
+  // Delete dan insert tetap berada dalam satu transaksi
+  // supaya opsi lama tidak hilang jika insert gagal.
   await db.$transaction(
     async (tx) => {
-      await tx.scoreOption.deleteMany({
+      const deleteStartedAt = Date.now();
+
+      const deleted = await tx.scoreOption.deleteMany({
         where: {
           criterionId: {
             in: criterionIds,
@@ -120,23 +117,44 @@ export async function regenerateCategoryScoreOptions(
         },
       });
 
-      if (allOptions.length > 0) {
+      console.info("[SCORE REFRESH] Deleted", {
+        categoryId,
+        deletedCount: deleted.count,
+        durationMs: Date.now() - deleteStartedAt,
+      });
+
+      for (
+        let offset = 0;
+        offset < allOptions.length;
+        offset += INSERT_BATCH_SIZE
+      ) {
+        const batch = allOptions.slice(
+          offset,
+          offset + INSERT_BATCH_SIZE
+        );
+
         await tx.scoreOption.createMany({
-          data: allOptions,
+          data: batch,
         });
       }
+
+      console.info("[SCORE REFRESH] Inserted", {
+        categoryId,
+        optionCount: allOptions.length,
+      });
     },
     {
-      /**
-       * Sedikit diperbesar sebagai pengaman untuk
-       * event dengan materi yang sangat banyak.
-       *
-       * Normalnya transaksi sekarang jauh lebih cepat
-       * karena hanya 2 query utama.
-       */
-      timeout: 15000,
+      maxWait: TRANSACTION_MAX_WAIT,
+      timeout: TRANSACTION_TIMEOUT,
     }
   );
+
+  console.info("[SCORE REFRESH] Completed", {
+    categoryId,
+    criteriaCount: criteria.length,
+    optionCount: allOptions.length,
+    totalDurationMs: Date.now() - startedAt,
+  });
 
   return {
     categoryMaximum,
@@ -148,9 +166,8 @@ export async function regenerateCategoryScoreOptions(
 }
 
 /**
- * ============================================================
- * REGENERATE SEMUA KATEGORI DALAM EVENT
- * ============================================================
+ * Regenerate opsi skor untuk seluruh kategori dalam event.
+ * Diproses berurutan untuk menghindari concurrent database writes.
  */
 export async function regenerateEventScoreOptions(
   eventId: string
@@ -170,10 +187,9 @@ export async function regenerateEventScoreOptions(
   const results = [];
 
   for (const category of categories) {
-    const result =
-      await regenerateCategoryScoreOptions(
-        category.id
-      );
+    const result = await regenerateCategoryScoreOptions(
+      category.id
+    );
 
     results.push({
       categoryId: category.id,

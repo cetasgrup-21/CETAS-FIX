@@ -179,24 +179,24 @@ function normalizeSheets(
 
     categoryIds.forEach((id) => seen.add(id));
 
-    if (categoryIds.length) {
-      const firstCategory = categoryMap.get(categoryIds[0]);
-      const levelId =
-        sheet.levelId ?? firstCategory?.eventLevelId ?? null;
+    const firstCategory = categoryMap.get(categoryIds[0] || "");
+    const levelId =
+      sheet.levelId ?? firstCategory?.eventLevelId ?? null;
 
-      // Satu sheet tidak boleh memuat kategori lintas tingkatan.
-      const sameLevelIds = categoryIds.filter((id) => {
-        const category = categoryMap.get(id);
-        return (category?.eventLevelId || null) === levelId;
+    // Satu sheet tidak boleh memuat kategori lintas tingkatan.
+    const sameLevelIds = categoryIds.filter((id) => {
+      const category = categoryMap.get(id);
+      return (category?.eventLevelId || null) === levelId;
+    });
+
+    // Pertahankan sheet kosong agar bisa dipilih sebagai tujuan
+    // pemindahan kategori, termasuk setelah halaman dimuat ulang.
+    if (sameLevelIds.length || categoryIds.length === 0) {
+      cleaned.push({
+        id: sheet.id || `sheet-${cleaned.length + 1}`,
+        levelId: sameLevelIds.length ? levelId : (sheet.levelId ?? null),
+        categoryIds: sameLevelIds,
       });
-
-      if (sameLevelIds.length) {
-        cleaned.push({
-          id: sheet.id || `sheet-${cleaned.length + 1}`,
-          levelId,
-          categoryIds: sameLevelIds,
-        });
-      }
     }
   }
 
@@ -936,17 +936,32 @@ export default function AdminReviewPage() {
     targetSheetIndex: number
   ) {
     const category = categoryMap.get(categoryId);
-    const categoryLevelId = category?.eventLevelId || null;
+    if (!category) return;
+
+    const categoryLevelId = category.eventLevelId || null;
 
     setSheets((current) => {
       const target = current[targetSheetIndex];
       if (!target) return current;
 
-      const targetLevelId = target.levelId || null;
+      // Jika sheet sudah berisi kategori lain, tingkatan harus sama.
+      // Sheet kosong boleh menerima kategori pertama dan otomatis
+      // mengikuti tingkatan kategori tersebut.
+      const otherTargetCategoryId = target.categoryIds.find(
+        (id) => id !== categoryId
+      );
+      const otherTargetCategory = otherTargetCategoryId
+        ? categoryMap.get(otherTargetCategoryId)
+        : null;
+      const targetLevelId =
+        target.levelId ?? otherTargetCategory?.eventLevelId ?? null;
+
       if (targetLevelId && targetLevelId !== categoryLevelId) {
         return current;
       }
 
+      // Jangan menghapus sheet kosong. Sheet tujuan tetap ada walaupun
+      // kategori yang dipindahkan sebelumnya merupakan isi sheet itu.
       const next = current.map((sheet) => ({
         ...sheet,
         categoryIds: sheet.categoryIds.filter(
@@ -954,23 +969,19 @@ export default function AdminReviewPage() {
         ),
       }));
 
-      const cleaned = next.filter(
-        (sheet) => sheet.categoryIds.length || sheet.levelId
-      );
-
-      const targetAfterRemoval = cleaned.findIndex(
+      const targetAfterRemoval = next.findIndex(
         (sheet) => sheet.id === target.id
       );
-
       if (targetAfterRemoval < 0) return current;
 
-      cleaned[targetAfterRemoval].levelId = categoryLevelId;
-      cleaned[targetAfterRemoval].categoryIds.push(categoryId);
+      const destination = next[targetAfterRemoval];
+      destination.levelId = categoryLevelId;
+      if (!destination.categoryIds.includes(categoryId)) {
+        destination.categoryIds.push(categoryId);
+      }
 
-      return cleaned.map((sheet, index) => ({
-        ...sheet,
-        id: `sheet-${index + 1}`,
-      }));
+      // ID tidak dinomori ulang agar target sheet tetap stabil.
+      return next;
     });
   }
 
@@ -1168,7 +1179,7 @@ export default function AdminReviewPage() {
             }
             className="primary-button"
           >
-            🖨 Cetak Semua
+             Cetak Semua
           </button>
 
         </div>

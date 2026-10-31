@@ -278,11 +278,11 @@ export default function AdminDashboardPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() =>
-                    router.push("/score")
+                    router.push("/admin")
                   }
                   className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-[#071a3d] transition hover:bg-slate-50"
                 >
-                  ← Portal Score
+                  ← Portal Master Event
                 </button>
 
                 <button
@@ -411,7 +411,7 @@ export default function AdminDashboardPage() {
 
             <button
               onClick={() =>
-                router.push("/admin/score")
+                router.push("/admin")
               }
               className="mt-6 rounded-xl bg-[#1769e0] px-6 py-3 text-sm font-black text-white transition hover:opacity-90"
             >
@@ -455,7 +455,7 @@ export default function AdminDashboardPage() {
                   </select>
 
                   <button
-                    onClick={() => router.push("/admin/score")}
+                    onClick={() => router.push("/admin")}
                     className="rounded-xl bg-[#071a3d] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                   >
                     + Buat Event
@@ -522,7 +522,7 @@ export default function AdminDashboardPage() {
                   description="Informasi & pengaturan event"
                   icon="E"
                   onClick={() =>
-                    router.push("/admin/score")
+                    router.push("/admin")
                   }
                   primary
                 />
@@ -532,7 +532,7 @@ export default function AdminDashboardPage() {
                   description="Atur kategori, subkategori & materi"
                   icon="K"
                   onClick={() =>
-                    router.push("/admin/score")
+                    router.push("/admin")
                   }
                 />
 
@@ -587,7 +587,7 @@ export default function AdminDashboardPage() {
 
                 <button
                   onClick={() =>
-                    router.push("/admin/score")
+                    router.push("/admin")
                   }
                   className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-[#071a3d] transition hover:bg-slate-50"
                 >
@@ -656,7 +656,7 @@ export default function AdminDashboardPage() {
                   </p>
 
                   <button
-                    onClick={() => router.push("/admin/score")}
+                    onClick={() => router.push("/admin")}
                     className="mt-3 text-sm font-black text-blue-600 hover:underline"
                   >
                     Atur kategori →
@@ -669,7 +669,7 @@ export default function AdminDashboardPage() {
                   </p>
 
                   <button
-                    onClick={() => router.push("/admin/score")}
+                    onClick={() => router.push("/admin")}
                     className="mt-3 text-sm font-black text-blue-600 hover:underline"
                   >
                     Atur tingkatan →

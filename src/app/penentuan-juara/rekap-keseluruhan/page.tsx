@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import ScoreStaffAuthGate from "@/components/ScoreStaffAuthGate";
 
 /* ============================================================
  * TYPES
@@ -784,7 +783,7 @@ function CategoryCard({
  * MAIN PAGE
  * ============================================================ */
 
-function RekapKeseluruhanContent() {
+export default function RekapKeseluruhanPage() {
   const [data, setData] =
     useState<Api | null>(null);
 
@@ -2438,16 +2437,5 @@ function RekapKeseluruhanContent() {
         }
       `}</style>
     </main>
-  );
-}
-
-export default function RekapKeseluruhanPage() {
-  return (
-    <ScoreStaffAuthGate
-      pageTitle="Cetak Rekap Keseluruhan Juara"
-      pageDescription="Halaman Cetak Rekap Keseluruhan wajib login menggunakan akun Admin atau Role &quot;STAFF REKAP&quot;."
-    >
-      <RekapKeseluruhanContent />
-    </ScoreStaffAuthGate>
   );
 }

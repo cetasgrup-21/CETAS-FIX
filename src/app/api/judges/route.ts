@@ -188,14 +188,12 @@ export async function GET() {
     });
 
     // ==========================================================
-    // JURI / STAFF REKAP / OPERATOR / TIMER
+    // JURI
     // ==========================================================
 
     const judges = await db.user.findMany({
       where: {
-        role: {
-          in: ["JUDGE", "STAFF_REKAP", "OPERATOR", "TIMER"],
-        },
+        role: "JUDGE",
       },
 
       orderBy: {
@@ -250,34 +248,19 @@ export async function POST(req: Request) {
     const action = clean(body.action);
 
     // ==========================================================
-    // TAMBAH JURI / AKUN ROLE (TERMASUK STAFF_REKAP)
+    // TAMBAH JURI
     // ==========================================================
 
     if (action === "create") {
       const name = clean(body.name);
       const username = clean(body.username).toLowerCase();
       const pin = clean(body.pin);
-      const rawRole = clean(body.role).toUpperCase();
-      const allowedRoles = [
-        "JUDGE",
-        "STAFF_REKAP",
-        "OPERATOR",
-        "TIMER",
-        "EVENT_ADMIN",
-        "FINANCE_ADMIN",
-        "PROD_ADMIN",
-        "SCANNER_STAFF",
-        "ADMIN",
-      ];
-      const role = allowedRoles.includes(rawRole)
-        ? rawRole
-        : "JUDGE";
 
       if (!name || !username || !pin) {
         return NextResponse.json(
           {
             error:
-              "Nama, username, dan PIN/Password wajib diisi.",
+              "Nama, username, dan PIN wajib diisi.",
           },
           {
             status: 400,
@@ -288,7 +271,18 @@ export async function POST(req: Request) {
       if (pin.length < 4) {
         return NextResponse.json(
           {
-            error: "PIN / Password minimal 4 karakter.",
+            error: "PIN minimal 4 angka.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      if (!/^\d+$/.test(pin)) {
+        return NextResponse.json(
+          {
+            error: "PIN hanya boleh berisi angka.",
           },
           {
             status: 400,
@@ -303,28 +297,6 @@ export async function POST(req: Request) {
       });
 
       if (existing) {
-        if (body.upsertByUsername) {
-          const updatedUser = await db.user.update({
-            where: { username },
-            data: {
-              name,
-              pinHash: pinHash(pin),
-              role,
-              status: "ACTIVE",
-            },
-            select: {
-              id: true,
-              name: true,
-              username: true,
-              role: true,
-              status: true,
-            },
-          });
-          return NextResponse.json({
-            success: true,
-            judge: updatedUser,
-          });
-        }
         return NextResponse.json(
           {
             error: "Username sudah digunakan.",
@@ -340,7 +312,7 @@ export async function POST(req: Request) {
           name,
           username,
           pinHash: pinHash(pin),
-          role,
+          role: "JUDGE",
           status: "ACTIVE",
         },
 
@@ -365,7 +337,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================================
-    // EDIT JURI / AKUN ROLE
+    // EDIT JURI
     // ==========================================================
 
     if (action === "update") {
@@ -373,7 +345,6 @@ export async function POST(req: Request) {
       const name = clean(body.name);
       const username = clean(body.username).toLowerCase();
       const pin = clean(body.pin);
-      const rawRole = clean(body.role).toUpperCase();
       const status =
         clean(body.status) || "ACTIVE";
 
@@ -395,10 +366,10 @@ export async function POST(req: Request) {
         },
       });
 
-      if (!current || current.role === "SUPER_ADMIN") {
+      if (!current || current.role !== "JUDGE") {
         return NextResponse.json(
           {
-            error: "Akun tidak ditemukan.",
+            error: "Juri tidak ditemukan.",
           },
           {
             status: 404,
@@ -420,7 +391,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "Username sudah digunakan akun lain.",
+              "Username sudah digunakan juri lain.",
           },
           {
             status: 409,
@@ -428,30 +399,14 @@ export async function POST(req: Request) {
         );
       }
 
-      const allowedRoles = [
-        "JUDGE",
-        "STAFF_REKAP",
-        "OPERATOR",
-        "TIMER",
-        "EVENT_ADMIN",
-        "FINANCE_ADMIN",
-        "PROD_ADMIN",
-        "SCANNER_STAFF",
-        "ADMIN",
-      ];
-
       const data: {
         name: string;
         username: string;
-        role?: string;
         status: string;
         pinHash?: string;
       } = {
         name,
         username,
-        role: allowedRoles.includes(rawRole)
-          ? rawRole
-          : current.role,
         status:
           status === "INACTIVE"
             ? "INACTIVE"
@@ -459,11 +414,14 @@ export async function POST(req: Request) {
       };
 
       if (pin) {
-        if (pin.length < 4) {
+        if (
+          !/^\d+$/.test(pin) ||
+          pin.length < 4
+        ) {
           return NextResponse.json(
             {
               error:
-                "PIN / Password baru minimal 4 karakter.",
+                "PIN baru minimal 4 angka dan hanya boleh angka.",
             },
             {
               status: 400,
@@ -506,7 +464,7 @@ export async function POST(req: Request) {
       if (!id) {
         return NextResponse.json(
           {
-            error: "ID akun wajib diisi.",
+            error: "ID juri wajib diisi.",
           },
           {
             status: 400,
@@ -520,10 +478,10 @@ export async function POST(req: Request) {
         },
       });
 
-      if (!judge || judge.role === "SUPER_ADMIN") {
+      if (!judge || judge.role !== "JUDGE") {
         return NextResponse.json(
           {
-            error: "Akun tidak ditemukan.",
+            error: "Juri tidak ditemukan.",
           },
           {
             status: 404,

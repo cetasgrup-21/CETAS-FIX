@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   FormEvent,
   useEffect,
@@ -95,7 +94,6 @@ export default function AdminJudgePage() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
-  const [role, setRole] = useState("JUDGE");
 
   // ==========================================================
   // PENUGASAN
@@ -211,7 +209,6 @@ export default function AdminJudgePage() {
     setName("");
     setUsername("");
     setPin("");
-    setRole("JUDGE");
     setEditing(null);
     setShowForm(false);
   }
@@ -228,7 +225,6 @@ export default function AdminJudgePage() {
     setName("");
     setUsername("");
     setPin("");
-    setRole("JUDGE");
 
     setShowForm(true);
   }
@@ -246,7 +242,6 @@ export default function AdminJudgePage() {
     setName(judge.name);
     setUsername(judge.username);
     setPin("");
-    setRole(judge.role || "JUDGE");
 
     setShowForm(true);
   }
@@ -285,7 +280,6 @@ export default function AdminJudgePage() {
             name,
             username,
             pin,
-            role,
 
             status:
               editing?.status ||
@@ -662,22 +656,13 @@ export default function AdminJudgePage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Link
-                href="/admin/dashboard"
-                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition"
-              >
-                ← Dashboard
-              </Link>
-
-              <button
-                type="button"
-                onClick={openCreate}
-                className="rounded-xl bg-[#1769e0] px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700"
-              >
-                + Tambah Juri
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="rounded-xl bg-[#1769e0] px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700"
+            >
+              + Tambah Juri
+            </button>
 
           </div>
         </header>
@@ -836,14 +821,14 @@ export default function AdminJudgePage() {
 
             <form
               onSubmit={saveJudge}
-              className="grid gap-4 md:grid-cols-4"
+              className="grid gap-4 md:grid-cols-3"
             >
 
               {/* NAMA */}
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
-                  Nama Lengkap
+                  Nama Juri
                 </span>
 
                 <input
@@ -863,7 +848,7 @@ export default function AdminJudgePage() {
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
-                  Username Login
+                  Username
                 </span>
 
                 <input
@@ -884,53 +869,43 @@ export default function AdminJudgePage() {
                 />
               </label>
 
-              {/* ROLE */}
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
-                  Role Akun
-                </span>
-
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-[#071a3d] outline-none focus:border-blue-500"
-                >
-                  <option value="JUDGE">JUDGE (Dewan Juri)</option>
-                  <option value="STAFF_REKAP">STAFF REKAP (Staff Rekap &amp; Juara / Cetak)</option>
-                  <option value="OPERATOR">OPERATOR (Operator / Tim Rekap)</option>
-                  <option value="TIMER">TIMER (Petugas Timer)</option>
-                </select>
-              </label>
-
               {/* PIN */}
 
               <label className="block">
                 <span className="mb-1 block text-xs font-black uppercase tracking-wider text-slate-500">
                   {editing
-                    ? "PIN / Password Baru (opsional)"
-                    : "PIN / Password"}
+                    ? "PIN Baru (opsional)"
+                    : "PIN"}
                 </span>
 
                 <input
                   value={pin}
                   onChange={(e) =>
                     setPin(
-                      e.target.value.slice(0, 24)
+                      e.target.value
+                        .replace(
+                          /\D/g,
+                          ""
+                        )
+                        .slice(
+                          0,
+                          12
+                        )
                     )
                   }
                   type="password"
+                  inputMode="numeric"
                   placeholder={
                     editing
                       ? "Kosongkan jika tidak diganti"
-                      : "Minimal 4 karakter / angka"
+                      : "Minimal 4 angka"
                   }
                   required={!editing}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.15em] outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 tracking-[.25em] outline-none focus:border-blue-500"
                 />
               </label>
 
-              <div className="flex justify-end md:col-span-4">
+              <div className="flex justify-end md:col-span-3">
 
                 <button
                   type="submit"
@@ -941,7 +916,7 @@ export default function AdminJudgePage() {
                     ? "Menyimpan..."
                     : editing
                     ? "Simpan Perubahan"
-                    : "Tambah Akun"}
+                    : "Tambah Juri"}
                 </button>
 
               </div>
@@ -951,7 +926,7 @@ export default function AdminJudgePage() {
         )}
 
         {/* ==================================================
-            DAFTAR JURI & STAFF REKAP
+            DAFTAR JURI
         ================================================== */}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -959,28 +934,28 @@ export default function AdminJudgePage() {
           <div className="mb-5">
 
             <p className="text-xs font-black uppercase tracking-wider text-blue-600">
-              Daftar Akun Juri &amp; Staff Rekap
+              Daftar Juri
             </p>
 
             <h2 className="mt-1 text-xl font-black text-[#071a3d]">
-              {judges.length} Akun Terdaftar
+              {judges.length} Juri Terdaftar
             </h2>
 
           </div>
 
           {loading ? (
             <div className="rounded-xl bg-slate-50 p-10 text-center text-sm font-bold text-slate-400">
-              Memuat data akun...
+              Memuat data juri...
             </div>
           ) : !judges.length ? (
             <div className="rounded-xl bg-slate-50 p-10 text-center">
 
               <p className="font-black text-[#071a3d]">
-                Belum ada akun juri / staff rekap tambahan.
+                Belum ada juri tambahan.
               </p>
 
               <p className="mt-1 text-sm text-slate-400">
-                Juri atau Staff Rekap bisa ditambahkan
+                Juri bisa ditambahkan
                 menggunakan tombol di atas.
               </p>
 
@@ -1016,24 +991,6 @@ export default function AdminJudgePage() {
                               <h3 className="font-black text-[#071a3d]">
                                 {judge.name}
                               </h3>
-
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
-                                  judge.role === "STAFF_REKAP" || judge.role === "OPERATOR"
-                                    ? "bg-indigo-100 text-indigo-700"
-                                    : judge.role === "TIMER"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-blue-50 text-blue-700"
-                                }`}
-                              >
-                                {judge.role === "STAFF_REKAP"
-                                  ? "STAFF REKAP"
-                                  : judge.role === "OPERATOR"
-                                  ? "OPERATOR / REKAP"
-                                  : judge.role === "TIMER"
-                                  ? "TIMER"
-                                  : "DEWAN JURI"}
-                              </span>
 
                               <span
                                 className={`rounded-full px-2.5 py-1 text-[11px] font-black ${

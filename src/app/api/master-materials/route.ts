@@ -137,35 +137,51 @@ export async function DELETE(req: Request) {
   try {
     const body = await req.json();
     const id = clean(body.id);
+    const name = clean(body.name);
 
-    if (!id) {
+    if (!id && !name) {
       return NextResponse.json(
-        { success: false, error: "ID materi wajib diisi." },
+        { success: false, error: "ID atau nama materi wajib diisi." },
         { status: 400 }
       );
     }
 
-    const material = await db.masterMaterial.findUnique({
-      where: { id },
-      select: { id: true, name: true },
-    });
-
-    if (!material) {
-      return NextResponse.json(
-        { success: false, error: "Materi history tidak ditemukan." },
-        { status: 404 }
-      );
+    let targetName = name;
+    if (!targetName && id) {
+      const found = await db.masterMaterial.findUnique({
+        where: { id },
+        select: { id: true, name: true },
+      });
+      if (found) {
+        targetName = found.name;
+      }
     }
 
-    // History dinonaktifkan, bukan dihapus, agar criterion lama aman.
-    await db.masterMaterial.update({
-      where: { id },
-      data: { status: "INACTIVE" },
-    });
+    // Nonaktifkan SEMUA entri master material dengan ID ini
+    if (id) {
+      await db.masterMaterial.updateMany({
+        where: { id },
+        data: { status: "INACTIVE" },
+      });
+    }
+
+    // Dan nonaktifkan SEMUA entri master material dengan NAMA yang sama (case-insensitive)
+    // agar materi benar-benar hilang dari seluruh riwayat dan tidak muncul lagi
+    if (targetName) {
+      await db.masterMaterial.updateMany({
+        where: {
+          name: {
+            equals: targetName.trim(),
+            mode: "insensitive",
+          },
+        },
+        data: { status: "INACTIVE" },
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      message: `"${material.name}" dihapus dari history materi.`,
+      message: `"${targetName || "Materi"}" berhasil dihapus dari riwayat.`,
     });
   } catch (error) {
     console.error("DELETE MASTER MATERIAL ERROR:", error);

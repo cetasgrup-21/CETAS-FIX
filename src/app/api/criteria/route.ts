@@ -568,48 +568,21 @@ export async function POST(req: Request) {
           sortOrder,
           inputType: "RATING",
         },
-      });
-
-    /**
-     * --------------------------------------------------------
-     * REGENERATE ANGKA
-     * --------------------------------------------------------
-     */
-    await regenerateCategoryOptions(
-      categoryId
-    );
-
-    /**
-     * --------------------------------------------------------
-     * AMBIL HASIL
-     * --------------------------------------------------------
-     */
-    const result =
-      await db.criterion.findUnique({
-        where: {
-          id: criterion.id,
-        },
-
         include: {
           material: true,
-
-          options: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
         },
       });
+
+    // Jalankan regenerasi score options di background agar HTTP response instan (<50ms)
+    void regenerateCategoryOptions(categoryId).catch((err) => {
+      console.error("Background regenerateCategoryOptions error on POST:", err);
+    });
 
     return NextResponse.json(
       {
         success: true,
-
-        message:
-          "Materi berhasil ditambahkan.",
-
-        criterion: result,
-
+        message: "Materi berhasil ditambahkan.",
+        criterion,
         materialId,
       },
       {
@@ -1278,41 +1251,18 @@ export async function PATCH(req: Request) {
 
         include: {
           material: true,
-
-          options: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
         },
       });
 
-    await regenerateCategoryOptions(
-      targetCategoryId
-    );
-
-    const result =
-      await db.criterion.findUnique({
-        where: {
-          id: updated.id,
-        },
-
-        include: {
-          material: true,
-
-          options: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
-        },
-      });
+    // Jalankan regenerasi score options di background
+    void regenerateCategoryOptions(targetCategoryId).catch((err) => {
+      console.error("Background regenerateCategoryOptions error on PATCH:", err);
+    });
 
     return NextResponse.json({
       success: true,
-      message:
-        "Materi berhasil diperbarui.",
-      criterion: result,
+      message: "Materi berhasil diperbarui.",
+      criterion: updated,
     });
   } catch (error) {
     console.error(
@@ -1471,48 +1421,29 @@ export async function DELETE(req: Request) {
     const categoryId =
       criterion.categoryId;
 
-    await db.criterion.delete({
+    const deletedCriterion = await db.criterion.delete({
       where: {
         id,
       },
     });
 
-    /*
-     * Rapikan sortOrder setelah delete.
-     */
-    const remaining =
-      await db.criterion.findMany({
+    // Rapikan sortOrder dalam 1 query cepat tanpa loop transaksi lambat
+    if (deletedCriterion.sortOrder !== null && deletedCriterion.sortOrder !== undefined) {
+      await db.criterion.updateMany({
         where: {
           categoryId,
+          sortOrder: { gt: deletedCriterion.sortOrder },
         },
-
-        orderBy: [
-          {
-            sortOrder: "asc",
-          },
-          {
-            name: "asc",
-          },
-        ],
+        data: {
+          sortOrder: { decrement: 1 },
+        },
       });
+    }
 
-    await db.$transaction(
-      remaining.map(
-        (item, index) =>
-          db.criterion.update({
-            where: {
-              id: item.id,
-            },
-            data: {
-              sortOrder: index,
-            },
-          })
-      )
-    );
-
-    await regenerateCategoryOptions(
-      categoryId
-    );
+    // Jalankan regenerasi score options di background
+    void regenerateCategoryOptions(categoryId).catch((err) => {
+      console.error("Background regenerateCategoryOptions error on DELETE:", err);
+    });
 
     return NextResponse.json({
       success: true,

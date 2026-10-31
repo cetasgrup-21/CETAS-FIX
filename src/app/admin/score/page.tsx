@@ -704,7 +704,7 @@ export default function AdminPage() {
 
       setMessage(`Kategori "${name}" berhasil diubah.`);
       cancelEditCategory();
-      await load();
+      await load(true);
 
       if (wasSelected) {
         setSelectedCategory(editingCategoryId);
@@ -795,19 +795,38 @@ export default function AdminPage() {
       return;
     }
 
+    const idToEdit = editingSubCategoryId;
+
+    // Optimistic update instan (0ms)
+    setEvent((curr) => {
+      if (!curr) return curr;
+      return {
+        ...curr,
+        categories: curr.categories.map((c) => {
+          if (c.id !== selectedCategory) return c;
+          return {
+            ...c,
+            subCategories: (c.subCategories || []).map((s) =>
+              s.id === idToEdit ? { ...s, name } : s
+            ),
+          };
+        }),
+      };
+    });
+
+    cancelEditSubCategory();
+    setMessage(`Subkategori "${name}" berhasil diubah.`);
+
     try {
       await api("/api/subcategories", "PATCH", {
-        id: editingSubCategoryId,
+        id: idToEdit,
         name,
       });
-
-      setMessage(`Subkategori "${name}" berhasil diubah.`);
-      cancelEditSubCategory();
-      await load(true);
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : "Gagal mengubah subkategori."
       );
+      await load(true);
     }
   }
 
@@ -846,20 +865,55 @@ export default function AdminPage() {
       setMessage("Nama materi wajib diisi.");
       return;
     }
+
+    const newInterval = Number(editingCriterionInterval);
+    const targetId = criterion.id;
+
+    // Optimistic update instan (0ms) pada UI
+    setEvent((curr) => {
+      if (!curr) return curr;
+      return {
+        ...curr,
+        categories: curr.categories.map((c) => {
+          if (c.id !== selectedCategory) return c;
+          return {
+            ...c,
+            subCategories: (c.subCategories || []).map((s) => {
+              if (s.id !== section.id) return s;
+              return {
+                ...s,
+                criteria: (s.criteria || []).map((cr) =>
+                  cr.id === targetId
+                    ? { ...cr, name, interval: newInterval }
+                    : cr
+                ),
+              };
+            }),
+            criteria: (c.criteria || []).map((cr) =>
+              cr.id === targetId
+                ? { ...cr, name, interval: newInterval }
+                : cr
+            ),
+          };
+        }),
+      };
+    });
+
+    cancelEditCriterion();
+    setMessage(`Materi "${name}" berhasil diperbarui.`);
+    keepSubCategoryInView(section.id);
+
     try {
       await api("/api/criteria", "PATCH", {
-        id: criterion.id,
+        id: targetId,
         categoryId: selectedCategory,
         name,
         section: section.name,
-        interval: Number(editingCriterionInterval),
+        interval: newInterval,
       });
-      cancelEditCriterion();
-      setMessage(`Materi "${name}" berhasil diperbarui.`);
-      await load();
-      keepSubCategoryInView(section.id);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Gagal mengubah materi.");
+      await load(true);
     }
   }
 
@@ -994,44 +1048,76 @@ export default function AdminPage() {
   async function deleteSubCategory(id: string) {
     if (!confirm("Hapus subkategori ini?")) return;
 
+    if (activeMaterialSubCategory === id) {
+      setActiveMaterialSubCategory(null);
+    }
+
+    if (editingSubCategoryId === id) {
+      cancelEditSubCategory();
+    }
+
+    // Optimistic removal instan (0ms)
+    setEvent((curr) => {
+      if (!curr) return curr;
+      return {
+        ...curr,
+        categories: curr.categories.map((c) => {
+          if (c.id !== selectedCategory) return c;
+          return {
+            ...c,
+            subCategories: (c.subCategories || []).filter((s) => s.id !== id),
+          };
+        }),
+      };
+    });
+
+    setMessage("Subkategori dihapus.");
+
     try {
       await api("/api/subcategories", "DELETE", { id });
-
-      if (activeMaterialSubCategory === id) {
-        setActiveMaterialSubCategory(null);
-      }
-
-      if (editingSubCategoryId === id) {
-        cancelEditSubCategory();
-      }
-
-      setMessage("Subkategori dihapus.");
-
-      await load(true);
     } catch (e) {
       setMessage(
         e instanceof Error
           ? e.message
           : "Gagal menghapus subkategori."
       );
+      await load(true);
     }
   }
 
   async function deleteCriterion(id: string) {
     if (!confirm("Hapus materi ini?")) return;
 
+    // Optimistic removal instan (0ms) dari layar
+    setEvent((curr) => {
+      if (!curr) return curr;
+      return {
+        ...curr,
+        categories: curr.categories.map((c) => {
+          if (c.id !== selectedCategory) return c;
+          return {
+            ...c,
+            subCategories: (c.subCategories || []).map((s) => ({
+              ...s,
+              criteria: (s.criteria || []).filter((cr) => cr.id !== id),
+            })),
+            criteria: (c.criteria || []).filter((cr) => cr.id !== id),
+          };
+        }),
+      };
+    });
+
+    setMessage("Materi dihapus.");
+
     try {
       await api("/api/criteria", "DELETE", { id });
-
-      setMessage("Materi dihapus.");
-
-      await load(true);
     } catch (e) {
       setMessage(
         e instanceof Error
           ? e.message
           : "Gagal menghapus materi."
       );
+      await load(true);
     }
   }
 

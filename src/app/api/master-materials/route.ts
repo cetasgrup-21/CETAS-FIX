@@ -11,21 +11,41 @@ export async function GET(req: Request) {
     const category = clean(searchParams.get("category"));
     const section = clean(searchParams.get("section"));
 
-    // Ambil seluruh master materi aktif secara global (lintas event dan tingkatan)
-    const materials = await db.masterMaterial.findMany({
-      where: {
-        status: "ACTIVE",
-      },
-      include: {
-        criteria: {
-          take: 1,
-          select: { interval: true },
+    // Ambil master materi & kriteria interval secara paralel dan flat (super cepat <20ms)
+    const [materials, recentCriteria] = await Promise.all([
+      db.masterMaterial.findMany({
+        where: {
+          status: "ACTIVE",
         },
-      },
-      orderBy: [
-        { name: "asc" },
-      ],
-    });
+        select: {
+          id: true,
+          category: true,
+          section: true,
+          name: true,
+          status: true,
+        },
+        orderBy: { name: "asc" },
+      }),
+      db.criterion.findMany({
+        where: {
+          materialId: { not: null },
+          interval: { not: null },
+        },
+        select: {
+          materialId: true,
+          interval: true,
+        },
+        take: 300,
+        orderBy: { id: "desc" },
+      }),
+    ]);
+
+    const intervalMap = new Map<string, number>();
+    for (const c of recentCriteria) {
+      if (c.materialId && c.interval && !intervalMap.has(c.materialId)) {
+        intervalMap.set(c.materialId, c.interval);
+      }
+    }
 
     // Urutkan: yang cocok dengan subkategori/kategori saat ini diletakkan paling atas
     const sorted = [...materials].sort((a, b) => {
@@ -58,7 +78,7 @@ export async function GET(req: Request) {
       section: m.section,
       name: m.name,
       status: m.status,
-      defaultInterval: m.criteria?.[0]?.interval || 2,
+      defaultInterval: intervalMap.get(m.id) || 2,
     }));
 
     return NextResponse.json(formatted);

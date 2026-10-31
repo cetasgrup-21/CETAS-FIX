@@ -4,26 +4,33 @@ import { db } from "@/lib/db";
 import { regenerateCategoryScoreOptions } from "@/lib/scoring-server";
 
 
+let isSyncing = false;
 let lastSyncMasterEventsTime = 0;
-const SYNC_COOLDOWN = 60 * 1000; // 60 detik cooldown agar GET tidak melambat
+const SYNC_COOLDOWN = 120 * 1000; // 120 detik cooldown
 
 async function syncMasterEvents(force = false) {
   const now = Date.now();
-  if (!force && now - lastSyncMasterEventsTime < SYNC_COOLDOWN) {
+  if (isSyncing || (!force && now - lastSyncMasterEventsTime < SYNC_COOLDOWN)) {
     return;
   }
+  isSyncing = true;
   lastSyncMasterEventsTime = now;
 
   try {
     const masterEvents = await getEventsStore().catch(() => []);
     if (!masterEvents || !masterEvents.length) return;
 
+    const existingEvents = await db.event.findMany({
+      select: { id: true, banner: true, logo: true },
+    });
+    const existingMap = new Map(existingEvents.map((e) => [e.id, e]));
+
     for (const mEv of masterEvents) {
       if (!mEv.id) continue;
       const parsedDate = mEv.date ? new Date(mEv.date) : null;
       const validDate = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
 
-      const existing = await db.event.findUnique({ where: { id: mEv.id } });
+      const existing = existingMap.get(mEv.id);
       if (!existing) {
         await db.event.create({
           data: {
@@ -46,7 +53,6 @@ async function syncMasterEvents(force = false) {
             date: validDate,
             location: mEv.location || "Jakarta",
             banner: mEv.bannerUrl || existing.banner,
-            // Jaga logo kustom event yang diunggah pengguna, jangan timpa dengan banner
             logo: existing.logo || (mEv as any).logoUrl || null,
           },
         });
@@ -54,11 +60,14 @@ async function syncMasterEvents(force = false) {
     }
   } catch (err) {
     console.warn("Auto sync master events to score DB error:", err);
+  } finally {
+    isSyncing = false;
   }
 }
 
 export async function GET(req: Request) {
-  await syncMasterEvents();
+  // Sync di background tanpa blocking GET request sama sekali
+  void syncMasterEvents();
   try {
     const { searchParams } = new URL(req.url);
     const all = searchParams.get("all") === "true";
@@ -151,7 +160,6 @@ export async function GET(req: Request) {
 
                   include: {
                     material: true,
-                    options: true,
                   },
                 },
               },

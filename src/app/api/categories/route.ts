@@ -252,51 +252,69 @@ export async function POST(req: Request) {
         },
       });
 
-      const newCategory = await db.$transaction(async (tx) => {
-        const cat = await tx.category.create({
-          data: {
-            eventId: targetEventId,
-            eventLevelId: targetLevelId,
-            name: targetName,
-            percentage: Number(source.percentage || 0),
-            sortOrder: count + 1,
-            status: "ACTIVE",
-          },
-        });
-
-        if (targetLevelId) {
-          await tx.categoryLevel.upsert({
-            where: {
-              categoryId_levelId: {
-                categoryId: cat.id,
-                levelId: targetLevelId,
-              },
-            },
-            create: {
-              categoryId: cat.id,
-              levelId: targetLevelId,
-              sortOrder: count + 1,
-            },
-            update: {},
-          });
-        }
-
-        for (const sub of source.subCategories) {
-          const newSub = await tx.subCategory.create({
+      const newCategory = await db.$transaction(
+        async (tx) => {
+          const cat = await tx.category.create({
             data: {
-              categoryId: cat.id,
-              name: sub.name,
-              percentage: sub.percentage,
-              sortOrder: sub.sortOrder,
+              eventId: targetEventId,
+              eventLevelId: targetLevelId,
+              name: targetName,
+              percentage: Number(source.percentage || 0),
+              sortOrder: count + 1,
               status: "ACTIVE",
             },
           });
 
-          for (const crit of sub.criteria) {
-            await tx.criterion.create({
+          if (targetLevelId) {
+            await tx.categoryLevel.upsert({
+              where: {
+                categoryId_levelId: {
+                  categoryId: cat.id,
+                  levelId: targetLevelId,
+                },
+              },
+              create: {
+                categoryId: cat.id,
+                levelId: targetLevelId,
+                sortOrder: count + 1,
+              },
+              update: {},
+            });
+          }
+
+          for (const sub of source.subCategories) {
+            const newSub = await tx.subCategory.create({
               data: {
                 categoryId: cat.id,
-                subCategoryId: newSub.id,
+                name: sub.name,
+                percentage: sub.percentage,
+                sortOrder: sub.sortOrder,
+                status: "ACTIVE",
+              },
+            });
+
+            if (sub.criteria && sub.criteria.length > 0) {
+              await tx.criterion.createMany({
+                data: sub.criteria.map((crit) => ({
+                  categoryId: cat.id,
+                  subCategoryId: newSub.id,
+                  materialId: crit.materialId,
+                  name: crit.name,
+                  section: crit.section,
+                  interval: crit.interval,
+                  difficulty: crit.difficulty,
+                  sortOrder: crit.sortOrder,
+                  inputType: crit.inputType,
+                })),
+              });
+            }
+          }
+
+          if (source.criteria && source.criteria.length > 0) {
+            await tx.criterion.createMany({
+              data: source.criteria.map((crit) => ({
+                categoryId: cat.id,
+                subCategoryId: null,
                 materialId: crit.materialId,
                 name: crit.name,
                 section: crit.section,
@@ -304,29 +322,17 @@ export async function POST(req: Request) {
                 difficulty: crit.difficulty,
                 sortOrder: crit.sortOrder,
                 inputType: crit.inputType,
-              },
+              })),
             });
           }
-        }
 
-        for (const crit of source.criteria) {
-          await tx.criterion.create({
-            data: {
-              categoryId: cat.id,
-              subCategoryId: null,
-              materialId: crit.materialId,
-              name: crit.name,
-              section: crit.section,
-              interval: crit.interval,
-              difficulty: crit.difficulty,
-              sortOrder: crit.sortOrder,
-              inputType: crit.inputType,
-            },
-          });
+          return cat;
+        },
+        {
+          maxWait: 15000,
+          timeout: 60000,
         }
-
-        return cat;
-      });
+      );
 
       // Background regenerate score options tanpa menghambat response API
       void regenerateCategoryScoreOptions(newCategory.id).catch((err) => {

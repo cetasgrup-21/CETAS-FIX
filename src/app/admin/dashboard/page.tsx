@@ -563,6 +563,51 @@ export default function AdminDashboardPage() {
             </section>
 
             {/* =================================================
+                LIVE COMPETITION OPERATIONS
+            ================================================= */}
+            <section className="mt-5">
+              <div className="mb-3">
+                <h2 className="text-lg font-black text-[#071a3d]">
+                  Operasional Hari Lomba (Live)
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Akses cepat rekapitulasi, penentuan juara, timer penampilan, dan layar publik.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <MenuCard
+                  title="Rekap Nilai"
+                  description="Rekapitulasi live per tingkatan & juri"
+                  icon="📊"
+                  onClick={() => router.push("/rekap")}
+                />
+
+                <MenuCard
+                  title="Penentuan Juara"
+                  description="Podium juara utama/kategori & cetak F4"
+                  icon="🏆"
+                  onClick={() => router.push("/penentuan-juara")}
+                  primary
+                />
+
+                <MenuCard
+                  title="Timer Penampilan"
+                  description="Stopwatch pencatat waktu peserta lomba"
+                  icon="⏱️"
+                  onClick={() => router.push("/timer")}
+                />
+
+                <MenuCard
+                  title="Display Layar"
+                  description="Tampilan panggung & leaderboard publik"
+                  icon="🖥️"
+                  onClick={() => router.push("/display")}
+                />
+              </div>
+            </section>
+
+            {/* =================================================
                 EVENT INFO
             ================================================= */}
 

@@ -98,6 +98,13 @@ export default function TimerPage() {
       name: string;
     } | null>(null);
 
+  const [events, setEvents] =
+    useState<{
+      id: string;
+      name: string;
+      status: string;
+    }[]>([]);
+
   const [role, setRole] =
     useState("");
 
@@ -175,14 +182,18 @@ export default function TimerPage() {
   // LOAD
   // =====================================================
 
-  async function load() {
+  async function load(targetEventId?: string) {
     setLoading(true);
     setError("");
 
     try {
+      const url = targetEventId
+        ? `/api/timer?eventId=${encodeURIComponent(targetEventId)}`
+        : "/api/timer";
+
       const response =
         await fetch(
-          "/api/timer",
+          url,
           {
             cache: "no-store",
           }
@@ -214,6 +225,10 @@ export default function TimerPage() {
 
       setEvent(
         result.event || null
+      );
+
+      setEvents(
+        result.events || []
       );
 
       setLevels(
@@ -1010,6 +1025,7 @@ export default function TimerPage() {
             },
             body: JSON.stringify({
               action: actionName,
+              eventId: event?.id,
               participantId,
               timerGroupId: null,
               categoryId: null,
@@ -1109,10 +1125,32 @@ export default function TimerPage() {
                 Timer Penampilan
               </h1>
 
-              <p className="mt-2 text-white/65">
-                {event?.name ||
-                  "Event aktif"}
-              </p>
+              {events.length > 1 ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs font-medium text-white/65">Event:</span>
+                  <select
+                    value={event?.id || ""}
+                    onChange={(e) => {
+                      const newId = e.target.value;
+                      setLevelId("");
+                      setParticipantId("");
+                      void load(newId);
+                    }}
+                    className="cursor-pointer rounded-xl border border-white/20 bg-white/10 px-3 py-1 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id} className="bg-slate-900 text-white">
+                        {ev.name} {ev.status === "ACTIVE" ? "(Aktif)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="mt-2 text-white/65">
+                  {event?.name ||
+                    "Event aktif"}
+                </p>
+              )}
             </div>
 
             <button
@@ -1461,7 +1499,7 @@ export default function TimerPage() {
 
             <button
               type="button"
-              onClick={load}
+              onClick={() => void load(event?.id)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50"
             >
               Refresh

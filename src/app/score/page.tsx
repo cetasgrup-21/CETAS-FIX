@@ -45,9 +45,9 @@ export default function CetasScorePortalPage() {
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 font-black text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
               A
             </div>
-            <b className="text-xl text-[#071a3d]">Admin Scoring</b>
+            <b className="text-xl text-[#071a3d]">Admin</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Pilih event, kelola tingkatan, kategori, materi, penugasan juri, dan peserta.
+              Buat event dan kelola kategori, subkategori, bobot, serta materi.
             </p>
           </Link>
 
@@ -55,12 +55,12 @@ export default function CetasScorePortalPage() {
             href="/judge"
             className="card p-6 transition hover:-translate-y-1 hover:border-blue-400 group"
           >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 font-black text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 font-black text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
               J
             </div>
-            <b className="text-xl text-[#071a3d]">Bilik Juri</b>
+            <b className="text-xl text-[#071a3d]">Juri</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Masuk ke halaman penilaian 10 interval sesuai kategori yang ditugaskan.
+              Masuk ke halaman penilaian sesuai kategori yang ditugaskan.
             </p>
           </Link>
 
@@ -68,35 +68,25 @@ export default function CetasScorePortalPage() {
             href="/rekap"
             className="card p-6 transition hover:-translate-y-1 hover:border-blue-400 group"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 font-black text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition">
-                R
-              </div>
-              <span className="rounded-full bg-purple-50 border border-purple-200 px-2.5 py-1 text-[10px] font-black text-purple-700">
-                🔒 Admin / Staff Rekap
-              </span>
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 font-black text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+              R
             </div>
-            <b className="text-xl text-[#071a3d]">Rekap Nilai</b>
+            <b className="text-xl text-[#071a3d]">Rekap</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Rekapitulasi nilai per tingkatan, progres penilaian juri, dan lembar nilai (Wajib Login Admin / Staff Rekap).
+              Lihat rekap nilai, progres penilaian, ranking, dan hasil kompetisi.
             </p>
           </Link>
 
           <Link
-            href="/penentuan-juara"
+            href="/timer"
             className="card p-6 transition hover:-translate-y-1 hover:border-blue-400 group"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 font-black text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition">
-                🏆
-              </div>
-              <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-black text-amber-800">
-                🔒 Admin / Staff Rekap
-              </span>
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 font-black text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+              T
             </div>
-            <b className="text-xl text-[#071a3d]">Juara &amp; Cetak</b>
+            <b className="text-xl text-[#071a3d]">Timer</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Penentuan juara utama/kategori, tie breaker, dan cetak rekap F4 (Wajib Login Admin / Staff Rekap).
+              Timer penampilan biasa atau timer per kategori/gabungan kategori.
             </p>
           </Link>
 
@@ -104,38 +94,14 @@ export default function CetasScorePortalPage() {
             href="/display"
             className="card p-6 transition hover:-translate-y-1 hover:border-blue-400 group"
           >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 font-black text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 font-black text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
               D
             </div>
-            <b className="text-xl text-[#071a3d]">Display Layar</b>
+            <b className="text-xl text-[#071a3d]">Display</b>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Tampilan leaderboard publik &amp; panggung secara realtime tanpa perlu login.
+              Tampilan hasil untuk layar publik tanpa perlu login.
             </p>
           </Link>
-        </section>
-
-        {/* Quick Utilities Footer */}
-        <section className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold text-slate-500">
-          <div className="flex items-center gap-4 flex-wrap">
-            <Link href="/admin/judges" className="hover:text-blue-600 transition">
-              👥 Kelola Juri &amp; Staff Rekap
-            </Link>
-            <span>•</span>
-            <Link href="/admin/participants" className="hover:text-blue-600 transition">
-              🏃 Data Peserta
-            </Link>
-            <span>•</span>
-            <Link href="/admin/review" className="hover:text-blue-600 transition">
-              📋 Review Lembar Nilai
-            </Link>
-            <span>•</span>
-            <Link href="/timer" className="hover:text-blue-600 transition">
-              ⏱️ Timer Penampilan
-            </Link>
-          </div>
-          <div>
-            Centralized Electronic Tournament & Award System (CETAS)
-          </div>
         </section>
       </div>
     </main>

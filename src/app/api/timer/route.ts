@@ -164,28 +164,57 @@ export async function GET(
     }
 
     // =====================================================
-    // EVENT AKTIF
+    // EVENT AKTIF / PILIHAN
     // =====================================================
 
-    const event =
-      await db.event.findFirst({
-        where: {
-          status: "ACTIVE",
-        },
+    const url = new URL(req.url);
+    const queryEventId = cleanString(url.searchParams.get("eventId"));
 
-        orderBy: {
-          createdAt:
-            "desc",
-        },
+    const allEvents = await db.event.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+      },
+    });
 
-        select: {
-          id: true,
-          name: true,
-          logo: true,
-          location: true,
-          date: true,
-        },
-      });
+    const event = queryEventId
+      ? await db.event.findUnique({
+          where: {
+            id: queryEventId,
+          },
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            location: true,
+            date: true,
+          },
+        })
+      : await db.event.findFirst({
+          where: {
+            status: "ACTIVE",
+          },
+
+          orderBy: {
+            createdAt:
+              "desc",
+          },
+
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            location: true,
+            date: true,
+          },
+        }) || (allEvents[0] ? await db.event.findUnique({
+          where: { id: allEvents[0].id },
+          select: { id: true, name: true, logo: true, location: true, date: true }
+        }) : null);
 
     if (!event) {
       return NextResponse.json(
@@ -439,6 +468,8 @@ export async function GET(
 
         event,
 
+        events: allEvents,
+
         levels,
 
         participants,
@@ -563,21 +594,31 @@ export async function POST(
     // EVENT
     // =====================================================
 
-    const event =
-      await db.event.findFirst({
-        where: {
-          status: "ACTIVE",
-        },
+    const bodyEventId = cleanString(body.eventId);
 
-        orderBy: {
-          createdAt:
-            "desc",
-        },
+    const event = bodyEventId
+      ? await db.event.findUnique({
+          where: {
+            id: bodyEventId,
+          },
+          select: {
+            id: true,
+          },
+        })
+      : await db.event.findFirst({
+          where: {
+            status: "ACTIVE",
+          },
 
-        select: {
-          id: true,
-        },
-      });
+          orderBy: {
+            createdAt:
+              "desc",
+          },
+
+          select: {
+            id: true,
+          },
+        });
 
     if (!event) {
       return NextResponse.json(

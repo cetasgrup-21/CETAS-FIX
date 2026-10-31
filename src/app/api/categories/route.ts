@@ -203,16 +203,51 @@ export async function POST(req: Request) {
         );
       }
 
-      const targetLevelId = body.targetEventLevelId !== undefined
-        ? (body.targetEventLevelId ? clean(body.targetEventLevelId) : null)
-        : source.eventLevelId;
+      // Target event: bisa event aktif atau event lain
+      const targetEventId = clean(body.targetEventId) || event.id;
+      const targetEvent = await db.event.findUnique({
+        where: { id: targetEventId },
+      });
 
-      const targetName = clean(body.targetName) ||
-        (targetLevelId === source.eventLevelId ? `${source.name} (Duplikat)` : source.name);
+      if (!targetEvent) {
+        return NextResponse.json(
+          { error: "Event tujuan tidak ditemukan." },
+          { status: 404 }
+        );
+      }
+
+      // Target tingkatan (level)
+      const rawTargetLevelId =
+        body.targetEventLevelId !== undefined
+          ? clean(body.targetEventLevelId)
+          : clean(source.eventLevelId);
+      const targetLevelId = rawTargetLevelId || null;
+
+      if (targetLevelId) {
+        const level = await db.eventLevel.findFirst({
+          where: {
+            id: targetLevelId,
+            eventId: targetEventId,
+          },
+        });
+
+        if (!level) {
+          return NextResponse.json(
+            { error: "Tingkatan yang dipilih tidak valid pada event tujuan." },
+            { status: 400 }
+          );
+        }
+      }
+
+      const targetName =
+        clean(body.targetName) ||
+        (targetEventId === source.eventId && targetLevelId === source.eventLevelId
+          ? `${source.name} (Copy)`
+          : source.name);
 
       const count = await db.category.count({
         where: {
-          eventId: event.id,
+          eventId: targetEventId,
           eventLevelId: targetLevelId,
         },
       });
@@ -220,14 +255,31 @@ export async function POST(req: Request) {
       const newCategory = await db.$transaction(async (tx) => {
         const cat = await tx.category.create({
           data: {
-            eventId: event.id,
+            eventId: targetEventId,
             eventLevelId: targetLevelId,
             name: targetName,
-            percentage: source.percentage,
+            percentage: Number(source.percentage || 0),
             sortOrder: count + 1,
             status: "ACTIVE",
           },
         });
+
+        if (targetLevelId) {
+          await tx.categoryLevel.upsert({
+            where: {
+              categoryId_levelId: {
+                categoryId: cat.id,
+                levelId: targetLevelId,
+              },
+            },
+            create: {
+              categoryId: cat.id,
+              levelId: targetLevelId,
+              sortOrder: count + 1,
+            },
+            update: {},
+          });
+        }
 
         for (const sub of source.subCategories) {
           const newSub = await tx.subCategory.create({
@@ -276,14 +328,19 @@ export async function POST(req: Request) {
         return cat;
       });
 
-      try {
-        await regenerateCategoryScoreOptions(newCategory.id);
-      } catch (err) {
-        console.warn("Regenerate options warning on duplicate:", err);
-      }
+      // Background regenerate score options tanpa menghambat response API
+      void regenerateCategoryScoreOptions(newCategory.id).catch((err) => {
+        console.warn("Background regenerate options warning on duplicate:", err);
+      });
 
       return NextResponse.json(
-        { success: true, category: newCategory, message: `Kategori "${targetName}" berhasil diduplikat.` },
+        {
+          success: true,
+          category: newCategory,
+          message: `Kategori "${targetName}" berhasil diduplikat${
+            targetEventId !== event.id ? ` ke event "${targetEvent.name}"` : ""
+          }.`,
+        },
         { status: 201 }
       );
     }

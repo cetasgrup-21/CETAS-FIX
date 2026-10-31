@@ -95,7 +95,10 @@ export default function AdminPage() {
 
   // DUPLICATE CATEGORY
   const [duplicatingCategory, setDuplicatingCategory] = useState<Category | null>(null);
+  const [duplicateTargetEventId, setDuplicateTargetEventId] = useState<string>("");
   const [duplicateTargetLevelId, setDuplicateTargetLevelId] = useState<string>("");
+  const [duplicateTargetLevels, setDuplicateTargetLevels] = useState<EventLevel[]>([]);
+  const [loadingDuplicateLevels, setLoadingDuplicateLevels] = useState(false);
   const [duplicateTargetName, setDuplicateTargetName] = useState<string>("");
   const [duplicatingLoading, setDuplicatingLoading] = useState(false);
 
@@ -623,30 +626,111 @@ export default function AdminPage() {
 
   function openDuplicateModal(c: Category) {
     setDuplicatingCategory(c);
+    const initialEventId = event?.id || "";
+    setDuplicateTargetEventId(initialEventId);
+    setDuplicateTargetLevels(activeLevels);
     setDuplicateTargetLevelId(c.eventLevelId || activeLevels[0]?.id || "");
     setDuplicateTargetName(`${c.name} (Copy)`);
   }
 
+  async function handleTargetEventChange(targetEventId: string) {
+    setDuplicateTargetEventId(targetEventId);
+    if (!targetEventId) return;
+
+    if (event && targetEventId === event.id) {
+      setDuplicateTargetLevels(activeLevels);
+      setDuplicateTargetLevelId(activeLevels[0]?.id || "");
+      return;
+    }
+
+    setLoadingDuplicateLevels(true);
+    try {
+      const res = await fetch(`/api/event-levels?eventId=${encodeURIComponent(targetEventId)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      const rawLevels: EventLevel[] = Array.isArray(data?.levels) ? data.levels : [];
+      const actLevels = rawLevels.filter((lvl) => lvl.status === "ACTIVE");
+      const chosen = actLevels.length > 0 ? actLevels : rawLevels;
+      setDuplicateTargetLevels(chosen);
+      setDuplicateTargetLevelId(chosen[0]?.id || "");
+    } catch (err) {
+      console.error("FETCH TARGET EVENT LEVELS ERROR:", err);
+      setDuplicateTargetLevels([]);
+      setDuplicateTargetLevelId("");
+    } finally {
+      setLoadingDuplicateLevels(false);
+    }
+  }
+
   function cancelDuplicateCategory() {
     setDuplicatingCategory(null);
+    setDuplicateTargetEventId("");
     setDuplicateTargetLevelId("");
     setDuplicateTargetName("");
+    setDuplicateTargetLevels([]);
+    setLoadingDuplicateLevels(false);
   }
 
   async function handleDuplicateCategory() {
     if (!duplicatingCategory) return;
+    if (!duplicateTargetName.trim()) {
+      alert("Nama kategori hasil duplikat wajib diisi.");
+      return;
+    }
+    const targetEventId = duplicateTargetEventId || event?.id || "";
+    if (!targetEventId) {
+      alert("Pilih event tujuan terlebih dahulu.");
+      return;
+    }
+
     setDuplicatingLoading(true);
     try {
-      await api("/api/categories", "POST", {
+      const res = await api("/api/categories", "POST", {
         action: "duplicate",
         sourceCategoryId: duplicatingCategory.id,
+        targetEventId,
         targetEventLevelId: duplicateTargetLevelId || null,
         targetName: duplicateTargetName.trim(),
       });
-      setMessage(`Kategori "${duplicatingCategory.name}" berhasil diduplikat.`);
+
+      const newCategory = res?.category as Category | undefined;
+      const targetEventObj = events.find((e) => e.id === targetEventId);
+      const targetLevelObj = duplicateTargetLevels.find((l) => l.id === duplicateTargetLevelId);
+
+      const targetEventName = targetEventObj?.name || (targetEventId === event?.id ? event?.name : "Event Terpilih");
+      const targetLevelName = targetLevelObj?.name || "Semua Tingkatan";
+
       cancelDuplicateCategory();
-      await load();
+
+      if (targetEventId === event?.id) {
+        if (newCategory) {
+          setEvent((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              categories: [...prev.categories, newCategory],
+            };
+          });
+          setSelectedCategory(newCategory.id);
+          if (newCategory.eventLevelId) {
+            setSelectedLevelForEdit(newCategory.eventLevelId);
+          }
+        }
+        await load(true);
+        alert(`Berhasil menduplikat kategori ke "${targetLevelName}"!`);
+        setMessage(`Kategori "${duplicateTargetName.trim()}" berhasil diduplikat ke tingkatan "${targetLevelName}".`);
+      } else {
+        alert(
+          `Kategori "${duplicateTargetName.trim()}" berhasil diduplikat ke event "${targetEventName}" pada tingkatan "${targetLevelName}"!`
+        );
+        setMessage(
+          `Kategori berhasil diduplikat ke event "${targetEventName}".`
+        );
+      }
     } catch (e) {
+      console.error("DUPLICATE CATEGORY ERROR:", e);
+      alert(e instanceof Error ? e.message : "Gagal menduplikat kategori.");
       setMessage(e instanceof Error ? e.message : "Gagal menduplikat kategori.");
     } finally {
       setDuplicatingLoading(false);
@@ -1269,11 +1353,13 @@ export default function AdminPage() {
   async function saveAndContinue() {
     try {
       if (!event) {
-        throw new Error("Event belum dibuat.");
+        alert("Pilih atau buat event terlebih dahulu.");
+        return;
       }
 
       if (!selectedCategory) {
-        throw new Error("Pilih kategori terlebih dahulu.");
+        alert("Pilih kategori terlebih dahulu untuk melanjutkan.");
+        return;
       }
 
       const currentCategory = event.categories.find(
@@ -1281,7 +1367,8 @@ export default function AdminPage() {
       );
 
       if (!currentCategory) {
-        throw new Error("Kategori yang sedang dibuka tidak ditemukan.");
+        alert("Kategori yang sedang dibuka tidak ditemukan.");
+        return;
       }
 
       const currentLevelId = currentCategory.eventLevelId || "__NONE__";
@@ -1294,40 +1381,6 @@ export default function AdminPage() {
         .slice()
         .sort((a, b) => a.sortOrder - b.sortOrder);
 
-      const levelCategoryTotal = levelCategories.reduce(
-        (sum, category) => sum + Number(category.percentage || 0),
-        0
-      );
-
-      if (Math.abs(levelCategoryTotal - 100) > 0.0001) {
-        const currentLevel = levels.find(
-          (level) => level.id === currentCategory.eventLevelId
-        );
-
-        throw new Error(
-          `Total bobot kategori untuk ${currentLevel?.name || "tingkatan ini"} harus 100%. Saat ini ${levelCategoryTotal}%.`
-        );
-      }
-
-      const subCategories = currentCategory.subCategories || [];
-
-      if (subCategories.length === 0) {
-        throw new Error(
-          `Kategori "${currentCategory.name}" belum memiliki subkategori.`
-        );
-      }
-
-      const materialCount = subCategories.reduce(
-        (sum, subCategory) => sum + subCategory.criteria.length,
-        0
-      ) + currentCategory.criteria.length;
-
-      if (materialCount === 0) {
-        throw new Error(
-          `Kategori "${currentCategory.name}" belum memiliki materi.`
-        );
-      }
-
       const currentIndex = levelCategories.findIndex(
         (category) => category.id === currentCategory.id
       );
@@ -1335,6 +1388,7 @@ export default function AdminPage() {
       const nextCategory =
         currentIndex >= 0 ? levelCategories[currentIndex + 1] : null;
 
+      // 1. Jika masih ada kategori berikutnya di tingkatan yang sama:
       if (nextCategory) {
         setSelectedLevelForEdit(currentLevelId === "__NONE__" ? "" : currentLevelId);
         setSelectedCategory(nextCategory.id);
@@ -1346,16 +1400,22 @@ export default function AdminPage() {
         setInterval("2");
 
         setMessage(
-          `"${currentCategory.name}" berhasil disimpan. Sekarang melanjutkan ke "${nextCategory.name}".`
+          `"${currentCategory.name}" disimpan. Melanjutkan ke "${nextCategory.name}".`
         );
 
         window.setTimeout(() => {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }, 100);
+          const el = document.getElementById("langkah-04-materi");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: 350, behavior: "smooth" });
+          }
+        }, 50);
 
         return;
       }
 
+      // 2. Jika kategori di tingkatan ini sudah selesai, cari tingkatan aktif berikutnya yang memiliki kategori:
       const orderedActiveLevels = activeLevels.slice().sort(
         (a, b) => a.sortOrder - b.sortOrder
       );
@@ -1392,31 +1452,50 @@ export default function AdminPage() {
         setInterval("2");
 
         setMessage(
-          `"${currentCategory.name}" berhasil disimpan. Sekarang masuk ke tingkatan "${nextLevel.name}" dan kategori "${nextLevelCategory.name}".`
+          `Semua kategori pada tingkatan sebelumnya selesai. Sekarang masuk ke tingkatan "${nextLevel.name}" - "${nextLevelCategory.name}".`
         );
 
         window.setTimeout(() => {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }, 100);
+          const el = document.getElementById("langkah-04-materi");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: 350, behavior: "smooth" });
+          }
+        }, 50);
 
         return;
       }
 
-      setMessage(
-        `"${currentCategory.name}" berhasil disimpan. Semua kategori pada seluruh tingkatan sudah selesai dikonfigurasi.`
-      );
+      // 3. Ini adalah kategori terakhir di semua tingkatan aktif!
+      // Cek apakah ada tingkatan yang total bobotnya belum 100%:
+      const incompleteLevels: string[] = [];
+      for (const lvl of activeLevels) {
+        const cats = event.categories.filter((c) => c.eventLevelId === lvl.id);
+        const total = cats.reduce((sum, c) => sum + Number(c.percentage || 0), 0);
+        if (Math.abs(total - 100) > 0.0001) {
+          incompleteLevels.push(`${lvl.name}: ${total}% (harus 100%)`);
+        }
+      }
 
-      window.setTimeout(() => {
-        router.push("/admin/review");
-      }, 300);
+      if (incompleteLevels.length > 0) {
+        const proceed = confirm(
+          `Perhatian: Total bobot kategori belum mencapai 100% pada tingkatan:\n\n• ${incompleteLevels.join(
+            "\n• "
+          )}\n\nApakah Anda ingin tetap lanjut ke Halaman Review?`
+        );
+        if (!proceed) {
+          setMessage(`Silakan sesuaikan bobot kategori hingga 100% pada tingkatan yang belum genap.`);
+          window.scrollTo({ top: 500, behavior: "smooth" });
+          return;
+        }
+      }
+
+      setMessage("Konfigurasi seluruh kategori selesai. Mengarahkan ke halaman Review...");
+      router.push("/admin/review");
     } catch (e) {
       console.error("SAVE & CONTINUE ERROR:", e);
-
-      setMessage(
-        e instanceof Error
-          ? e.message
-          : "Konfigurasi belum dapat dilanjutkan."
-      );
+      alert(e instanceof Error ? e.message : "Konfigurasi belum dapat dilanjutkan.");
     }
   }
 
@@ -1991,7 +2070,7 @@ export default function AdminPage() {
         {/* =========================================================
             LANGKAH 04 — SUBKATEGORI + MATERI
         ========================================================== */}
-          <section className="card p-5">
+          <section id="langkah-04-materi" className="card p-5">
             <div className="mb-4">
               <p className="text-xs font-bold tracking-[.2em] text-blue-500">
                 LANGKAH 04
@@ -2594,11 +2673,11 @@ export default function AdminPage() {
                         type="button"
                         onClick={() => void saveAndContinue()}
                         disabled={!selectedCategory || categoriesForSelectedLevel.length === 0}
-                        className="rounded-xl bg-[#1769e0] px-6 py-3 font-black text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-xl bg-[#1769e0] px-6 py-3 font-black text-white shadow-sm transition active:scale-95 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {nextCategory
                           ? `Simpan & Lanjutkan ke ${nextCategory.name} →`
-                          : "Simpan & Lanjutkan"}
+                          : "Simpan & Lanjutkan →"}
                       </button>
                     </div>
                   </div>
@@ -2613,8 +2692,8 @@ export default function AdminPage() {
             MODAL DUPLIKAT KATEGORI
         ========================================================== */}
         {duplicatingCategory && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-            <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between border-b pb-3">
                 <h3 className="text-lg font-black text-[#071a3d] flex items-center gap-2">
                   📑 Duplikat Kategori
@@ -2622,7 +2701,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={cancelDuplicateCategory}
-                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                 >
                   ✕
                 </button>
@@ -2633,9 +2712,19 @@ export default function AdminPage() {
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Kategori Asal
                   </label>
-                  <p className="mt-1 rounded-xl bg-slate-50 p-3 text-sm font-black text-[#071a3d]">
-                    {duplicatingCategory.name} ({duplicatingCategory.percentage}% • {duplicatingCategory.subCategories?.length || 0} Subkategori)
-                  </p>
+                  <div className="mt-1 rounded-xl bg-slate-50 p-3 border border-slate-100">
+                    <p className="text-sm font-black text-[#071a3d]">
+                      {duplicatingCategory.name}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Bobot: {duplicatingCategory.percentage}% • Subkategori: {duplicatingCategory.subCategories?.length || 0} • Materi:{" "}
+                      {(duplicatingCategory.criteria?.length || 0) +
+                        (duplicatingCategory.subCategories || []).reduce(
+                          (sum, s) => sum + (s.criteria?.length || 0),
+                          0
+                        )}
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -2645,32 +2734,55 @@ export default function AdminPage() {
                   <input
                     value={duplicateTargetName}
                     onChange={(e) => setDuplicateTargetName(e.target.value)}
-                    placeholder="Nama kategori hasil duplikat"
+                    placeholder="Contoh: PBB (Copy)"
                     className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm font-bold text-[#071a3d] outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Duplikat ke Tingkatan
+                    Pilih Event Tujuan
                   </label>
                   <select
-                    value={duplicateTargetLevelId}
-                    onChange={(e) => setDuplicateTargetLevelId(e.target.value)}
+                    value={duplicateTargetEventId}
+                    onChange={(e) => void handleTargetEventChange(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-[#071a3d] outline-none focus:border-blue-500"
                   >
-                    {activeLevels.map((lvl) => (
-                      <option key={lvl.id} value={lvl.id}>
-                        {lvl.name} {lvl.id === duplicatingCategory.eventLevelId ? "(Tingkatan yang sama)" : ""}
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.name} {ev.id === event?.id ? "(Event Aktif Saat Ini)" : ""}
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Seluruh subkategori dan materi penilaian akan otomatis disalin secara lengkap.
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Pilih Tingkatan Tujuan
+                  </label>
+                  {loadingDuplicateLevels ? (
+                    <div className="mt-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                      Memuat tingkatan event tujuan...
+                    </div>
+                  ) : (
+                    <select
+                      value={duplicateTargetLevelId}
+                      onChange={(e) => setDuplicateTargetLevelId(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold text-[#071a3d] outline-none focus:border-blue-500"
+                    >
+                      {duplicateTargetLevels.map((lvl) => (
+                        <option key={lvl.id} value={lvl.id}>
+                          {lvl.name} {duplicateTargetEventId === event?.id && lvl.id === duplicatingCategory.eventLevelId ? "(Tingkatan yang sama)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Seluruh subkategori dan materi penilaian akan otomatis disalin secara lengkap ke tingkatan/event tujuan.
                   </p>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t">
+                <div className="flex justify-end gap-2 pt-3 border-t">
                   <button
                     type="button"
                     onClick={cancelDuplicateCategory}
@@ -2680,11 +2792,18 @@ export default function AdminPage() {
                   </button>
                   <button
                     type="button"
-                    disabled={duplicatingLoading || !duplicateTargetName.trim()}
+                    disabled={duplicatingLoading || !duplicateTargetName.trim() || loadingDuplicateLevels}
                     onClick={() => void handleDuplicateCategory()}
-                    className="rounded-xl bg-[#1769e0] px-5 py-2.5 text-sm font-bold text-white transition active:scale-95 hover:bg-blue-600 disabled:opacity-50"
+                    className="rounded-xl bg-[#1769e0] px-5 py-2.5 text-sm font-bold text-white transition active:scale-95 hover:bg-blue-600 disabled:opacity-50 flex items-center gap-2"
                   >
-                    {duplicatingLoading ? "Menduplikasi..." : "🚀 Duplikat Sekarang"}
+                    {duplicatingLoading ? (
+                      <>
+                        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Menduplikasi...
+                      </>
+                    ) : (
+                      "🚀 Duplikat Sekarang"
+                    )}
                   </button>
                 </div>
               </div>

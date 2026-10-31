@@ -13,6 +13,20 @@ const PROTECTED_ADMIN_PAGES = [
   "/admin/review",
   "/admin/score",
   "/admin/score-changes",
+  "/rekap",
+  "/penentuan-juara",
+];
+
+// Peran staf admin yang diizinkan mengakses seluruh CETAS.SCORE
+const ALLOWED_ADMIN_ROLES = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "OPERATOR",
+  "EVENT_ADMIN",
+  "PROD_ADMIN",
+  "FINANCE_ADMIN",
+  "STAFF_REKAP",
+  "PANITIA",
 ];
 
 export async function proxy(request: NextRequest) {
@@ -23,8 +37,6 @@ export async function proxy(request: NextRequest) {
   );
   const isJudgePage =
     pathname === "/judge" || pathname.startsWith("/judge/");
-  const isRekapPage =
-    pathname === "/rekap" || pathname.startsWith("/rekap/");
   const isTimerPage =
     pathname === "/timer" || pathname.startsWith("/timer/");
 
@@ -38,8 +50,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRekapApi = pathname.startsWith("/api/rekap/");
   const isProtectedTimerApi = pathname.startsWith("/api/timer/");
 
-  const isProtectedPage =
-    isAdminSubPage || isJudgePage || isRekapPage || isTimerPage;
+  const isProtectedPage = isAdminSubPage || isJudgePage || isTimerPage;
   const isProtectedApi =
     isProtectedAdminApi ||
     isProtectedJudgeApi ||
@@ -66,44 +77,51 @@ export async function proxy(request: NextRequest) {
 
   try {
     const { payload } = await jwtVerify(token, secret);
-    const role = String(payload.role || "");
+    const role = String(payload.role || "").toUpperCase();
 
-    if (isAdminSubPage || isProtectedAdminApi) {
-      if (
-        role !== "SUPER_ADMIN" &&
-        role !== "OPERATOR" &&
-        role !== "ADMIN" &&
-        role !== "STAFF_REKAP"
-      ) {
+    // 1. ATURAN JURI: HANYA PENILAIAN
+    // Jika role JUDGE mencoba membuka halaman admin / rekap / penentuan juara:
+    if (role === "JUDGE") {
+      if (isAdminSubPage || isProtectedAdminApi || isProtectedRekapApi) {
         if (isProtectedApi) {
           return NextResponse.json(
-            { success: false, error: "Akses ditolak: Khusus Super Admin / Operator / Staff Rekap." },
+            { success: false, error: "Akses ditolak: Akun Dewan Juri hanya memiliki izin untuk penilaian." },
             { status: 403 }
           );
         }
-        return NextResponse.redirect(new URL("/login", request.url));
+        return NextResponse.redirect(new URL("/judge", request.url));
       }
+      return NextResponse.next();
     }
 
-    if (isJudgePage || isProtectedJudgeApi) {
-      if (
-        role !== "JUDGE" &&
-        role !== "OPERATOR" &&
-        role !== "SUPER_ADMIN" &&
-        role !== "ADMIN" &&
-        role !== "STAFF_REKAP"
-      ) {
-        if (isProtectedApi) {
-          return NextResponse.json(
-            { success: false, error: "Akses ditolak: Khusus Dewan Juri." },
-            { status: 403 }
-          );
-        }
-        return NextResponse.redirect(new URL("/login?next=/judge", request.url));
-      }
+    // 2. ATURAN SUPER ADMIN & ADMIN BIASA:
+    // Bisa akses semua di CETAS.SCORE
+    if (ALLOWED_ADMIN_ROLES.includes(role)) {
+      return NextResponse.next();
     }
 
-    return NextResponse.next();
+    // 3. ATURAN TIMER:
+    if (role === "TIMER") {
+      if (isTimerPage || isProtectedTimerApi) {
+        return NextResponse.next();
+      }
+      if (isProtectedApi) {
+        return NextResponse.json(
+          { success: false, error: "Akses ditolak: Khusus akun Timer." },
+          { status: 403 }
+        );
+      }
+      return NextResponse.redirect(new URL("/timer", request.url));
+    }
+
+    // Role lain tidak diizinkan masuk
+    if (isProtectedApi) {
+      return NextResponse.json(
+        { success: false, error: "Akses ditolak untuk role ini." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
   } catch {
     if (isProtectedApi) {
       return NextResponse.json(
@@ -125,8 +143,9 @@ export const config = {
     "/admin/review/:path*",
     "/admin/score/:path*",
     "/admin/score-changes/:path*",
-    "/judge/:path*",
     "/rekap/:path*",
+    "/penentuan-juara/:path*",
+    "/judge/:path*",
     "/timer/:path*",
     "/api/admin/:path*",
     "/api/judges",

@@ -315,7 +315,7 @@ function ScoreGroup({
             <button
               key={option.id}
               type="button"
-              disabled={saving}
+              disabled={false}
               onClick={() =>
                 onSelect(option)
               }
@@ -1467,8 +1467,7 @@ export default function JudgeCategoryPage() {
   ) {
     if (
       !currentParticipant ||
-      !currentCriterion ||
-      saving
+      !currentCriterion
     ) {
       return;
     }

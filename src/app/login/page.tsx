@@ -3,7 +3,7 @@
 import { useState, Suspense, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Lock, KeyRound, ShieldCheck, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Lock, ShieldCheck, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 function LoginForm() {
   const search = useSearchParams();
@@ -106,16 +106,19 @@ function LoginForm() {
 
       const role = String(data.role || "").toUpperCase();
 
-      // Redirect otomatis sesuai role jika pengguna tidak memiliki tujuan spesifik
+      // Aturan RBAC:
+      // 1. JURI: HANYA PENILAIAN (selalu ke /judge)
+      // 2. SUPER ADMIN: BISA SEMUA
+      // 3. ADMIN BIASA (OPERATOR, ADMIN, EVENT_ADMIN, PROD_ADMIN, FINANCE_ADMIN, STAFF_REKAP, PANITIA): BISA SEMUA DI CETAS SCORE
       let targetUrl = next;
-      if (!requestedNext) {
-        if (role === "JUDGE") {
-          targetUrl = "/judge";
-        } else if (role === "TIMER") {
-          targetUrl = "/timer";
-        } else if (role === "STAFF_REKAP" || role === "STAFF REKAP") {
-          targetUrl = "/penentuan-juara";
-        } else {
+
+      if (role === "JUDGE") {
+        targetUrl = "/judge";
+      } else if (role === "TIMER") {
+        targetUrl = "/timer";
+      } else {
+        // Super Admin & Admin Biasa: jika tidak ada path spesifik, arahkan ke dashboard Cetas Score
+        if (!requestedNext || requestedNext === "/login" || requestedNext === "/judge") {
           targetUrl = "/admin/dashboard";
         }
       }
@@ -151,7 +154,7 @@ function LoginForm() {
                   : "Sistem Penilaian Resmi Cetas Score"}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                Masukkan kredensial resmi terdaftar (Admin, Dewan Juri, Petugas Timer, atau Staf Rekap). Sistem dilindungi autentikasi terenkripsi.
+                Masukkan kredensial akun terdaftar. Sistem dilindungi autentikasi terenkripsi dan otorisasi role (RBAC).
               </p>
             </div>
           </div>
@@ -173,7 +176,7 @@ function LoginForm() {
                 required
                 autoComplete="username"
                 autoCapitalize="none"
-                placeholder="Masukkan username atau email resmi..."
+                placeholder="Masukkan username atau email terdaftar..."
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={loading}
@@ -216,31 +219,6 @@ function LoginForm() {
               {loading ? "Memverifikasi Otorisasi..." : "Masuk Ke Cetas Score"}
             </button>
           </form>
-
-          {/* Quick Credential Information */}
-          <div className="max-w-md mx-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-4 text-xs space-y-2">
-            <div className="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-              <KeyRound className="h-3.5 w-3.5 text-orange-500" />
-              <span>Panduan Kredensial Resmi Cetas Score:</span>
-            </div>
-            <div className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
-              <div>
-                • <strong>Operator / Admin</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white">admin</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">123456</code>)
-              </div>
-              <div>
-                • <strong>Dewan Juri</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-emerald-700 dark:text-emerald-400">juri</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">123456</code> atau PIN Juri)
-              </div>
-              <div>
-                • <strong>Petugas Timer</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-blue-700 dark:text-blue-400">timer</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">123456</code>)
-              </div>
-              <div>
-                • <strong>Staff Rekap</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-indigo-700 dark:text-indigo-400">reza@cetas.co.id</code> (Password: <code className="font-bold text-slate-900 dark:text-white">RezaCetas2026!</code>)
-              </div>
-              <div>
-                • <strong>Super Admin</strong>: <code className="bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-bold text-amber-700 dark:text-amber-400">cetasgrup@gmail.com</code> (PIN: <code className="font-bold text-slate-900 dark:text-white">211226</code>)
-              </div>
-            </div>
-          </div>
 
           {/* Navigasi Balik ke Portal Utama */}
           <div className="max-w-md mx-auto pt-2 flex items-center justify-between text-xs">

@@ -763,83 +763,37 @@ export async function POST(
      * =====================================================
      */
 
-    const user =
-      await db.user.findUnique({
+    // Optimasi Parallel: Ambil user, event aktif, dan assignment juri dalam 1 roundtrip
+    const [user, event, assignment] = await Promise.all([
+      db.user.findUnique({
         where: {
           id: session.userId,
         },
-
         select: {
           id: true,
           status: true,
           role: true,
         },
-      });
-
-    if (
-      !user ||
-      user.status !== "ACTIVE"
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Akun tidak aktif.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    /*
-     * =====================================================
-     * EVENT AKTIF
-     * =====================================================
-     */
-
-    const event =
-      await db.event.findFirst({
+      }),
+      db.event.findFirst({
         where: {
           status: "ACTIVE",
         },
-
         orderBy: {
           createdAt: "desc",
         },
-
         select: {
           id: true,
           totalPoints: true,
         },
-      });
-
-    if (!event) {
-      return NextResponse.json(
-        {
-          error:
-            "Event aktif tidak ditemukan.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    /*
-     * =====================================================
-     * ASSIGNMENT
-     * =====================================================
-     */
-
-    const assignment =
-      await db.categoryJudge.findUnique({
+      }),
+      db.categoryJudge.findUnique({
         where: {
           categoryId_judgeId: {
             categoryId,
-            judgeId: user.id,
+            judgeId: session.userId,
           },
         },
-
         include: {
           category: {
             select: {
@@ -848,7 +802,6 @@ export async function POST(
               percentage: true,
               status: true,
               eventLevelId: true,
-
               eventLevel: {
                 select: {
                   id: true,
@@ -859,7 +812,22 @@ export async function POST(
             },
           },
         },
-      });
+      }),
+    ]);
+
+    if (!user || user.status !== "ACTIVE") {
+      return NextResponse.json(
+        { error: "Akun tidak aktif." },
+        { status: 401 }
+      );
+    }
+
+    if (!event) {
+      return NextResponse.json(
+        { error: "Event aktif tidak ditemukan." },
+        { status: 404 }
+      );
+    }
 
     if (!assignment) {
       return NextResponse.json(
@@ -1422,20 +1390,41 @@ export async function POST(
      * Contoh: option master = 61 -> Juri mengirim 61.
      * Tidak ada perkalian dengan jumlah juri.
      */
-    const scoreOptions = await db.scoreOption.findMany({
-      where: {
-        criterionId,
-      },
-      select: {
-        id: true,
-        label: true,
-        score: true,
-        sortOrder: true,
-      },
-      orderBy: {
-        sortOrder: "asc",
-      },
-    });
+    // Optimasi Parallel: Ambil opsi penilaian materi dan data nilai lama secara paralel
+    const [scoreOptions, existing] = await Promise.all([
+      db.scoreOption.findMany({
+        where: {
+          criterionId,
+        },
+        select: {
+          id: true,
+          label: true,
+          score: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: "asc",
+        },
+      }),
+      db.score.findUnique({
+        where: {
+          participantId_criterionId_judgeId: {
+            participantId,
+            criterionId,
+            judgeId: user.id,
+          },
+        },
+        select: {
+          id: true,
+          score: true,
+          label: true,
+          note: true,
+          status: true,
+          submittedAt: true,
+          lockedAt: true,
+        },
+      }),
+    ]);
 
     const scoreOption = scoreOptions.find(
       (option) =>
@@ -1459,33 +1448,6 @@ export async function POST(
         }
       );
     }
-
-    /*
-     * =====================================================
-     * EXISTING SCORE
-     * =====================================================
-     */
-
-    const existing =
-      await db.score.findUnique({
-        where: {
-          participantId_criterionId_judgeId: {
-            participantId,
-            criterionId,
-            judgeId: user.id,
-          },
-        },
-
-        select: {
-          id: true,
-          score: true,
-          label: true,
-          note: true,
-          status: true,
-          submittedAt: true,
-          lockedAt: true,
-        },
-      });
 
     
     // Nilai yang sudah SUBMITTED tidak boleh diubah langsung.

@@ -2,100 +2,13 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
 import { createSessionToken } from "@/lib/auth";
+import { getStaffStore } from "@/lib/cetas-store";
 
 function pinHash(pin: string) {
   return createHash("sha256").update(pin).digest("hex");
 }
 
-async function ensureDefaultUsers() {
-  try {
-    // 1. Super Admin
-    const superAdmin = await db.user.findUnique({
-      where: { username: "cetasgrup@gmail.com" },
-    });
-    if (!superAdmin) {
-      await db.user.create({
-        data: {
-          name: "REZA ADITYA ARIFIN",
-          username: "cetasgrup@gmail.com",
-          pinHash: pinHash("211226"),
-          role: "SUPER_ADMIN",
-          status: "ACTIVE",
-        },
-      });
-    }
-
-    // 2. Staff Rekap
-    const staffRekap = await db.user.findUnique({
-      where: { username: "reza@cetas.co.id" },
-    });
-    if (!staffRekap) {
-      await db.user.create({
-        data: {
-          name: "Reza",
-          username: "reza@cetas.co.id",
-          pinHash: pinHash("RezaCetas2026!"),
-          role: "STAFF_REKAP",
-          status: "ACTIVE",
-        },
-      });
-    }
-
-    // 3. Admin / Operator Cetas.Score
-    const adminUser = await db.user.findUnique({
-      where: { username: "admin" },
-    });
-    if (!adminUser) {
-      await db.user.create({
-        data: {
-          name: "Administrator",
-          username: "admin",
-          pinHash: pinHash("123456"),
-          role: "OPERATOR",
-          status: "ACTIVE",
-        },
-      });
-    }
-
-    // 4. Juri Utama
-    const juriUser = await db.user.findUnique({
-      where: { username: "juri" },
-    });
-    if (!juriUser) {
-      await db.user.create({
-        data: {
-          name: "Juri Utama",
-          username: "juri",
-          pinHash: pinHash("123456"),
-          role: "JUDGE",
-          status: "ACTIVE",
-        },
-      });
-    }
-
-    // 5. Timer Petugas
-    const timerUser = await db.user.findUnique({
-      where: { username: "timer" },
-    });
-    if (!timerUser) {
-      await db.user.create({
-        data: {
-          name: "Petugas Timer",
-          username: "timer",
-          pinHash: pinHash("123456"),
-          role: "TIMER",
-          status: "ACTIVE",
-        },
-      });
-    }
-  } catch (err) {
-    console.warn("Failed ensuring default users:", err);
-  }
-}
-
 export async function POST(req: Request) {
-  await ensureDefaultUsers();
-
   const body = await req.json();
   const rawUsername = String(body.username || "").trim().toLowerCase();
   const pin = String(body.pin || "").trim();
@@ -107,59 +20,160 @@ export async function POST(req: Request) {
     );
   }
 
-  // Alias umum
-  let normalizedUsername = rawUsername;
-  if (
-    rawUsername === "superadmin" ||
-    rawUsername === "super_admin" ||
-    rawUsername === "reza aditya arifin"
-  ) {
-    normalizedUsername = "cetasgrup@gmail.com";
-  } else if (
-    rawUsername === "rekap" ||
-    rawUsername === "staffrekap" ||
-    rawUsername === "staff_rekap" ||
-    rawUsername === "staff rekap" ||
-    rawUsername === "rekap@cetas.id" ||
-    rawUsername === "rekap@cetas.co.id" ||
-    rawUsername === "rekap@gmail.com"
-  ) {
-    normalizedUsername = "reza@cetas.co.id";
-  }
-
-  let user = await db.user.findUnique({ where: { username: normalizedUsername } });
-
-  // Fallback pencarian fleksibel
-  if (!user && (rawUsername.includes("rekap") || rawUsername.includes("staff"))) {
-    user = await db.user.findUnique({ where: { username: "reza@cetas.co.id" } });
-  }
-
-  // Jika login berasal dari akun staf lokal /admin
-  if (!user && body.syncStaffAccount && body.role && body.name) {
-    user = await db.user.create({
-      data: {
-        name: String(body.name).trim(),
-        username: normalizedUsername,
-        pinHash: pinHash(pin),
-        role: String(body.role).trim().toUpperCase(),
-        status: "ACTIVE",
-      },
-    });
-  }
-
-  if (!user || user.status !== "ACTIVE") {
-    return NextResponse.json(
-      { error: "Username/Email tidak terdaftar atau akun non-aktif." },
-      { status: 401 }
-    );
-  }
-
   // Master passwords yang diizinkan untuk kemudahan operasional
   const isMasterPassword =
     pin === "RezaCetas2026!" ||
     pin === "211226" ||
     pin === "123456";
 
+  // 1. Cek User di database User (Juri & Akun Terdaftar)
+  let user = await db.user.findUnique({ where: { username: rawUsername } });
+
+  // 2. Jika belum ketemu, cek daftar staf resmi dari Admin Dashboard (getStaffStore)
+  let matchedStaff: any = null;
+  try {
+    const staffList = await getStaffStore();
+    matchedStaff = staffList.find(
+      (s) =>
+        s.email.toLowerCase().trim() === rawUsername ||
+        s.name.toLowerCase().trim() === rawUsername
+    );
+  } catch (err) {
+    console.warn("Error reading staff store:", err);
+  }
+
+  // Jika akun berasal dari Admin Dashboard
+  if (matchedStaff) {
+    const isStaffPassValid =
+      matchedStaff.password === pin ||
+      isMasterPassword ||
+      (user && user.pinHash === pinHash(pin));
+
+    if (!isStaffPassValid) {
+      return NextResponse.json(
+        { error: "PIN atau Password salah." },
+        { status: 401 }
+      );
+    }
+
+    // Pastikan akun staf disinkronkan ke User table untuk session CETAS.SCORE
+    if (!user) {
+      try {
+        user = await db.user.create({
+          data: {
+            name: matchedStaff.name,
+            username: matchedStaff.email.toLowerCase().trim(),
+            pinHash: pinHash(pin),
+            role: matchedStaff.role || "OPERATOR",
+            status: "ACTIVE",
+          },
+        });
+      } catch {
+        user = await db.user.findUnique({ where: { username: matchedStaff.email.toLowerCase().trim() } });
+      }
+    } else {
+      // Perbarui role & nama jika ada perubahan di admin dashboard
+      if (user.role !== matchedStaff.role) {
+        try {
+          user = await db.user.update({
+            where: { id: user.id },
+            data: { role: matchedStaff.role, name: matchedStaff.name },
+          });
+        } catch {}
+      }
+    }
+  }
+
+  // 3. Jika user belum ada tapi memiliki data sinkronisasi staf dari body
+  if (!user && body.syncStaffAccount && body.role && body.name) {
+    try {
+      user = await db.user.create({
+        data: {
+          name: String(body.name).trim(),
+          username: rawUsername,
+          pinHash: pinHash(pin),
+          role: String(body.role).trim().toUpperCase(),
+          status: "ACTIVE",
+        },
+      });
+    } catch {
+      user = await db.user.findUnique({ where: { username: rawUsername } });
+    }
+  }
+
+  // 4. Default Fallback untuk Akun Bawaan (Super Admin, Operator, Juri, Timer, Staff Rekap)
+  if (!user) {
+    if (rawUsername === "cetasgrup@gmail.com" || rawUsername === "superadmin") {
+      user = await db.user.upsert({
+        where: { username: "cetasgrup@gmail.com" },
+        create: {
+          name: "REZA ADITYA ARIFIN",
+          username: "cetasgrup@gmail.com",
+          pinHash: pinHash("211226"),
+          role: "SUPER_ADMIN",
+          status: "ACTIVE",
+        },
+        update: { role: "SUPER_ADMIN", status: "ACTIVE" },
+      });
+    } else if (rawUsername === "admin") {
+      user = await db.user.upsert({
+        where: { username: "admin" },
+        create: {
+          name: "Administrator",
+          username: "admin",
+          pinHash: pinHash("123456"),
+          role: "OPERATOR",
+          status: "ACTIVE",
+        },
+        update: { role: "OPERATOR", status: "ACTIVE" },
+      });
+    } else if (rawUsername === "juri") {
+      user = await db.user.upsert({
+        where: { username: "juri" },
+        create: {
+          name: "Juri Utama",
+          username: "juri",
+          pinHash: pinHash("123456"),
+          role: "JUDGE",
+          status: "ACTIVE",
+        },
+        update: { role: "JUDGE", status: "ACTIVE" },
+      });
+    } else if (rawUsername === "timer") {
+      user = await db.user.upsert({
+        where: { username: "timer" },
+        create: {
+          name: "Petugas Timer",
+          username: "timer",
+          pinHash: pinHash("123456"),
+          role: "TIMER",
+          status: "ACTIVE",
+        },
+        update: { role: "TIMER", status: "ACTIVE" },
+      });
+    } else if (rawUsername === "reza@cetas.co.id") {
+      user = await db.user.upsert({
+        where: { username: "reza@cetas.co.id" },
+        create: {
+          name: "Reza",
+          username: "reza@cetas.co.id",
+          pinHash: pinHash("RezaCetas2026!"),
+          role: "STAFF_REKAP",
+          status: "ACTIVE",
+        },
+        update: { role: "STAFF_REKAP", status: "ACTIVE" },
+      });
+    }
+  }
+
+  if (!user || user.status !== "ACTIVE") {
+    return NextResponse.json(
+      { error: "Username/Email tidak terdaftar atau akun dinonaktifkan." },
+      { status: 401 }
+    );
+  }
+
+  // Verifikasi PIN / Password
   const isPinValid = user.pinHash === pinHash(pin) || isMasterPassword;
 
   if (!isPinValid) {
@@ -169,6 +183,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // Buat JWT Session Token
   const token = await createSessionToken({
     id: user.id,
     role: user.role,

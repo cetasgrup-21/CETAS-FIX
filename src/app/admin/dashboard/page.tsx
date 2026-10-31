@@ -415,7 +415,7 @@ export default function AdminDashboardPage() {
               }
               className="mt-6 rounded-xl bg-[#1769e0] px-6 py-3 text-sm font-black text-white transition hover:opacity-90"
             >
-              Buat / Kelola Event
+              Buka Portal Master Event
             </button>
           </div>
 
@@ -454,12 +454,7 @@ export default function AdminDashboardPage() {
                     ))}
                   </select>
 
-                  <button
-                    onClick={() => router.push("/admin")}
-                    className="rounded-xl bg-[#071a3d] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
-                  >
-                    + Buat Event
-                  </button>
+
                 </div>
               </div>
             </section>
@@ -522,7 +517,7 @@ export default function AdminDashboardPage() {
                   description="Informasi & pengaturan event"
                   icon="E"
                   onClick={() =>
-                    router.push("/admin")
+                    router.push("/admin/score")
                   }
                   primary
                 />
@@ -532,7 +527,7 @@ export default function AdminDashboardPage() {
                   description="Atur kategori, subkategori & materi"
                   icon="K"
                   onClick={() =>
-                    router.push("/admin")
+                    router.push("/admin/score")
                   }
                 />
 
@@ -587,7 +582,7 @@ export default function AdminDashboardPage() {
 
                 <button
                   onClick={() =>
-                    router.push("/admin")
+                    router.push("/admin/score")
                   }
                   className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-[#071a3d] transition hover:bg-slate-50"
                 >
@@ -656,7 +651,7 @@ export default function AdminDashboardPage() {
                   </p>
 
                   <button
-                    onClick={() => router.push("/admin")}
+                    onClick={() => router.push("/admin/score")}
                     className="mt-3 text-sm font-black text-blue-600 hover:underline"
                   >
                     Atur kategori →
@@ -669,7 +664,7 @@ export default function AdminDashboardPage() {
                   </p>
 
                   <button
-                    onClick={() => router.push("/admin")}
+                    onClick={() => router.push("/admin/score")}
                     className="mt-3 text-sm font-black text-blue-600 hover:underline"
                   >
                     Atur tingkatan →

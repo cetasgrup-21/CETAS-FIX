@@ -1,8 +1,51 @@
+import { getEventsStore } from "@/lib/cetas-store";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { regenerateCategoryScoreOptions } from "@/lib/scoring-server";
 
+
+async function syncMasterEvents() {
+  try {
+    const masterEvents = await getEventsStore().catch(() => []);
+    if (!masterEvents || !masterEvents.length) return;
+
+    for (const mEv of masterEvents) {
+      if (!mEv.id) continue;
+      const parsedDate = mEv.date ? new Date(mEv.date) : null;
+      const validDate = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
+
+      const existing = await db.event.findUnique({ where: { id: mEv.id } });
+      if (!existing) {
+        await db.event.create({
+          data: {
+            id: mEv.id,
+            name: mEv.title || "Event Cetas",
+            date: validDate,
+            location: mEv.location || "Jakarta",
+            logo: mEv.bannerUrl || null,
+            totalPoints: 5000,
+            status: "ACTIVE",
+            inputMode: "DIGITAL",
+          },
+        });
+      } else {
+        await db.event.update({
+          where: { id: mEv.id },
+          data: {
+            name: mEv.title,
+            date: validDate,
+            location: mEv.location || "Jakarta",
+          },
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Auto sync master events to score DB error:", err);
+  }
+}
+
 export async function GET(req: Request) {
+  await syncMasterEvents();
   try {
     const { searchParams } = new URL(req.url);
     const all = searchParams.get("all") === "true";

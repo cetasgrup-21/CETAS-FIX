@@ -1342,10 +1342,10 @@ export default function AdminPage() {
             <div>
               <p className="text-xs font-black tracking-[.2em] text-blue-500">LANGKAH 01</p>
               <h2 className="mt-1 text-2xl font-black">Event</h2>
-              <p className="mt-1 text-sm text-slate-500">Buat, edit, aktifkan, hapus, dan pasang logo untuk setiap event.</p>
+              <p className="mt-1 text-sm text-slate-500">Event otomatis tersinkronisasi mengikuti data resmi dari Portal Master Event Cetas.</p>
             </div>
-            <button type="button" onClick={() => { cancelEditEvent(); setShowNewEventForm((value) => !value); }} className="rounded-xl bg-[#1769e0] px-4 py-2.5 text-sm font-bold text-white">
-              {showNewEventForm ? "Batal Buat Event" : "+ Buat Event Baru"}
+            <button type="button" onClick={() => router.push("/admin")} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-[#071a3d] transition hover:bg-slate-50">
+              ← Kelola Event di Portal Master
             </button>
           </div>
 
@@ -1372,30 +1372,7 @@ export default function AdminPage() {
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">Belum ada event. Buat event pertama untuk memulai.</div>
           )}
 
-          {showNewEventForm && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-black text-[#071a3d]">Buat Event Baru</p>
-              <p className="mt-1 text-xs text-slate-500">Event baru otomatis menjadi aktif. Event sebelumnya tetap tersimpan.</p>
-              <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_180px_1fr_180px_180px]">
-                <input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="Nama event" className="rounded-xl border px-4 py-3" />
-                <input value={eventDate} onChange={(e) => setEventDate(e.target.value)} type="date" className="rounded-xl border px-4 py-3" />
-                <input value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} placeholder="Lokasi" className="rounded-xl border px-4 py-3" />
-                <select value={eventInputMode} onChange={(e) => setEventInputMode(e.target.value === "PAPER" ? "PAPER" : "DIGITAL")} className="rounded-xl border px-4 py-3">
-                  <option value="DIGITAL">Digital / Manual</option>
-                  <option value="PAPER">Kertas</option>
-                </select>
-                <input value={eventPoints} onChange={(e) => setEventPoints(e.target.value)} type="number" min="1" step="1" placeholder="Total poin" className="rounded-xl border px-4 py-3" />
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-[#071a3d] hover:bg-slate-100">
-                  Upload Logo Event
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => void handleLogoChange(e.target.files?.[0], "create")} />
-                </label>
-                {eventLogo && <div className="flex items-center gap-2"><img src={eventLogo} alt="Preview logo" className="h-12 w-12 rounded-lg border bg-white object-contain p-1" /><button type="button" onClick={() => setEventLogo(null)} className="text-xs font-bold text-red-500">Hapus logo</button></div>}
-                <button type="button" onClick={() => void createEvent()} className="ml-auto rounded-xl bg-[#071a3d] px-5 py-3 font-bold text-white">Buat Event</button>
-              </div>
-            </div>
-          )}
+
 
           {editingEventId && (
             <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">

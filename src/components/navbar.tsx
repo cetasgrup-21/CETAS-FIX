@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -16,35 +16,13 @@ import {
   ShoppingBag,
   ArrowRight,
   Trophy,
-  LogOut,
-  User,
 } from "lucide-react";
-import { getStoredAdminSession, clearAdminSession, AdminUser } from "@/lib/admin-auth";
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loggedInUser, setLoggedInUser] = useState<AdminUser | null>(null);
-
-  useEffect(() => {
-    // Muat info sesi user jika sudah login
-    const session = getStoredAdminSession();
-    setLoggedInUser(session);
-  }, [pathname]);
-
-  const getUserDestination = (role: string) => {
-    if (role === "SCANNER_STAFF") return "/scanner";
-    if (role === "JUDGE") return "/judge";
-    if (role === "TIMER") return "/timer";
-    if (role === "STAFF_REKAP") return "/penentuan-juara";
-    if (role === "PROD_ADMIN") return "/admin?tab=PRODUCTION";
-    if (role === "FINANCE_ADMIN") return "/admin?tab=FINANCES";
-    if (role === "EVENT_ADMIN" || role === "PANITIA") return "/admin?tab=EVENTS";
-    if (role === "ORGANIZER") return "/admin?tab=EVENTS";
-    return "/admin";
-  };
 
   const navLinks = [
     { href: "/", label: "Beranda" },
@@ -161,35 +139,15 @@ export function Navbar() {
             </button>
           )}
 
-          {/* Tombol Masuk atau Shortcut Dashboard Sesuai Role */}
-          {loggedInUser ? (
-            <Link
-              href={getUserDestination(loggedInUser.role)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/50 bg-emerald-950/40 hover:bg-emerald-900/50 px-3.5 py-2 text-xs font-bold text-emerald-300 transition-all shadow-sm hover:scale-105 active:scale-95"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-              <span className="hidden sm:inline truncate max-w-[130px]">
-                {(loggedInUser.role as string) === "SCANNER_STAFF"
-                  ? "Scanner Gate"
-                  : (loggedInUser.role as string) === "SUPER_ADMIN"
-                  ? "Super Admin"
-                  : (loggedInUser.role as string) === "JUDGE"
-                  ? "Dewan Juri"
-                  : (loggedInUser.role as string) === "TIMER"
-                  ? "Timer Lomba"
-                  : loggedInUser.name.split(" ")[0]}
-              </span>
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={handleOpenLogin}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/30 bg-[#0B1C3D] hover:border-[#00D9FF] hover:bg-blue-900/40 px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95 cursor-pointer"
-            >
-              <LogIn className="h-3.5 w-3.5 text-[#00D9FF]" />
-              <span className="hidden sm:inline">Masuk</span>
-            </button>
-          )}
+          {/* Tombol Masuk */}
+          <button
+            type="button"
+            onClick={handleOpenLogin}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/30 bg-[#0B1C3D] hover:border-[#00D9FF] hover:bg-blue-900/40 px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95 cursor-pointer"
+          >
+            <LogIn className="h-3.5 w-3.5 text-[#00D9FF]" />
+            <span className="hidden sm:inline">Masuk</span>
+          </button>
 
           {/* Tombol Daftar */}
           <Link
@@ -228,24 +186,13 @@ export function Navbar() {
           ))}
 
           <div className="pt-2 border-t border-blue-500/20 flex gap-2">
-            {loggedInUser ? (
-              <Link
-                href={getUserDestination(loggedInUser.role)}
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex-1 rounded-xl border border-emerald-400/50 bg-emerald-950/50 py-2.5 text-center text-xs font-bold text-emerald-300 hover:bg-emerald-900/60 flex items-center justify-center gap-1.5"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Buka Dashboard ({loggedInUser.role === "SCANNER_STAFF" ? "Scanner" : loggedInUser.role})</span>
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={handleOpenLogin}
-                className="flex-1 rounded-xl border border-blue-400/30 bg-[#0B1C3D] py-2.5 text-center text-xs font-bold text-white hover:bg-blue-900/50"
-              >
-                Masuk
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="flex-1 rounded-xl border border-blue-400/30 bg-[#0B1C3D] py-2.5 text-center text-xs font-bold text-white hover:bg-blue-900/50"
+            >
+              Masuk
+            </button>
             <Link
               href="/ajukan-event"
               onClick={() => setMobileMenuOpen(false)}

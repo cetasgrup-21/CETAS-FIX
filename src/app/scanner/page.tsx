@@ -147,6 +147,9 @@ export default function GateScannerPage() {
   const handleStaffLogout = () => {
     stopCameraScanner();
     sessionStorage.removeItem("cetas_staff_auth");
+    sessionStorage.removeItem("cetas_staff_name");
+    localStorage.removeItem("cetas_staff_auth");
+    localStorage.removeItem("cetas_staff_name");
     setIsStaffAuthenticated(false);
     setStaffPin("");
     setResult(null);

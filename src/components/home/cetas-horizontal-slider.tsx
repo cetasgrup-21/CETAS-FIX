@@ -68,25 +68,25 @@ export function CetasHorizontalSlider({
 
   return (
     <div className="relative w-full select-none">
-      {/* Left Navigation Arrow */}
+      {/* Left Navigation Arrow (Desktop Only - Mobile Uses Natural Touch Swipe) */}
       {canScrollLeft && (
         <button
           type="button"
           onClick={() => scroll("left")}
           aria-label="Scroll Kiri"
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-white shadow-2xl backdrop-blur-md transition-all hover:scale-110 active:scale-95"
+          className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-white shadow-2xl backdrop-blur-md transition-all hover:scale-110 active:scale-95"
         >
           <ChevronLeft className="h-6 w-6 text-cyan-400" />
         </button>
       )}
 
-      {/* Right Navigation Arrow */}
+      {/* Right Navigation Arrow (Desktop Only - Mobile Uses Natural Touch Swipe) */}
       {canScrollRight && (
         <button
           type="button"
           onClick={() => scroll("right")}
           aria-label="Scroll Kanan"
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-white shadow-2xl backdrop-blur-md transition-all hover:scale-110 active:scale-95"
+          className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-white shadow-2xl backdrop-blur-md transition-all hover:scale-110 active:scale-95"
         >
           <ChevronRight className="h-6 w-6 text-cyan-400" />
         </button>

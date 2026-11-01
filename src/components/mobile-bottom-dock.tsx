@@ -74,12 +74,16 @@ export function MobileBottomDock() {
 
           if (item.isExternal) {
             return (
-              <a
+              <button
                 key={item.label}
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all duration-200 active:scale-95"
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("cetas:open-mascot-modal"));
+                  }
+                }}
+                className="group relative flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all duration-200 active:scale-95 cursor-pointer"
+                title="Buka Asisten CS WhatsApp CETAS"
               >
                 <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
                   <Icon className="h-4 w-4" />
@@ -92,7 +96,7 @@ export function MobileBottomDock() {
                 <span className="text-[9px] font-bold text-slate-400 mt-0.5 tracking-tight">
                   {item.label}
                 </span>
-              </a>
+              </button>
             );
           }
 

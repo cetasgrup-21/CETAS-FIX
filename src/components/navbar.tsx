@@ -143,10 +143,10 @@ export function Navbar() {
           <button
             type="button"
             onClick={handleOpenLogin}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/30 bg-[#0B1C3D] hover:border-[#00D9FF] hover:bg-blue-900/40 px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-blue-400/30 bg-[#0B1C3D] hover:border-[#00D9FF] hover:bg-blue-900/40 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-white transition-all active:scale-95 cursor-pointer"
           >
             <LogIn className="h-3.5 w-3.5 text-[#00D9FF]" />
-            <span className="hidden sm:inline">Masuk</span>
+            <span className="text-xs">Masuk</span>
           </button>
 
           {/* Tombol Daftar */}

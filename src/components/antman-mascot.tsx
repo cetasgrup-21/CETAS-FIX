@@ -51,7 +51,7 @@ export function AntmanMascot({
             width={580}
             height={1023}
             priority
-            className="w-auto h-[440px] sm:h-[500px] md:h-[550px] object-contain drop-shadow-[0_22px_45px_rgba(0,102,255,0.35)] transition-all duration-500 group-hover:scale-[1.03] group-hover:drop-shadow-[0_28px_55px_rgba(0,210,255,0.45)]"
+            className="w-auto h-[260px] xs:h-[320px] sm:h-[440px] md:h-[520px] object-contain drop-shadow-[0_22px_45px_rgba(0,102,255,0.35)] transition-all duration-500 group-hover:scale-[1.03] group-hover:drop-shadow-[0_28px_55px_rgba(0,210,255,0.45)]"
           />
         </div>
       </div>

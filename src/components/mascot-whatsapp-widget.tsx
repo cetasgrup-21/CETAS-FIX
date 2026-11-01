@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import {
@@ -29,6 +29,17 @@ export function MascotWhatsAppWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [showBubble, setShowBubble] = useState(true);
   const [customMessage, setCustomMessage] = useState("");
+
+  useEffect(() => {
+    const handleOpenModal = () => {
+      setIsOpen(true);
+      setShowBubble(false);
+    };
+    window.addEventListener("cetas:open-mascot-modal", handleOpenModal);
+    return () => {
+      window.removeEventListener("cetas:open-mascot-modal", handleOpenModal);
+    };
+  }, []);
 
   // Context-aware speech based on route
   const getContextualGreeting = () => {
@@ -126,11 +137,11 @@ export function MascotWhatsAppWidget() {
 
   return (
     <>
-      {/* FLOATING MASCOT BUTTON CONTAINER (Bottom-Right) */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end select-none no-print">
-        {/* SPEECH BUBBLE TEASER (Contextual Preview) */}
+      {/* FLOATING MASCOT BUTTON CONTAINER (Lifted on mobile so it doesn't overlap bottom dock) */}
+      <div className="fixed bottom-20 right-3 md:bottom-6 md:right-6 z-40 flex flex-col items-end select-none no-print">
+        {/* SPEECH BUBBLE TEASER (Contextual Preview - Hidden on small mobile screens to prevent blocking content) */}
         {!isOpen && showBubble && (
-          <div className="relative mb-2 max-w-[270px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div className="hidden sm:block relative mb-2 max-w-[270px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">
             <div className="relative rounded-2xl bg-white p-3.5 shadow-xl border border-blue-200">
               {/* Close mini bubble */}
               <button
@@ -186,7 +197,7 @@ export function MascotWhatsAppWidget() {
               setIsOpen(!isOpen);
               setShowBubble(false);
             }}
-            className="relative flex h-18 w-18 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-white p-1 shadow-2xl border-2 border-blue-500 hover:border-cyan-400 transition-transform active:scale-95 duration-200"
+            className="relative flex h-14 w-14 sm:h-18 sm:w-18 items-center justify-center rounded-full bg-white p-1 shadow-2xl border-2 border-blue-500 hover:border-cyan-400 transition-transform active:scale-95 duration-200"
             title="Chat dengan Anty si Manusia Semut"
             aria-label="Buka Chat WhatsApp Anty"
           >

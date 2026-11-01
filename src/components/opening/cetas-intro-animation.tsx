@@ -191,7 +191,7 @@ export function CetasIntroAnimation() {
                 width={420}
                 height={740}
                 priority
-                className="w-auto h-[320px] sm:h-[400px] md:h-[460px] object-contain drop-shadow-[0_15px_40px_rgba(0,107,255,0.45)]"
+                className="w-auto h-[200px] xs:h-[240px] sm:h-[340px] md:h-[440px] object-contain drop-shadow-[0_15px_40px_rgba(0,107,255,0.45)]"
               />
             </div>
           </div>
@@ -201,7 +201,7 @@ export function CetasIntroAnimation() {
         {/* SCENE 3: CETAS LOGO REVEAL & DIGITAL SCANNER BEAM             */}
         {/* ============================================================ */}
         <div
-          className={`mt-4 sm:mt-6 flex flex-col items-center text-center transition-all duration-700 ease-out ${
+          className={`mt-2 sm:mt-6 flex flex-col items-center text-center transition-all duration-700 ease-out ${
             currentScene === "scene3_logo" || currentScene === "scene4_exit"
               ? "opacity-100 scale-100 translate-y-0"
               : "opacity-0 scale-90 translate-y-6 pointer-events-none"

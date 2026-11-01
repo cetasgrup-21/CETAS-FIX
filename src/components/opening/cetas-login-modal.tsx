@@ -203,7 +203,7 @@ export function CetasLoginModal() {
       aria-label="Pilih Akses Masuk CETAS"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#06132E]/90 backdrop-blur-md animate-in fade-in duration-200 select-none overflow-y-auto"
     >
-      <div className="relative w-full max-w-md rounded-3xl border border-blue-500/40 bg-[#0B1C3D] text-white shadow-2xl p-6 sm:p-7 my-auto">
+      <div className="relative w-full max-w-md rounded-3xl border border-blue-500/40 bg-[#0B1C3D] text-white shadow-2xl p-5 sm:p-7 my-auto max-h-[92vh] overflow-y-auto">
         {/* Close Button */}
         <button
           type="button"

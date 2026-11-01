@@ -180,7 +180,8 @@ export function TournamentHubView() {
         setTeams(mappedTeams);
 
         // Construct live stage tracker performance data
-        const activeTeam = mappedTeams.find((t) => !t.complete) || mappedTeams[0] || null;
+        // ONLY show active team if there is actually a team currently on stage with an active running timer!
+        const activeTeam = mappedTeams.find((t) => !t.complete && t.timerSeconds && t.timerSeconds > 0) || null;
         if (activeTeam) {
           setStageData({
             currentTeam: {
@@ -189,9 +190,9 @@ export function TournamentHubView() {
               school: activeTeam.school,
               category: activeTeam.categories[0]?.categoryName || "PBB & Variasi",
               level: activeTeam.level,
-              durationSeconds: activeTeam.timerSeconds || 320,
+              durationSeconds: activeTeam.timerSeconds || 0,
               maxDurationSeconds: 600,
-              status: activeTeam.complete ? "FINISHED" : "ON_STAGE",
+              status: "ON_STAGE",
             },
             nextTeams: mappedTeams
               .filter((t) => t.id !== activeTeam.id && !t.complete)
@@ -207,6 +208,8 @@ export function TournamentHubView() {
             activeJudgesCount: 3,
             totalJudgesCount: 3,
           });
+        } else {
+          setStageData(null);
         }
 
         setLastSyncTime(
@@ -317,9 +320,9 @@ export function TournamentHubView() {
       {/* 1. TOP SPORT-TECH NAVBAR WITH DYNAMIC EVENT SWITCHER           */}
       {/* ============================================================== */}
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           {/* Brand & Event Selector */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Link href="/" className="flex items-center gap-2 group shrink-0">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-emerald-500 p-0.5 shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-transform group-hover:scale-105">
                 <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#0B0F19]">
@@ -342,7 +345,7 @@ export function TournamentHubView() {
                 <select
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
-                  className="rounded-xl border border-slate-700 bg-slate-900/90 pl-3 pr-8 py-1.5 text-xs font-bold text-white focus:border-cyan-500 focus:outline-none cursor-pointer max-w-[190px] sm:max-w-xs truncate"
+                  className="rounded-xl border border-slate-700 bg-slate-900/90 pl-3 pr-8 py-1.5 text-xs font-bold text-white focus:border-cyan-500 focus:outline-none cursor-pointer max-w-[140px] xs:max-w-[180px] sm:max-w-xs truncate"
                 >
                   {allEvents.map((ev) => (
                     <option key={ev.id} value={ev.id}>

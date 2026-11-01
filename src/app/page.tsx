@@ -86,17 +86,17 @@ export default function HomePage() {
             {/* Left Column: Brand & Editorial Headline — RATA TENGAH (GAMBAR 2) */}
             <div className="lg:col-span-7 space-y-6 text-center">
               {/* Tagline Pill */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#00D9FF]/15 border border-[#00D9FF]/40 px-4 py-1.5 text-xs font-bold text-[#00D9FF] font-mono shadow-xs mx-auto">
-                <Sparkles className="h-3.5 w-3.5 text-[#00D9FF]" />
-                <span>Centralized Electronic Tournament &amp; Award System</span>
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-[#00D9FF]/15 border border-[#00D9FF]/40 px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold text-[#00D9FF] font-mono shadow-xs mx-auto max-w-full text-center">
+                <Sparkles className="h-3.5 w-3.5 text-[#00D9FF] shrink-0" />
+                <span className="truncate sm:overflow-visible">Centralized Electronic Tournament &amp; Award System</span>
               </div>
 
               {/* Main Headline — Rata Tengah "Make it a story!" di bawah "CETAS." */}
               <div className="space-y-2 text-center max-w-2xl mx-auto">
-                <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black text-white tracking-tight leading-none font-display">
+                <h1 className="text-4xl sm:text-7xl lg:text-8xl font-black text-white tracking-tight leading-none font-display">
                   CETAS.
                 </h1>
-                <div className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#55DFFF] to-[#126BDE] font-display">
+                <div className="text-2xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#55DFFF] to-[#126BDE] font-display">
                   Make it a story!
                 </div>
                 <p className="text-base sm:text-lg font-normal text-slate-200 max-w-xl mx-auto leading-relaxed pt-2">

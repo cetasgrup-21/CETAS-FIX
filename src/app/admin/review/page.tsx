@@ -292,12 +292,12 @@ function ScoreTable({
    *
    * CETAS menggunakan tepat 8 kotak nilai pada setiap materi:
    * P = Perlu Perbaikan  → 2 kotak
-   * C = Cukup            → 2 kotak
+   * C = Cukup            → 3 kotak
    * B = Baik             → 2 kotak
-   * I = Istimewa         → 2 kotak
+   * I = Istimewa         → 1 kotak
    *
-   * Urutan kotak simetris (4 predikat x 2 kotak = 8 kotak):
-   * P, P, C, C, B, B, I, I
+   * Urutan kotak (Total 8 kotak):
+   * P (2), C (3), B (2), I (1)
    *
    * Nilai 0 hanya dikeluarkan dari tampilan melalui getReviewOptions().
    * Logic/perhitungan nilai tidak disentuh.
@@ -308,9 +308,9 @@ function ScoreTable({
     if (count === 8) {
       return [
         { label: "P", count: 2 },
-        { label: "C", count: 2 },
+        { label: "C", count: 3 },
         { label: "B", count: 2 },
-        { label: "I", count: 2 },
+        { label: "I", count: 1 },
       ];
     }
 

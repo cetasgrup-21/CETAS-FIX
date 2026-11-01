@@ -103,7 +103,7 @@ export default function LegalitasPage() {
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200">
                   <dt className="text-slate-500">Tagline Resmi:</dt>
-                  <dd className="font-bold text-[#126BDE]">Your Event, Elevated.</dd>
+                  <dd className="font-bold text-[#126BDE]">Make it a story!</dd>
                 </div>
               </dl>
             </div>

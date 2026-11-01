@@ -403,6 +403,14 @@ export function TournamentHubView() {
             </button>
 
             <Link
+              href="/pelatih"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300 transition"
+            >
+              <UserCheck className="h-3.5 w-3.5 text-amber-400" />
+              <span>Portal Pelatih</span>
+            </Link>
+
+            <Link
               href="/"
               className="hidden lg:inline-flex items-center gap-1 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-700 transition"
             >

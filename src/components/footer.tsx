@@ -29,7 +29,7 @@ export function Footer() {
                   </span>
                 </div>
                 <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider mt-0.5 font-display">
-                  Your Event, Elevated.
+                  Make it a story!
                 </span>
               </div>
             </Link>
@@ -69,6 +69,11 @@ export function Footer() {
               <li>
                 <Link href="/score" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
                   CETAS.SCORE (Engine Juri)
+                </Link>
+              </li>
+              <li>
+                <Link href="/pelatih" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  Portal Pelatih &amp; Kontingen
                 </Link>
               </li>
               <li>
@@ -155,7 +160,7 @@ export function Footer() {
             <span>&copy; {new Date().getFullYear()} CETAS — Centralized Electronic Tournament &amp; Award System. All Rights Reserved.</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold">
-            <span className="text-cyan-300 font-display italic">Your Event, Elevated.</span>
+            <span className="text-cyan-300 font-display italic">Make it a story!</span>
             <Link href="/legalitas" className="text-slate-200 hover:text-[#00D9FF]">Legalitas</Link>
             <Link href="/kebijakan-privasi" className="text-slate-200 hover:text-[#00D9FF]">Privasi</Link>
             <Link href="/syarat-ketentuan" className="text-slate-200 hover:text-[#00D9FF]">Ketentuan</Link>

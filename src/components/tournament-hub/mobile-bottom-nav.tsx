@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Trophy, Activity, Vote, UserCheck, Layers, Radio } from "lucide-react";
 import { HubTab } from "./tournament-hub-types";
 
@@ -10,12 +11,12 @@ interface MobileBottomNavProps {
 }
 
 export function MobileBottomNav({ activeTab, onTabChange }: MobileBottomNavProps) {
-  const navItems: { tab: HubTab; label: string; icon: React.ElementType }[] = [
+  const navItems: { tab: HubTab; label: string; icon: React.ElementType; href?: string }[] = [
     { tab: "leaderboard", label: "Skor Live", icon: Layers },
     { tab: "podium", label: "Podium 3D", icon: Trophy },
     { tab: "stage", label: "Panggung", icon: Radio },
     { tab: "vote", label: "Cetas Vote", icon: Vote },
-    { tab: "dispute", label: "Sanggahan", icon: UserCheck },
+    { tab: "dispute", label: "Pelatih", icon: UserCheck, href: "/pelatih" },
   ];
 
   return (
@@ -24,6 +25,23 @@ export function MobileBottomNav({ activeTab, onTabChange }: MobileBottomNavProps
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.tab;
+
+          if (item.href) {
+            return (
+              <Link
+                key={item.tab}
+                href={item.href}
+                className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 select-none text-amber-400 hover:text-amber-200"
+              >
+                <div className="relative flex items-center justify-center p-1 rounded-lg">
+                  <Icon className="h-4 w-4 text-amber-400" />
+                </div>
+                <span className="text-[10px] font-bold mt-0.5 tracking-tight text-amber-300">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          }
 
           return (
             <button

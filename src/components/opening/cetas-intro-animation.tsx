@@ -243,7 +243,7 @@ export function CetasIntroAnimation() {
               Centralized Electronic Tournament & Award System
             </p>
             <p className="text-sm sm:text-base font-bold text-white tracking-wide pt-1 font-display">
-              Your Event, Elevated.
+              Make it a story!
             </p>
           </div>
         </div>

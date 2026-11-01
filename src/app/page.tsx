@@ -146,7 +146,7 @@ export default function HomePage() {
                 <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08] font-display">
                   CETAS.{" "}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#55DFFF] to-[#126BDE]">
-                    Your Event, Elevated.
+                    Make it a story!
                   </span>
                 </h1>
                 <p className="text-base sm:text-lg lg:text-xl font-normal text-slate-200 max-w-xl mx-auto lg:mx-0 leading-relaxed">
@@ -221,7 +221,7 @@ export default function HomePage() {
                       </span>
                     </div>
                     <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#126BDE]/20 text-cyan-200 border border-blue-400/40">
-                      Your Event, Elevated.
+                      Make it a story!
                     </span>
                   </div>
                   <p className="text-xs font-medium text-white leading-snug">

@@ -28,6 +28,7 @@ export function Navbar() {
     { href: "/", label: "Beranda" },
     { href: "/tournament-hub", label: "Tournament Hub", badge: "LIVE" },
     { href: "/events", label: "Event & Tiket" },
+    { href: "/pelatih", label: "Portal Pelatih", badge: "KONTINGEN" },
     { href: "/#layanan", label: "Layanan" },
     { href: "/#tentang", label: "Tentang" },
   ];
@@ -70,7 +71,7 @@ export function Navbar() {
               </span>
             </div>
             <span className="text-[9px] font-bold text-cyan-200 uppercase tracking-wider mt-0.5 hidden sm:inline">
-              Your Event, Elevated.
+              Make it a story!
             </span>
           </div>
         </Link>

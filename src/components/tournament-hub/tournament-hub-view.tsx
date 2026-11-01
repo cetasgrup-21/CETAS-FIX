@@ -27,13 +27,11 @@ import {
   TournamentLevel,
   TournamentEvent,
   StagePerformance,
-  HubTab,
 } from "./tournament-hub-types";
 import { Podium3D } from "./podium-3d";
 import { LiveStageTracker } from "./live-stage-tracker";
 import { AdaptiveLeaderboard } from "./adaptive-leaderboard";
 import { TeamDetailModal } from "./team-detail-modal";
-import { MobileBottomNav } from "./mobile-bottom-nav";
 import { launchConfettiShower } from "./confetti-shower";
 
 interface SimpleEventOption {
@@ -54,7 +52,6 @@ interface VoteCandidateSummary {
 }
 
 export function TournamentHubView() {
-  const [activeTab, setActiveTab] = useState<HubTab>("leaderboard");
   const [leaderboardMode, setLeaderboardMode] = useState<"score" | "vote">("score");
 
   // Dynamic Event Switcher state
@@ -633,11 +630,6 @@ export function TournamentHubView() {
         isOpen={Boolean(selectedTeam)}
         onClose={() => setSelectedTeam(null)}
       />
-
-      {/* ============================================================== */}
-      {/* 4. MOBILE FLOATING BOTTOM NAV                                  */}
-      {/* ============================================================== */}
-      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }

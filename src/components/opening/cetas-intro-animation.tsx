@@ -176,14 +176,6 @@ export function CetasIntroAnimation() {
             }`}
           >
             <div className="relative animate-mascot-gentle-breathe">
-              {/* Antenna Energy Sparkle Indicator */}
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D9FF] opacity-80" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
-                </span>
-              </div>
-
               {/* Official Maskot PNG */}
               <Image
                 src="/mascot/cetas_ant_waving_v3.png"

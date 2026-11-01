@@ -16,11 +16,6 @@ import {
 export function MobileBottomDock() {
   const pathname = usePathname();
 
-  // If in tournament hub, let tournament-hub handle its dedicated mobile nav
-  if (pathname.startsWith("/tournament-hub")) {
-    return null;
-  }
-
   const dockItems = [
     {
       href: "/",

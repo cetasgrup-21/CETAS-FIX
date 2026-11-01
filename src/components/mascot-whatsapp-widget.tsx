@@ -137,8 +137,8 @@ export function MascotWhatsAppWidget() {
 
   return (
     <>
-      {/* FLOATING MASCOT BUTTON CONTAINER (Lifted on mobile so it doesn't overlap bottom dock) */}
-      <div className="fixed bottom-20 right-3 md:bottom-6 md:right-6 z-40 flex flex-col items-end select-none no-print">
+      {/* FLOATING MASCOT BUTTON CONTAINER (Desktop Only - On mobile, integrated cleanly into bottom dock CS WA button) */}
+      <div className="hidden md:flex fixed md:bottom-6 md:right-6 z-40 flex-col items-end select-none no-print">
         {/* SPEECH BUBBLE TEASER (Contextual Preview - Hidden on small mobile screens to prevent blocking content) */}
         {!isOpen && showBubble && (
           <div className="hidden sm:block relative mb-2 max-w-[270px] sm:max-w-xs animate-in fade-in slide-in-from-bottom-3 duration-300">

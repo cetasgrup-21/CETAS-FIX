@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fcfbfe;
-  --foreground: #1e1135;
-  --cetas-purple: #7c3aed;
-  --cetas-purple-deep: #581c87;
-  --cetas-berry: #6d28d9;
-  --cetas-ice-cyan: #06b6d4;
-  --cetas-lavender: #f5f3ff;
-  --navy: #071a3d;
-  --blue: #1769e0;
-  --bg: #f4f7fb;
+  --background: #ffffff;
+  --foreground: #071a3d;
+  --cetas-blue: #0066ff;
+  --cetas-blue-hover: #0052cc;
+  --cetas-navy: #071a3d;
+  --cetas-navy-deep: #0a192f;
+  --cetas-light-blue: #f0f7ff;
+  --cetas-border: #e2e8f0;
+  --cetas-cyan: #06b6d4;
+  --cetas-emerald: #10b981;
 }
 
 .card {
   background: white;
-  border: 1px solid #dce5f0;
-  border-radius: 18px;
-  box-shadow: 0 3px 12px rgba(7, 26, 61, .06);
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(7, 26, 61, 0.05);
 }
 
 @theme inline {
@@ -35,23 +35,37 @@ body {
   letter-spacing: -0.015em;
 }
 
-/* Berry Purple Scrollbar */
+/* Modern CETAS Blue Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #f5f3ff;
+  background: #f8fafc;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c4b5fd;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #7c3aed;
+  background: #0066ff;
 }
 
-/* Real 3D Arm Waving Animation (Tangan Aja yang Gerak 3D) */
+/* Mascot Floating Animation */
+@keyframes cetas-mascot-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-mascot-float {
+  animation: cetas-mascot-float 3.5s ease-in-out infinite;
+}
+
+/* Arm wave animation */
 @keyframes antman-arm-wave-3d {
   0%, 100% {
     transform: perspective(600px) rotateZ(0deg) rotateY(0deg) rotateX(0deg) translateZ(0px);
@@ -70,28 +84,45 @@ body {
   }
 }
 
-@keyframes purple-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(124, 58, 237, 0.25);
-  }
-  50% {
-    box-shadow: 0 0 25px rgba(168, 85, 247, 0.45);
-  }
-}
-
 .animate-arm-wave-3d {
   animation: antman-arm-wave-3d 2.4s ease-in-out infinite;
-  transform-origin: 33.2% 48.3%; /* Shoulder joint pivot */
+  transform-origin: 33.2% 48.3%;
 }
 
-.purple-glow-card {
-  box-shadow: 0 10px 30px -5px rgba(109, 40, 217, 0.12), 0 4px 6px -4px rgba(109, 40, 217, 0.05);
+/* Pulse glow for buttons and cards */
+@keyframes blue-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 102, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(0, 102, 255, 0.45);
+  }
 }
 
-.purple-glow-hover:hover {
-  border-color: #a78bfa;
-  box-shadow: 0 15px 35px -5px rgba(124, 58, 237, 0.2), 0 8px 10px -6px rgba(124, 58, 237, 0.1);
+.cetas-blue-glow {
+  box-shadow: 0 10px 30px -5px rgba(0, 102, 255, 0.15), 0 4px 6px -4px rgba(0, 102, 255, 0.05);
+}
+
+.cetas-blue-glow-hover:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 15px 35px -5px rgba(0, 102, 255, 0.25), 0 8px 10px -6px rgba(0, 102, 255, 0.12);
   transform: translateY(-2px);
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-mascot-float,
+  .animate-arm-wave-3d {
+    animation: none !important;
+  }
 }
 
 /* Standar Ukuran Kertas Resmi Lomba: F4 / Folio Landscape (330mm x 215mm) */
@@ -147,4 +178,3 @@ body {
     color: #000000 !important;
   }
 }
-

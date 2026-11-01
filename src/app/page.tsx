@@ -6,70 +6,42 @@ import Image from "next/image";
 import {
   Ticket,
   Award,
-  Trophy,
   ShoppingBag,
-  Send,
   ShieldCheck,
-  CheckCircle2,
   TrendingUp,
   ArrowRight,
-  ArrowLeft,
   Sparkles,
   Zap,
   MessageCircle,
-  QrCode,
-  Layers,
-  ChevronRight,
-  UserCheck,
-  Clock,
-  Download,
-  Check,
-  HelpCircle,
-  FileText,
-  Volume2,
-  Monitor,
   Calendar,
   MapPin,
-  Heart,
+  ChevronRight,
+  Trophy,
+  CheckCircle2,
+  Users,
+  Layers,
+  Search,
   ExternalLink,
 } from "lucide-react";
 import { AntmanMascot } from "@/components/antman-mascot";
-import {
-  INITIAL_UNIFIED_EVENTS,
-  DEFAULT_MASCOT_URL,
-  UnifiedEvent,
-  LKBBTeamScore,
-  getEffectiveRegistrationCategories,
-  getStoredEvents,
-  saveStoredEvents,
-  mergeEventsWithLocal,
-} from "@/lib/events-unified-data";
-import {
-  INITIAL_EVENT_VOTINGS,
-  EventVotingConfig,
-  getStoredEventVotings,
-  saveStoredEventVotings,
-} from "@/lib/vote-unified-data";
+import { CetasOpeningExperience } from "@/components/opening/cetas-opening-experience";
+import { UnifiedEvent, getStoredEvents, saveStoredEvents } from "@/lib/events-unified-data";
 import { formatRupiah } from "@/lib/utils";
 
 export default function HomePage() {
   const [eventsList, setEventsList] = useState<UnifiedEvent[]>([]);
-  const [eventVotings, setEventVotings] = useState<EventVotingConfig[]>([]);
-  const [selectedHomeEventId, setSelectedHomeEventId] = useState<string | null>(null);
-
-  const [selectedScoreTab, setSelectedScoreTab] = useState<
-    "umum" | "pbb" | "variasi" | "danton" | "kostum"
-  >("umum");
-  const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>("ALL");
-  const [selectedVoteCatId, setSelectedVoteCatId] = useState<string>("ALL");
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("ALL");
 
   useEffect(() => {
-    const localEv = getStoredEvents();
-    if (localEv && localEv.length > 0) setEventsList(localEv);
+    // 1. Initial cached local events
+    const cached = getStoredEvents();
+    if (cached && cached.length > 0) {
+      setEventsList(cached);
+      setIsLoadingEvents(false);
+    }
 
-    const localVotes = getStoredEventVotings();
-    if (localVotes && localVotes.length > 0) setEventVotings(localVotes);
-
+    // 2. Fetch live events from real backend API
     fetch("/api/events", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -78,1583 +50,542 @@ export default function HomePage() {
           saveStoredEvents(data.events);
         }
       })
-      .catch(() => {});
-
-    fetch("/api/vote", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.eventVotings)) {
-          setEventVotings(data.eventVotings);
-          saveStoredEventVotings(data.eventVotings);
-        }
+      .catch((err) => {
+        console.warn("Failed to fetch events:", err);
       })
-      .catch(() => {});
+      .finally(() => {
+        setIsLoadingEvents(false);
+      });
   }, []);
 
-  const activeHomeEvent = eventsList.find((ev) => ev.id === selectedHomeEventId) || null;
-  const activeEventVoting =
-    eventVotings.find(
-      (v) =>
-        v.eventId === selectedHomeEventId ||
-        (activeHomeEvent &&
-          v.eventTitle.trim().toLowerCase() === activeHomeEvent.title.trim().toLowerCase())
-    ) || null;
+  // Filter events by category if selected
+  const filteredEvents = eventsList.filter((ev) => {
+    if (selectedCategoryFilter === "ALL") return true;
+    return ev.category?.toUpperCase() === selectedCategoryFilter.toUpperCase();
+  });
 
-  const getTeamScoreValue = (t: LKBBTeamScore & Record<string, unknown>, tab: typeof selectedScoreTab) => {
-    const pbb = Number(t.pos1 ?? t.pbbMurni ?? 0);
-    const varFor = Number(t.pos2 ?? t.variasiFormasi ?? 0);
-    const danton = Number(t.pos3 ?? t.danton ?? 0);
-    const kostum = Number(t.pos4 ?? t.kostum ?? 0);
-    const pen = Number(t.penalty ?? 0);
-    if (tab === "pbb") return pbb;
-    if (tab === "variasi") return varFor;
-    if (tab === "danton") return danton;
-    if (tab === "kostum") return kostum;
-    return Number(t.totalScore ?? pbb + varFor + danton + kostum - pen);
-  };
+  // Calculate real platform statistics
+  const totalEventsCount = eventsList.length;
+  const totalTeamsCount = eventsList.reduce((sum, ev) => sum + (ev.lkbbTeams?.length || 0), 0);
+  const totalTicketTiersCount = eventsList.reduce((sum, ev) => sum + (ev.tiers?.length || 0), 0);
 
-  const effectiveRegCategories = activeHomeEvent
-    ? getEffectiveRegistrationCategories(activeHomeEvent)
-    : [];
-
-  const activeVoteCategory =
-    selectedVoteCatId === "ALL"
-      ? null
-      : activeEventVoting?.categories.find((c) => c.id === selectedVoteCatId) ||
-        activeEventVoting?.categories[0] ||
-        null;
-
-  const sortedVoteCandidates = [...(activeVoteCategory?.candidates || [])].sort(
-    (a, b) => b.totalVotes - a.totalVotes
-  );
-  const totalCategoryVotes = sortedVoteCandidates.reduce((acc, c) => acc + c.totalVotes, 0);
-
-  const ecosystemPillars = [
+  const services = [
     {
-      title: "CETAS Tournament Hub",
-      badge: "Next-Gen 3D & Radar",
+      id: "tiket",
+      title: "CETAS.TIKET",
+      subtitle: "Pembelian tiket dan registrasi event.",
       description:
-        "Portal turnamen interaktif tercanggih: Visual Podium 3D Juara, Radar Analisis Juri (Spider Chart 5-Sumbu), Live Stage Tracker panggung arena, dan Sistem Sanggahan Digital 15 Menit.",
-      icon: Trophy,
-      href: "/tournament-hub",
-      accent: "from-cyan-500 to-emerald-500",
-      cta: "Buka Tournament Hub",
-    },
-    {
-      title: "Cetas Ticketing",
-      badge: "Anti-Fraud HMAC",
-      description:
-        "Sistem e-tiket berenkripsi dinamis dengan validasi instan di gerbang masuk via Mobile Gate Scanner. Terhubung langsung dengan payment gateway resmi Xendit (QRIS, OVO, ShopeePay, DANA, Virtual Account).",
+        "Sistem ticketing anti-fraud dengan dynamic HMAC QR Code. Validasi instan di gerbang gate masuk via Mobile Scanner serta verifikasi pembayaran otomatis.",
       icon: Ticket,
       href: "/events",
-      accent: "from-purple-600 to-indigo-600",
-      cta: "Beli & Cek Tiket",
+      accentBg: "bg-blue-50",
+      accentBorder: "border-blue-200",
+      accentText: "text-[#0066FF]",
+      badge: "Tiket & Registrasi",
     },
     {
-      title: "Cetas Vote",
-      badge: "Real-Time Tally",
+      id: "id",
+      title: "CETAS.ID",
+      subtitle: "Voting dan dukungan untuk peserta favorit.",
       description:
-        "Bilik suara digital transparan untuk kontes duta, pemilihan ketua, dan perlombaan turnamen. Mendukung Free Vote harian dan Paid Vote dengan leaderboard live tanpa manipulasi data.",
+        "Bilik suara digital transparan untuk kontes dan turnamen. Mendukung Free Vote harian dan Paid Vote QRIS dengan leaderboard live tanpa manipulasi data.",
       icon: Award,
       href: "/vote",
-      accent: "from-purple-700 to-violet-500",
-      cta: "Buka Bilik Suara",
+      accentBg: "bg-cyan-50",
+      accentBorder: "border-cyan-200",
+      accentText: "text-cyan-600",
+      badge: "E-Voting Live",
     },
     {
-      title: "Akses Pelatih & Juri",
-      badge: "Rekap Nilai 0 Detik",
+      id: "production",
+      title: "CETAS.PRODUCTION",
+      subtitle: "Kebutuhan produksi dan perlengkapan event.",
       description:
-        "Portal terpadu untuk pelatih dan official: unduh juklak/juknis, pantau urutan tampil di daerah persiapan (DP), lembar nilai juri transparan, dan e-sertifikat peserta ber-QR.",
-      icon: UserCheck,
-      href: "/pelatih",
-      accent: "from-purple-800 to-purple-950",
-      cta: "Masuk Portal Pelatih",
-    },
-    {
-      title: "Pendaftaran Peserta",
-      badge: "Form & E-Badge",
-      description:
-        "Registrasi peserta turnamen, seminar, workshop, dan kompetisi (seperti LKBB Paskibra) dengan upload berkas terpadu, nomor urut otomatis, dan konfirmasi instan.",
-      icon: CheckCircle2,
-      href: "/register-event",
-      accent: "from-indigo-600 to-purple-600",
-      cta: "Daftar Sekarang",
-    },
-    {
-      title: "Cetas Production",
-      badge: "Alat & Merch",
-      description:
-        "Vendor satu atap: rental sound system line-array konser, lighting panggung, videotron LED screen indoor/outdoor, panggung rigging, hingga cetak merchandise kaos & lanyard.",
+        "Vendor satu atap: rental sound system line-array konser, lighting panggung, videotron LED screen indoor/outdoor, panggung rigging, hingga merchandise resmi.",
       icon: ShoppingBag,
       href: "/production",
-      accent: "from-violet-600 to-purple-700",
-      cta: "Katalog Alat & Sewa",
+      accentBg: "bg-amber-50",
+      accentBorder: "border-amber-200",
+      accentText: "text-amber-600",
+      badge: "Alat & Panggung",
     },
     {
-      title: "Pengajuan & Kurasi Event",
-      badge: "Event Organizer",
+      id: "score",
+      title: "CETAS.SCORE",
+      subtitle: "Pengelolaan penilaian dan hasil kompetisi.",
       description:
-        "Punya event atau kompetisi turnamen? Ajukan proposal ke tim kurator Cetas untuk mendapatkan sponsor, publikasi di slot 'Iklan Cetas Kita', dan integrasi tiket & voting.",
-      icon: Send,
-      href: "/ajukan-event",
-      accent: "from-purple-600 to-indigo-700",
-      cta: "Ajukan Proposal",
+        "Mesin rekapitulasi penilaian juri zero-touch untuk LKBB dan kompetisi nasional. Perhitungan bobot akurat 0 detik, berita acara resmi F4, dan 3D Tournament Hub.",
+      icon: ShieldCheck,
+      href: "/score",
+      accentBg: "bg-emerald-50",
+      accentBorder: "border-emerald-200",
+      accentText: "text-emerald-600",
+      badge: "Rekap Juri 0 Detik",
     },
   ];
 
   return (
-    <div className="space-y-16 pb-24 text-slate-800 selection:bg-blue-600 selection:text-white">
-      {/* 1. HERO SECTION (GRAND UNBOXED CYBER MASCOT & FLOATING HUD BADGES) */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/80 via-sky-50/40 to-[#F8FAFC] pt-12 pb-18 border-b border-blue-100/80">
-        {/* Soft Glow Orbs */}
-        <div className="absolute top-0 left-1/3 -translate-x-1/2 w-[550px] h-[360px] bg-blue-200/30 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-12 right-12 w-[420px] h-[340px] bg-cyan-100/50 rounded-full blur-3xl pointer-events-none" />
+    <div className="flex flex-col min-h-screen bg-white text-[#071A3D] selection:bg-[#0066FF] selection:text-white">
+      {/* ============================================================== */}
+      {/* 0. WEBSITE OPENING & LOGIN REVEAL EXPERIENCE                   */}
+      {/* ============================================================== */}
+      <CetasOpeningExperience />
+
+      {/* ============================================================== */}
+      {/* 1. HERO SECTION — MOVE DIFFERENT                               */}
+      {/* ============================================================== */}
+      <section className="relative overflow-hidden pt-8 pb-16 lg:py-20 bg-gradient-to-b from-blue-50/60 via-white to-white">
+        {/* Ambient background light circles */}
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-gradient-to-b from-blue-400/15 via-cyan-400/10 to-transparent blur-3xl rounded-full" />
+        <div className="pointer-events-none absolute top-1/3 -right-20 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-            {/* Left Column: Hero Text & Badges */}
-            <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
-              {/* Official Expansion Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold text-blue-900 border border-blue-200 shadow-xs">
-                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                <span>Centralized Electronic Tournament & Award System</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+            {/* Left Content Column */}
+            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+              {/* Tagline Pill */}
+              <div className="inline-flex items-center gap-2 rounded-full bg-blue-100/80 border border-blue-200 px-4 py-1.5 text-xs font-bold text-[#0066FF] shadow-xs">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Not Just an Event. It&apos;s an Experience.</span>
               </div>
 
-              {/* Punchy Main Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 leading-[1.12]">
-                Platform Rekapitulasi Digital,{" "}
-                <span className="bg-gradient-to-r from-blue-700 via-cyan-600 to-indigo-700 bg-clip-text text-transparent">
-                  E-Voting & Produksi
-                </span>{" "}
-                Turnamen Terlengkap
-              </h1>
+              {/* Main Headline */}
+              <div className="space-y-2">
+                <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#071A3D] tracking-tight leading-[1.08]">
+                  MOVE <span className="text-[#0066FF]">DIFFERENT.</span>
+                </h1>
+                <p className="text-base sm:text-lg lg:text-xl font-normal text-slate-600 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                  Satu platform untuk menemukan event, membeli tiket, memberikan dukungan, dan mengelola kompetisi.
+                </p>
+              </div>
 
-              <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
-                Standardisasi baru turnamen modern: digitalisasi penilaian juri PBB & olahraga, rekapitulasi nilai instan 0 detik ke layar videotron, tiket berenkripsi HMAC dinamis, portal akses pelatih, dan vendor panggung satu atap.
-              </p>
-
-              {/* Action Buttons */}
+              {/* Call-to-Action Buttons */}
               <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3">
-                <Link
-                  href="/tournament-hub"
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black px-5 py-3.5 text-sm shadow-[0_0_20px_rgba(6,182,212,0.4)] transition transform hover:scale-105 active:scale-95"
-                >
-                  <Trophy className="h-4 w-4" />
-                  🏆 Tournament Hub (Live 3D & Radar)
-                </Link>
-                <Link
-                  href="/events"
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3.5 text-sm shadow-md shadow-blue-500/25 transition transform active:scale-95"
+                <a
+                  href="#event-terbaru"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#0066FF] hover:bg-[#0052cc] text-white font-extrabold px-6 py-4 text-sm shadow-lg shadow-blue-500/25 transition-all hover:scale-105 active:scale-95"
                 >
                   <Ticket className="h-4 w-4" />
-                  Jelajahi Event & Tiket
-                </Link>
-                <Link
-                  href="/score"
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-3.5 text-sm shadow-md transition"
-                >
-                  <Award className="h-4 w-4 text-cyan-400" />
-                  CETAS.SCORE (Juri Live)
-                </Link>
-                <Link
-                  href="/vote"
-                  className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-blue-50/60 text-blue-900 font-bold px-5 py-3.5 text-sm border border-blue-200 shadow-xs transition"
-                >
-                  <Award className="h-4 w-4 text-blue-600" />
-                  Bilik Cetas Vote Live
-                </Link>
-                <a
-                  href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20ingin%20konsultasi%20turnamen%20dan%20alat."
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 font-bold px-4 py-3.5 text-sm border border-emerald-200 transition shadow-xs"
-                >
-                  <MessageCircle className="h-4 w-4 fill-emerald-600 text-white" />
-                  WhatsApp Support
+                  <span>Jelajahi Event</span>
+                  <ArrowRight className="h-4 w-4" />
                 </a>
+
+                <a
+                  href="#layanan"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-[#071A3D] font-bold px-6 py-4 text-sm border border-slate-200 transition-all hover:scale-105 active:scale-95"
+                >
+                  <Zap className="h-4 w-4 text-[#0066FF]" />
+                  <span>Lihat Cara Kerja</span>
+                </a>
+
+                <Link
+                  href="/tournament-hub"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 font-extrabold px-5 py-4 text-sm transition-all hover:scale-105 active:scale-95"
+                >
+                  <Trophy className="h-4 w-4 text-amber-600" />
+                  <span>3D Tournament Hub</span>
+                </Link>
               </div>
 
-              {/* Trust Metric Chips */}
-              <div className="pt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl mx-auto lg:mx-0">
-                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
-                  <div className="text-xl font-black text-blue-700">0 Detik</div>
-                  <div className="text-[11px] text-slate-500 font-medium">Rekapitulasi Juri Live</div>
+              {/* Quick Trust Badges */}
+              <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto lg:mx-0">
+                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs text-center">
+                  <div className="text-xl font-black text-[#0066FF]">0 Detik</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Rekap Juri Live</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
-                  <div className="text-xl font-black text-slate-900">100% Sah</div>
-                  <div className="text-[11px] text-slate-500 font-medium">Bebas Manipulasi</div>
+                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs text-center">
+                  <div className="text-xl font-black text-[#071A3D]">100% Sah</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Bebas Manipulasi</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
-                  <div className="text-xl font-black text-slate-900">QRIS & E-Wallet</div>
-                  <div className="text-[11px] text-slate-500 font-medium">Xendit Gateway</div>
+                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs text-center">
+                  <div className="text-xl font-black text-[#0066FF]">Anti-Bot</div>
+                  <div className="text-[10px] text-slate-500 font-medium">QRIS E-Voting</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-white border border-blue-100 shadow-xs text-center">
-                  <div className="text-xl font-black text-blue-700">Satu Atap</div>
-                  <div className="text-[11px] text-slate-500 font-medium">Cetas Production</div>
+                <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs text-center">
+                  <div className="text-xl font-black text-[#071A3D]">Satu Atap</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Production Vendor</div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Ant-Man Mascot Showcase - GRAND, UNBOXED, WITH CETAS IDENTITY */}
+            {/* Right Mascot Column — ANTY MASCOT AS MAIN CHARACTER */}
             <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
-              {/* Grand Cyber Platform Glow Backdrop (No Box!) */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[480px] h-[380px] sm:h-[480px] bg-gradient-to-tr from-blue-600/15 via-cyan-400/20 to-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+              {/* Mascot Stage Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[460px] h-[380px] sm:h-[460px] bg-gradient-to-tr from-blue-600/20 via-cyan-400/25 to-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-              {/* Floating Interactive Speech Bubble (Above Mascot) */}
+              {/* Speech Bubble */}
               <div className="w-full max-w-sm mb-2 z-20">
-                <div className="relative rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 shadow-xl border border-blue-200/80 dark:border-blue-800 transition-all hover:scale-[1.02]">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                <div className="relative rounded-2xl bg-white/95 backdrop-blur-md p-3.5 shadow-xl border border-blue-200 transition-transform hover:scale-[1.02]">
+                  <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-1.5">
                       <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                       </span>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#0066FF]">
                         ANTY • Maskot Resmi CETAS
                       </span>
                     </div>
-                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
-                      Manusia Semut Cyber
+                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-[#0066FF] border border-blue-200">
+                      Move Different
                     </span>
                   </div>
-                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug">
-                    &ldquo;Halo sobat turnamen! 👋 Butuh tiket, rekap nilai juri 0 detik, atau sewa panggung & sound? Tanya Anty di WhatsApp!&rdquo;
+                  <p className="text-xs font-semibold text-slate-800 leading-snug">
+                    &ldquo;Halo sobat turnamen! 👋 Mau beli tiket, dukung tim di bilik vote, atau pantau rekap juri? Semua serba cepat bareng Anty!&rdquo;
                   </p>
-                  {/* Subtle speech tail pointing down to mascot */}
-                  <div className="absolute -bottom-1.5 left-12 w-3.5 h-3.5 bg-white dark:bg-slate-900 border-b border-r border-blue-200/80 dark:border-blue-800 transform rotate-45 pointer-events-none" />
+                  <div className="absolute -bottom-1.5 left-12 w-3 h-3 bg-white border-b border-r border-blue-200 transform rotate-45 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Main Mascot Display - LARGE, UNBOXED, BOLD */}
-              <div className="relative w-full max-w-sm sm:max-w-md flex flex-col items-center justify-center">
-                {/* Floating HUD Badge 1: Top Left */}
-                <div className="absolute top-8 -left-4 sm:-left-8 z-30 hidden sm:flex items-center gap-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2.5 shadow-xl border border-blue-200 dark:border-blue-800">
-                  <div className="h-8 w-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
-                    <Zap className="h-4 w-4" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-[9px] font-bold text-slate-500">Rekap Nilai Juri</div>
-                    <div className="text-xs font-black text-blue-950 dark:text-blue-200">Real-time 0 Detik</div>
-                  </div>
-                </div>
+              {/* The Ant Mascot with Floating Animation */}
+              <div className="relative z-10 animate-mascot-float">
+                <AntmanMascot pose="waving" size={480} />
+              </div>
 
-                {/* Floating HUD Badge 2: Mid-Right */}
-                <div className="absolute top-36 -right-4 sm:-right-8 z-30 hidden sm:flex items-center gap-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2.5 shadow-xl border border-emerald-200 dark:border-emerald-800">
-                  <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
-                    <ShieldCheck className="h-4 w-4" />
+              {/* WhatsApp Quick Chat Underneath Mascot */}
+              <div className="w-full max-w-xs mt-1 z-20">
+                <a
+                  href="https://wa.me/6281584682345?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20CETAS."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 transition-transform active:scale-95 group"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 fill-white" />
+                    <span>Tanya Anty di WhatsApp (24/7)</span>
                   </div>
-                  <div className="text-left">
-                    <div className="text-[9px] font-bold text-slate-500">Tiket Ber-QR</div>
-                    <div className="text-xs font-black text-emerald-900 dark:text-emerald-200">Anti-Duplikasi HMAC</div>
-                  </div>
-                </div>
-
-                {/* THE UNBOXED MASCOT */}
-                <div className="relative z-10 py-1">
-                  <AntmanMascot pose="waving" size={480} />
-                </div>
-
-                {/* Quick Action Buttons Underneath Mascot */}
-                <div className="w-full max-w-sm space-y-2 mt-1 z-20">
-                  <a
-                    href="https://wa.me/6281584682345?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20Cetas."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-lg shadow-emerald-500/25 transition transform active:scale-95 group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <MessageCircle className="h-5 w-5 fill-white" />
-                      <span>Chat WhatsApp Anty (0815-8468-2345)</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </a>
-
-                  <Link
-                    href="/pelatih"
-                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/95 hover:bg-blue-50 text-blue-900 font-bold text-xs border border-blue-200 shadow-sm transition"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <UserCheck className="h-4 w-4 text-blue-600" />
-                      <span>Masuk Portal Akses Pelatih & Kontingen</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-blue-500" />
-                  </Link>
-                </div>
+                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </a>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. PUSAT EVENT, PERINGKAT LKBB, PERINGKAT VOTE & AKSES TIKET (PILIH EVENT DULU -> DETAIL PERINGKAT & LINK) */}
-      <section id="pusat-peringkat-event" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-purple-100 bg-white p-6 sm:p-10 shadow-sm space-y-6">
-          {/* Header Section */}
+      {/* ============================================================== */}
+      {/* 2. SERVICE SECTION — 4 LAYANAN CETAS                           */}
+      {/* ============================================================== */}
+      <section id="layanan" className="py-16 sm:py-20 bg-slate-50/60 border-y border-slate-200/80">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+          {/* Section Header */}
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-[#0066FF] px-3.5 py-1 text-xs font-bold border border-blue-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Ekosistem Turnamen Terintegrasi</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black text-[#071A3D] tracking-tight">
+              Empat Pilar Layanan CETAS
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              Dari pengadaan tiket, bilik suara publik, perlengkapan panggung rigging, hingga engine rekap juri resmi tanpa kompromi.
+            </p>
+          </div>
+
+          {/* Service Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {services.map((svc) => {
+              const Icon = svc.icon;
+              return (
+                <div
+                  key={svc.id}
+                  className="group relative flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-xs hover:border-[#0066FF] hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className="space-y-4">
+                    {/* Icon & Badge */}
+                    <div className="flex items-center justify-between">
+                      <div
+                        className={`flex h-12 w-12 items-center justify-center rounded-2xl ${svc.accentBg} ${svc.accentText} border ${svc.accentBorder} transition-transform group-hover:scale-110`}
+                      >
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">
+                        {svc.badge}
+                      </span>
+                    </div>
+
+                    {/* Title & Subtitle */}
+                    <div>
+                      <h3 className="text-lg font-black text-[#071A3D] group-hover:text-[#0066FF] transition-colors">
+                        {svc.title}
+                      </h3>
+                      <p className="text-xs font-bold text-slate-700 mt-0.5">
+                        {svc.subtitle}
+                      </p>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      {svc.description}
+                    </p>
+                  </div>
+
+                  {/* CTA Link */}
+                  <div className="pt-6">
+                    <Link
+                      href={svc.href}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0066FF] group-hover:underline"
+                    >
+                      <span>Buka Layanan</span>
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================== */}
+      {/* 3. EVENT TERBARU — CAROUSEL / HORIZONTAL CARDS                 */}
+      {/* ============================================================== */}
+      <section id="event-terbaru" className="py-16 sm:py-20 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
+          {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-purple-50 text-purple-700 px-3.5 py-1 text-xs font-bold border border-purple-200">
-                <TrendingUp className="h-3.5 w-3.5" />
-                {activeHomeEvent
-                  ? "Scoreboard Turnamen • Rekapitulasi Real-Time Dewan Juri & E-Voting"
-                  : "Pusat Turnamen & Kompetisi Resmi • Cetas Ecosystem"}
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3.5 py-1 text-xs font-bold border border-emerald-200">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Event & Kompetisi Terjadwal</span>
               </div>
-              <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                {activeHomeEvent ? activeHomeEvent.title : "Event Aktif"}
+              <h2 className="text-3xl sm:text-4xl font-black text-[#071A3D] tracking-tight">
+                Event Terbaru di CETAS
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-                {activeHomeEvent
-                  ? "Menampilkan daftar Peringkat LKBB (Cetas.Score), Peringkat Vote Publik (Cetas Vote), serta tautan langsung menuju bilik Cetas Vote dan pembelian tiket Cetas Ticketing untuk event ini."
-                  : "Pilih salah satu event aktif di bawah ini untuk melihat daftar Peringkat LKBB, Peringkat Vote, serta link akses menuju Cetas Vote dan Cetas Ticketing."}
+              <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
+                Temukan turnamen bergengsi, dukung kontingen sekolah, dan dapatkan e-tiket resmi berkeamanan tinggi.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              {activeHomeEvent && (
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {["ALL", "LKBB", "KONSER", "SEMINAR"].map((cat) => (
                 <button
-                  type="button"
-                  onClick={() => setSelectedHomeEventId(null)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-4 py-3 shadow-sm transition"
+                  key={cat}
+                  onClick={() => setSelectedCategoryFilter(cat)}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+                    selectedCategoryFilter === cat
+                      ? "bg-[#0066FF] text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Kembali ke Daftar Event
+                  {cat === "ALL" ? "Semua Kategori" : cat}
                 </button>
-              )}
-              <Link
-                href="/pelatih"
-                className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-5 py-3 shadow-md shadow-purple-600/30 transition"
-              >
-                <UserCheck className="h-4 w-4" />
-                Buka Lembar Nilai di Portal Pelatih
-              </Link>
+              ))}
             </div>
           </div>
 
-          {/* ==================================================================== */}
-          {/* TAMPILAN 1 (AWAL): DAFTAR EVENT-EVENT (KLIK EVENT UNTUK BUKA DETAIL) */}
-          {/* ==================================================================== */}
-          {!activeHomeEvent ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide">
-                    Daftar Event Turnamen & Kompetisi Aktif ({eventsList.length} Event)
-                  </span>
-                </div>
-                <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
-                  👆 Klik Event untuk Lihat Peringkat LKBB, Peringkat Vote & Link Tiket
-                </span>
-              </div>
-
-              {eventsList.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-purple-100 bg-purple-50/30 p-10 text-center space-y-3">
-                  <div className="mx-auto h-12 w-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
-                    <Award className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-base font-black text-slate-900">
-                    Belum Ada Event Aktif Saat Ini
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-lg mx-auto">
-                    Tambahkan event baru melalui panel Admin Cetas untuk menampilkan kartu event, papan peringkat LKBB, dan bilik Cetas Vote.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {eventsList.map((ev) => {
-                    const evVote = eventVotings.find((v) => v.eventId === ev.id);
-                    const totalVoteCats = evVote?.categories.length || 0;
-                    const totalVoteCands =
-                      evVote?.categories.reduce((acc, c) => acc + c.candidates.length, 0) || 0;
-                    const totalLkbbCount = ev.lkbbTeams?.length || 0;
-                    const lowestTierPrice =
-                      ev.tiers && ev.tiers.length > 0
-                        ? Math.min(...ev.tiers.map((t) => t.price))
-                        : null;
-
-                    return (
-                      <div
-                        key={ev.id}
-                        onClick={() => {
-                          setSelectedHomeEventId(ev.id);
-                          setSelectedLevelFilter("ALL");
-                          setSelectedScoreTab("umum");
-                          if (evVote && evVote.categories.length > 0) {
-                            setSelectedVoteCatId(evVote.categories[0].id);
-                          }
-                        }}
-                        className="group cursor-pointer rounded-3xl border-2 border-purple-100 hover:border-purple-500 bg-white overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
-                      >
-                        <div>
-                          {/* Event Banner */}
-                          <div className="relative h-52 w-full bg-slate-900 overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={ev.bannerUrl}
-                              alt={ev.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-
-                            <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-600/95 text-white shadow backdrop-blur-md">
-                                {ev.category}
-                              </span>
-                              <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/95 text-white shadow backdrop-blur-md">
-                                <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
-                                LIVE EVENT
-                              </span>
-                            </div>
-
-                            <div className="absolute bottom-3.5 left-3.5 right-3.5 pr-16 sm:pr-20">
-                              <div className="text-[11px] font-bold text-purple-200 mb-0.5">
-                                {ev.organizer}
-                              </div>
-                              <h3 className="text-lg sm:text-xl font-black text-white leading-snug group-hover:text-amber-300 transition">
-                                {ev.title}
-                              </h3>
-                            </div>
-
-                            {/* Floating Event Mascot on Card */}
-                            {(ev.mascotUrl || DEFAULT_MASCOT_URL) && (
-                              <img
-                                src={ev.mascotUrl || DEFAULT_MASCOT_URL}
-                                alt="Maskot Event"
-                                className="absolute -bottom-1 right-2.5 w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.7)] z-10 pointer-events-none group-hover:scale-110 transition-transform duration-300"
-                              />
-                            )}
-                          </div>
-
-                          {/* Event Info & Feature Badges */}
-                          <div className="p-5 space-y-4">
-                            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-semibold">
-                              <span className="inline-flex items-center gap-1.5">
-                                <Calendar className="h-3.5 w-3.5 text-purple-600" />
-                                {ev.date} • {ev.time}
-                              </span>
-                              <span className="inline-flex items-center gap-1.5">
-                                <MapPin className="h-3.5 w-3.5 text-purple-600" />
-                                {ev.location}
-                              </span>
-                            </div>
-
-                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                              {ev.description}
-                            </p>
-
-                            {/* Summary Feature Chips Inside Event */}
-                            <div className="grid grid-cols-3 gap-2 pt-1">
-                              <div className="rounded-xl bg-purple-50/80 border border-purple-100 p-2.5 text-center">
-                                <div className="text-[10px] font-bold text-purple-700">
-                                  🏆 Peringkat LKBB
-                                </div>
-                                <div className="text-xs font-black text-slate-900 mt-0.5">
-                                  {totalLkbbCount > 0 ? `${totalLkbbCount} Pasukan` : "Siap Live"}
-                                </div>
-                              </div>
-                              <div className="rounded-xl bg-pink-50/80 border border-pink-100 p-2.5 text-center">
-                                <div className="text-[10px] font-bold text-pink-700">
-                                  ❤️ Cetas Vote
-                                </div>
-                                <div className="text-xs font-black text-slate-900 mt-0.5">
-                                  {totalVoteCats > 0
-                                    ? `${totalVoteCats} Kategori (${totalVoteCands} Tim)`
-                                    : "Tersedia"}
-                                </div>
-                              </div>
-                              <div className="rounded-xl bg-blue-50/80 border border-blue-100 p-2.5 text-center">
-                                <div className="text-[10px] font-bold text-blue-700">
-                                  🎟️ Cetas Ticketing
-                                </div>
-                                <div className="text-xs font-black text-slate-900 mt-0.5">
-                                  {lowestTierPrice !== null
-                                    ? `Mulai ${formatRupiah(lowestTierPrice)}`
-                                    : "Tiket Online"}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Card Footer Actions */}
-                        <div className="px-5 pb-5 pt-2 space-y-2.5">
-                          <button
-                            type="button"
-                            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-800 hover:to-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-purple-600/20 transition"
-                          >
-                            <Award className="h-4 w-4" />
-                            <span>
-                              Klik Buka Peringkat LKBB, Peringkat Vote & Link Event
-                            </span>
-                            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                          </button>
-
-                          {/* Direct Quick Links to Cetas Vote & Cetas Ticketing */}
-                          <div
-                            className="grid grid-cols-2 gap-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Link
-                              href={`/vote?eventId=${ev.id}&tab=VOTE`}
-                              className="py-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-800 border border-pink-200 font-bold text-[11px] flex items-center justify-center gap-1.5 transition"
-                            >
-                              <Heart className="h-3.5 w-3.5 text-pink-600" />
-                              Link ke Cetas Vote
-                            </Link>
-                            <Link
-                              href={`/vote?eventId=${ev.id}&tab=TICKETS`}
-                              className="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[11px] flex items-center justify-center gap-1.5 transition"
-                            >
-                              <Ticket className="h-3.5 w-3.5 text-blue-600" />
-                              Link ke Cetas Ticketing
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+          {/* Event Cards Grid */}
+          {isLoadingEvents ? (
+            <div className="py-12 text-center text-slate-400 text-sm">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-[#0066FF] mb-3" />
+              <span>Memuat daftar event resmi CETAS...</span>
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-12 text-center space-y-3">
+              <Calendar className="mx-auto h-10 w-10 text-slate-400" />
+              <h3 className="text-base font-bold text-slate-800">Belum Ada Event Aktif</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Daftarkan event atau kompetisi Anda sekarang untuk mulai menjual tiket dan mengelola penilaian juri di platform CETAS.
+              </p>
+              <Link
+                href="/ajukan-event"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#0066FF] text-white font-bold px-4 py-2 text-xs shadow-sm"
+              >
+                <span>Ajukan Event Sekarang</span>
+              </Link>
             </div>
           ) : (
-            /* ==================================================================== */
-            /* TAMPILAN 2 (SETELAH EVENT DIPENCET):                                 */
-            /* 1. LINK KE CETAS VOTE & CETAS TICKETING                              */
-            /* 2. LIST PERINGKAT LKBB (JUARA UMUM, PBB, VARIASI, DANTON, KOSTUM)    */
-            /* 3. LIST PERINGKAT VOTE (JUARA FAVORIT CETAS VOTE)                    */
-            /* ==================================================================== */
-            <div className="space-y-8 animate-in fade-in duration-300">
-              {/* Banner Ringkas Event Terpilih + Link Pintas Utama */}
-              <div className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
-                {/* Banner Header Image with Smooth Scrim */}
-                <div className="relative min-h-[190px] sm:min-h-[220px] w-full bg-slate-950 flex flex-col justify-end p-5 sm:p-7 text-white overflow-hidden">
-                  {activeHomeEvent.bannerUrl && (
-                    <div className="absolute inset-0 z-0">
-                      <img
-                        src={activeHomeEvent.bannerUrl}
-                        alt={activeHomeEvent.title}
-                        className="w-full h-full object-cover opacity-75"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-transparent" />
-                      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/60" />
-                    </div>
-                  )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredEvents.map((ev) => {
+                const lowestPrice =
+                  ev.tiers && ev.tiers.length > 0
+                    ? Math.min(...ev.tiers.map((t) => t.price))
+                    : 0;
 
-                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      {(activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL) && (
+                return (
+                  <div
+                    key={ev.id}
+                    className="group rounded-3xl border border-slate-200 hover:border-[#0066FF] bg-white overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Event Banner Image */}
+                      <div className="relative h-48 w-full bg-slate-900 overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={activeHomeEvent.mascotUrl || DEFAULT_MASCOT_URL}
-                          alt="Maskot Event"
-                          className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.7)] shrink-0 bg-black/30 backdrop-blur-md rounded-2xl p-1.5 border border-white/20"
+                          src={ev.bannerUrl || "/logo/cetas_score_logo.png"}
+                          alt={ev.title}
+                          className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
                         />
-                      )}
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-600 text-white shadow-sm">
-                            {activeHomeEvent.category}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+
+                        {/* Category & Status Pill */}
+                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                          <span className="rounded-full bg-blue-600/90 backdrop-blur-md px-3 py-0.5 text-[10px] font-black uppercase text-white shadow">
+                            {ev.category || "TURNAMEN"}
                           </span>
-                          <span className="text-xs text-slate-200 font-semibold bg-black/40 backdrop-blur-sm px-2.5 py-0.5 rounded-full border border-white/10">
-                            📅 {activeHomeEvent.date} ({activeHomeEvent.time}) • 📍{" "}
-                            {activeHomeEvent.location}
+                          <span className="rounded-full bg-emerald-500/90 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white shadow">
+                            OPEN
                           </span>
                         </div>
-                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">
-                          {activeHomeEvent.title}
-                        </h3>
-                        <p className="text-xs text-slate-200 max-w-3xl line-clamp-2 drop-shadow-sm">
-                          {activeHomeEvent.description}
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Quick Switch Event Dropdown / Button */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedHomeEventId(null)}
-                        className="px-4 py-2.5 rounded-xl bg-black/50 hover:bg-black/70 text-white text-xs font-bold border border-white/20 backdrop-blur-md transition flex items-center gap-1.5 shadow-md active:scale-95"
-                      >
-                        <ArrowLeft className="h-3.5 w-3.5" />
-                        Ganti / Pilih Event Lain
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* BARIS LINK RESMI KE CETAS VOTE, CETAS TICKETING, PENDAFTARAN & CETAS.SCORE */}
-                <div className="p-5 sm:p-6 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                      Link Akses Cepat Event Ini:
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400">
-                      Terintegrasi Ekosistem Cetas
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <Link
-                      href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-extrabold text-xs shadow-md shadow-pink-600/20 hover:shadow-pink-600/35 hover:-translate-y-0.5 transition duration-200 group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                          <Heart className="h-4 w-4 fill-white" />
-                        </div>
-                        <div>
-                          <div className="font-black text-white text-xs">Buka Cetas Vote</div>
-                          <div className="text-[10px] font-medium text-pink-100">
-                            Vote Pleton Favorit Event Ini
-                          </div>
+                        {/* Title overlay on bottom of banner */}
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <h3 className="text-base font-black text-white truncate drop-shadow-md">
+                            {ev.title}
+                          </h3>
                         </div>
                       </div>
-                      <ExternalLink className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
-                    </Link>
 
-                    <Link
-                      href={`/vote?eventId=${activeHomeEvent.id}&tab=TICKETS`}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-extrabold text-xs shadow-md shadow-blue-600/20 hover:shadow-blue-600/35 hover:-translate-y-0.5 transition duration-200 group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                          <Ticket className="h-4 w-4 text-white" />
-                        </div>
-                        <div>
-                          <div className="font-black text-white text-xs">Buka Cetas Ticketing</div>
-                          <div className="text-[10px] font-medium text-blue-100">
-                            Beli E-Tiket Masuk Arena
+                      {/* Event Details */}
+                      <div className="p-5 space-y-3">
+                        <div className="space-y-1.5 text-xs text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-[#0066FF] shrink-0" />
+                            <span className="font-semibold">{ev.date}</span>
                           </div>
-                        </div>
-                      </div>
-                      <ExternalLink className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
-                    </Link>
-
-                    <Link
-                      href="/register-event"
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 hover:shadow-emerald-600/35 hover:-translate-y-0.5 transition duration-200 group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                          <CheckCircle2 className="h-4 w-4 text-white" />
-                        </div>
-                        <div>
-                          <div className="font-black text-white text-xs">Pendaftaran Peserta</div>
-                          <div className="text-[10px] font-medium text-emerald-100">
-                            Registrasi Kontingen Online
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-[#0066FF] shrink-0" />
+                            <span className="truncate">{ev.location}</span>
                           </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
-                    </Link>
-
-                    <Link
-                      href="/rekap"
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-md shadow-purple-600/20 hover:shadow-purple-600/35 hover:-translate-y-0.5 transition duration-200 group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                          <Monitor className="h-4 w-4 text-white" />
-                        </div>
-                        <div>
-                          <div className="font-black text-white text-xs">Rekap Detail Cetas.Score</div>
-                          <div className="text-[10px] font-medium text-purple-100">
-                            Tabel Nilai Juri & Videotron
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-white/80 group-hover:translate-x-0.5 transition" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              {/* ==================================================================== */}
-              {/* BAGIAN A: LIST PERINGKAT LKBB (REKAPITULASI NILAI JURI CETAS.SCORE) */}
-              {/* ==================================================================== */}
-              <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-5 sm:p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-100">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black mb-1">
-                      🏆 Juara Terpisah Antar Kategori (SD • SMP • SMA • Umum)
-                    </div>
-                    <h4 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
-                      <Award className="h-5 w-5 text-purple-600" />
-                      1. Daftar Peringkat &amp; Juara LKBB Per Kategori (Rekap Nilai Juri)
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Peserta yang mendaftar otomatis masuk ke klasemen kategorinya masing-masing dengan penentuan juara yang terpisah antar kategori.
-                    </p>
-                  </div>
-
-                  {/* Filter Tingkat / Kategori LKBB */}
-                  <div className="flex flex-wrap items-center gap-1.5 bg-white p-1.5 rounded-xl border border-purple-100">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLevelFilter("ALL")}
-                      className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition ${
-                        selectedLevelFilter === "ALL"
-                          ? "bg-purple-700 text-white"
-                          : "text-slate-600 hover:bg-purple-50"
-                      }`}
-                    >
-                      Semua Kategori (Juara Terpisah)
-                    </button>
-                    {effectiveRegCategories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setSelectedLevelFilter(cat.code)}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition ${
-                          selectedLevelFilter === cat.code
-                            ? "bg-purple-700 text-white"
-                            : "text-slate-600 hover:bg-purple-50"
-                        }`}
-                      >
-                        {cat.name} ({cat.quotaRemaining}/{cat.quotaTotal})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Sub-Tab Kategori Peringkat LKBB */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedScoreTab("umum")}
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                      selectedScoreTab === "umum"
-                        ? "bg-purple-700 text-white shadow-xs"
-                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
-                    }`}
-                  >
-                    🏆 Juara Umum Per Kategori
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedScoreTab("pbb")}
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                      selectedScoreTab === "pbb"
-                        ? "bg-purple-700 text-white shadow-xs"
-                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
-                    }`}
-                  >
-                    🎖️ PBB Murni Terbaik
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedScoreTab("variasi")}
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                      selectedScoreTab === "variasi"
-                        ? "bg-purple-700 text-white shadow-xs"
-                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
-                    }`}
-                  >
-                    ✨ Variasi &amp; Formasi Terbaik
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedScoreTab("danton")}
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                      selectedScoreTab === "danton"
-                        ? "bg-purple-700 text-white shadow-xs"
-                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
-                    }`}
-                  >
-                    🗣️ Danton Terbaik
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedScoreTab("kostum")}
-                    className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                      selectedScoreTab === "kostum"
-                        ? "bg-purple-700 text-white shadow-xs"
-                        : "bg-white text-slate-700 border border-purple-100 hover:bg-purple-50"
-                    }`}
-                  >
-                    👕 Kostum Terbaik
-                  </button>
-                </div>
-
-                {/* Tabel Peringkat LKBB Terpisah Per Kategori */}
-                <div className="space-y-5">
-                  {effectiveRegCategories
-                    .filter((cat) =>
-                      selectedLevelFilter === "ALL" ? true : cat.code === selectedLevelFilter
-                    )
-                    .map((cat) => {
-                      const catTeams = [...(activeHomeEvent?.lkbbTeams || [])]
-                        .filter(
-                          (t) =>
-                            (t.categoryName &&
-                              t.categoryName.toLowerCase().trim() === cat.name.toLowerCase().trim()) ||
-                            t.level === cat.code
-                        )
-                        .sort((a, b) => {
-                          const diff =
-                            getTeamScoreValue(
-                              b as LKBBTeamScore & Record<string, unknown>,
-                              selectedScoreTab
-                            ) -
-                            getTeamScoreValue(
-                              a as LKBBTeamScore & Record<string, unknown>,
-                              selectedScoreTab
-                            );
-                          if (diff !== 0) return diff;
-                          return String(a.number || "").localeCompare(String(b.number || ""));
-                        });
-
-                      return (
-                        <div
-                          key={cat.id}
-                          className="rounded-2xl border border-purple-200 bg-white overflow-hidden shadow-xs"
-                        >
-                          <div className="px-4 py-3 bg-gradient-to-r from-purple-900 to-indigo-900 text-white flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[10px] font-black uppercase">
-                                Klasemen {cat.code}
-                              </span>
-                              <h5 className="text-sm font-black">
-                                Peringkat &amp; Juara {cat.name}
-                              </h5>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px]">
-                              <span className="px-2.5 py-0.5 rounded-lg bg-white/10 font-bold">
-                                Peserta Terdaftar: {catTeams.length}
-                              </span>
-                              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-200 font-bold border border-emerald-400/30">
-                                Sisa Kuota: {cat.quotaRemaining}/{cat.quotaTotal}
-                              </span>
-                            </div>
-                          </div>
-
-                          {catTeams.length === 0 ? (
-                            <div className="p-6 text-center space-y-2">
-                              <p className="text-xs font-bold text-slate-600">
-                                Belum ada peserta terdaftar pada {cat.name}.
-                              </p>
-                              <Link
-                                href="/register-event"
-                                className="inline-flex items-center gap-1.5 text-xs font-extrabold text-purple-700 hover:underline"
-                              >
-                                Daftar Sebagai Peserta {cat.name} &rarr;
-                              </Link>
-                            </div>
-                          ) : (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse">
-                                <thead>
-                                  <tr className="bg-purple-50/70 text-[11px] font-black uppercase text-purple-900 border-b border-purple-100">
-                                    <th className="py-3 px-4">Juara Kategori</th>
-                                    <th className="py-3 px-4">No. Urut</th>
-                                    <th className="py-3 px-4">Pasukan / Kontingen &amp; Danton</th>
-                                    <th className="py-3 px-4">Kategori</th>
-                                    <th className="py-3 px-4 text-right">PBB Murni</th>
-                                    <th className="py-3 px-4 text-right">Variasi</th>
-                                    <th className="py-3 px-4 text-right">Danton</th>
-                                    <th className="py-3 px-4 text-right">Kostum</th>
-                                    <th className="py-3 px-4 text-right">Total Nilai</th>
-                                    <th className="py-3 px-4 text-center">Status Juri</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-purple-50 text-xs">
-                                  {catTeams.map((rawTeam, idx) => {
-                                    const team = rawTeam as LKBBTeamScore & Record<string, unknown>;
-                                    const pbb = Number(team.pos1 ?? team.pbbMurni ?? 0);
-                                    const varFor = Number(team.pos2 ?? team.variasiFormasi ?? 0);
-                                    const danton = Number(team.pos3 ?? team.danton ?? 0);
-                                    const kostum = Number(team.pos4 ?? team.kostum ?? 0);
-                                    const pen = Number(team.penalty ?? 0);
-                                    const total = Number(
-                                      team.totalScore ?? pbb + varFor + danton + kostum - pen
-                                    );
-                                    const isVerified =
-                                      Boolean(team.isVerified) || team.status === "TERVERIFIKASI";
-                                    const champLabel =
-                                      idx === 0
-                                        ? `🥇 Juara 1 ${cat.code}`
-                                        : idx === 1
-                                        ? `🥈 Juara 2 ${cat.code}`
-                                        : idx === 2
-                                        ? `🥉 Juara 3 ${cat.code}`
-                                        : `Peringkat #${idx + 1}`;
-
-                                    return (
-                                      <tr key={team.id} className="hover:bg-purple-50/40 transition">
-                                        <td className="py-3.5 px-4 font-black">
-                                          <span
-                                            className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black ${
-                                              idx === 0
-                                                ? "bg-amber-400 text-amber-950"
-                                                : idx === 1
-                                                ? "bg-slate-200 text-slate-800"
-                                                : idx === 2
-                                                ? "bg-amber-700/20 text-amber-900"
-                                                : "bg-purple-50 text-purple-700"
-                                            }`}
-                                          >
-                                            {champLabel}
-                                          </span>
-                                        </td>
-                                        <td className="py-3.5 px-4 font-mono font-bold text-slate-600">
-                                          #{team.number}
-                                        </td>
-                                        <td className="py-3.5 px-4">
-                                          <div className="font-black text-slate-900">
-                                            {String(team.schoolName || team.teamName || "Peserta")}
-                                          </div>
-                                          <div className="text-[11px] text-slate-500">
-                                            Danton / Peserta: {String(team.commander || team.school || "-")}
-                                          </div>
-                                        </td>
-                                        <td className="py-3.5 px-4">
-                                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800">
-                                            {cat.name}
-                                          </span>
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                                          {pbb}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                                          {varFor}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                                          {danton}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700">
-                                          {kostum}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-right font-mono font-black text-purple-700 text-sm">
-                                          {total.toFixed(1)}
-                                        </td>
-                                        <td className="py-3.5 px-4 text-center">
-                                          <span
-                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                                              isVerified
-                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                                : "bg-slate-100 text-slate-600"
-                                            }`}
-                                          >
-                                            {isVerified ? "✓ Sah Juri" : "Terdaftar • Menunggu Nilai"}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                          {ev.lkbbTeams && ev.lkbbTeams.length > 0 && (
+                            <div className="flex items-center gap-2 text-slate-500">
+                              <Users className="h-4 w-4 text-emerald-600 shrink-0" />
+                              <span>{ev.lkbbTeams.length} Kontingen Peserta Terdaftar</span>
                             </div>
                           )}
                         </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* ==================================================================== */}
-              {/* BAGIAN B: LIST PERINGKAT VOTE (JUARA FAVORIT CETAS VOTE LIVE)        */}
-              {/* ==================================================================== */}
-              <div className="rounded-2xl border border-pink-100 bg-pink-50/30 p-5 sm:p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-pink-100">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-800 text-[10px] font-black mb-1">
-                      ❤️ Juara Favorit Terpisah Per Kategori
+                      </div>
                     </div>
-                    <h4 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
-                      <Heart className="h-5 w-5 text-pink-600 fill-pink-600" />
-                      2. Daftar Peringkat Vote Per Kategori (Juara Favorit Cetas Vote)
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Klasemen perolehan dukungan suara publik secara real-time di Cetas Vote yang dipisahkan juaranya untuk setiap kategori.
-                    </p>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/vote?eventId=${activeHomeEvent.id}&tab=VOTE`}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs shadow-sm transition"
-                    >
-                      <Heart className="h-3.5 w-3.5 fill-white" />
-                      Ke Halaman Cetas Vote
-                    </Link>
-                    <Link
-                      href={`/vote?eventId=${activeHomeEvent.id}&tab=TICKETS`}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm transition"
-                    >
-                      <Ticket className="h-3.5 w-3.5" />
-                      Ke Halaman Cetas Ticketing
-                    </Link>
-                  </div>
-                </div>
+                    {/* Bottom Action Bar */}
+                    <div className="p-5 pt-0 border-t border-slate-100 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                          Tiket Mulai
+                        </span>
+                        <span className="text-sm font-black text-[#0066FF] font-mono">
+                          {lowestPrice > 0 ? formatRupiah(lowestPrice) : "Gratis / Terbuka"}
+                        </span>
+                      </div>
 
-                {/* Pilihan Kategori Vote */}
-                {activeEventVoting && activeEventVoting.categories.length > 0 && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVoteCatId("ALL")}
-                      className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                        selectedVoteCatId === "ALL"
-                          ? "bg-pink-600 text-white shadow-xs"
-                          : "bg-white text-slate-700 border border-pink-200 hover:bg-pink-50"
-                      }`}
-                    >
-                      🏆 Semua Kategori (Juara Terpisah)
-                    </button>
-                    {activeEventVoting.categories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setSelectedVoteCatId(cat.id)}
-                        className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                          selectedVoteCatId === cat.id
-                            ? "bg-pink-600 text-white shadow-xs"
-                            : "bg-white text-slate-700 border border-pink-200 hover:bg-pink-50"
-                        }`}
-                      >
-                        ❤️ {cat.title} ({cat.candidates.length} Peserta)
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Daftar Peringkat Kandidat Vote Terpisah Per Kategori */}
-                <div className="space-y-5">
-                  {(activeEventVoting?.categories || [])
-                    .filter((cat) =>
-                      selectedVoteCatId === "ALL" ? true : cat.id === selectedVoteCatId
-                    )
-                    .map((cat) => {
-                      const catCandidates = [...(cat.candidates || [])].sort(
-                        (a, b) => b.totalVotes - a.totalVotes
-                      );
-                      const catTotalVotes = catCandidates.reduce(
-                        (acc, c) => acc + c.totalVotes,
-                        0
-                      );
-
-                      return (
-                        <div
-                          key={cat.id}
-                          className="rounded-2xl border border-pink-200 bg-white p-4 sm:p-5 space-y-4 shadow-xs"
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/events?id=${ev.id}`}
+                          className="rounded-xl bg-[#0066FF] hover:bg-[#0052cc] text-white font-extrabold px-3.5 py-2 text-xs shadow-sm transition-transform active:scale-95 flex items-center gap-1"
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-pink-100">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2.5 py-0.5 rounded-full bg-pink-600 text-white text-[10px] font-black uppercase">
-                                Kategori Vote
-                              </span>
-                              <h5 className="text-sm font-black text-slate-900">
-                                Klasemen Juara Favorit: {cat.title}
-                              </h5>
-                            </div>
-                            <span className="text-xs font-bold text-pink-600">
-                              {catCandidates.length} Peserta • Total {catTotalVotes.toLocaleString("id-ID")} Suara
-                            </span>
-                          </div>
-
-                          {catCandidates.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-pink-200 bg-pink-50/30 p-5 text-center space-y-2">
-                              <p className="text-xs font-bold text-slate-700">
-                                Belum ada peserta terdaftar pada kategori {cat.title}.
-                              </p>
-                              <div className="flex items-center justify-center gap-4">
-                                <Link
-                                  href="/register-event"
-                                  className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:underline"
-                                >
-                                  Daftar Peserta {cat.title} →
-                                </Link>
-                                <Link
-                                  href={`/vote?eventId=${activeHomeEvent.id}&category=${cat.id}&tab=VOTE`}
-                                  className="inline-flex items-center gap-1.5 text-xs font-extrabold text-pink-600 hover:underline"
-                                >
-                                  Buka Bilik Cetas Vote →
-                                </Link>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {catCandidates.map((cand, idx) => {
-                                const pct =
-                                  catTotalVotes > 0
-                                    ? Math.round((cand.totalVotes / catTotalVotes) * 100)
-                                    : 0;
-                                const favRankLabel =
-                                  idx === 0
-                                    ? "🥇 Juara Favorit 1"
-                                    : idx === 1
-                                    ? "🥈 Juara Favorit 2"
-                                    : idx === 2
-                                    ? "🥉 Juara Favorit 3"
-                                    : `#${idx + 1}`;
-
-                                return (
-                                  <div
-                                    key={cand.id}
-                                    className="rounded-2xl border border-pink-100 bg-pink-50/20 p-4 shadow-xs flex flex-col justify-between space-y-3"
-                                  >
-                                    <div className="flex items-center gap-3.5">
-                                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-slate-900 shrink-0">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          src={cand.photoUrl}
-                                          alt={cand.name}
-                                          className="w-full h-full object-cover"
-                                        />
-                                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-black text-[10px]">
-                                          #{idx + 1}
-                                        </span>
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-pink-50 text-pink-700 border border-pink-200">
-                                            No. {cand.candidateNumber}
-                                          </span>
-                                          <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-900">
-                                            {favRankLabel}
-                                          </span>
-                                        </div>
-                                        <h5 className="text-sm font-black text-slate-900 truncate mt-1">
-                                          {cand.name}
-                                        </h5>
-                                        <p className="text-[11px] text-slate-500 truncate">
-                                          {cand.institution}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center justify-between text-xs">
-                                        <span className="font-bold text-slate-500">Perolehan Suara:</span>
-                                        <span className="font-black text-pink-600">
-                                          {cand.totalVotes.toLocaleString("id-ID")} Suara ({pct}%)
-                                        </span>
-                                      </div>
-                                      <div className="w-full h-2 rounded-full bg-pink-100 overflow-hidden">
-                                        <div
-                                          className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all duration-500"
-                                          style={{
-                                            width: `${Math.max(pct, cand.totalVotes > 0 ? 6 : 0)}%`,
-                                          }}
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <Link
-                                      href={`/vote?eventId=${activeHomeEvent.id}&category=${cat.id}&tab=VOTE`}
-                                      className="w-full py-2.5 px-3 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition"
-                                    >
-                                      <Heart className="h-3.5 w-3.5 fill-white" />
-                                      Vote di Kategori {cat.title}
-                                    </Link>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
+                          <span>Tiket</span>
+                          <ChevronRight className="h-3 w-3" />
+                        </Link>
+                        <Link
+                          href={`/vote?eventId=${ev.id}`}
+                          title="Bilik Vote Peserta"
+                          className="rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 font-bold px-2.5 py-2 text-xs border border-cyan-200 transition-colors"
+                        >
+                          <Award className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </section>
 
-      {/* 3. ARSITEKTUR SISTEM PENILAIAN JURI DIGITAL (4 LANGKAH PRESISI) */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10 space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200">
-            <ShieldCheck className="h-3.5 w-3.5 text-purple-600" />
-            Transparansi Kompetisi
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Arsitektur Penilaian Digital Tanpa Manipulasi
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mx-auto">
-            Dirancang khusus untuk menghapus potensi kecurangan, kesalahan hitung manual, dan keterlambatan rekapitulasi pada event turnamen Anda.
-          </p>
-        </div>
+      {/* ============================================================== */}
+      {/* 4. STATISTICS SECTION                                          */}
+      {/* ============================================================== */}
+      <section className="py-16 bg-slate-900 text-white relative overflow-hidden">
+        {/* Ambient Glow */}
+        <div className="pointer-events-none absolute -bottom-10 left-1/3 w-96 h-96 bg-blue-500/15 rounded-full blur-3xl" />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs purple-glow-hover transition space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-purple-600/30">
-              01
-            </div>
-            <h3 className="text-base font-black text-slate-900">Input Tablet Juri</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Dewan juri menginput nilai per butir gerakan melalui tablet/smartphone khusus dengan form terenkripsi. Sekali disubmit, nilai langsung terkunci.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs purple-glow-hover transition space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-600/30">
-              02
-            </div>
-            <h3 className="text-base font-black text-slate-900">Rekap Otomatis</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Mesin kalkulasi algoritma menghitung total nilai, pengurangan pinalti garis/waktu, dan perangkingan secara otomatis tanpa rumus Excel manual.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs purple-glow-hover transition space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-purple-800 text-white flex items-center justify-center font-black text-lg shadow-md shadow-purple-800/30">
-              03
-            </div>
-            <h3 className="text-base font-black text-slate-900">Layar Videotron Live</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Peringkat dan skor langsung terpampang di layar videotron LED panggung utama secara real-time untuk transparansi penonton dan suporter.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs purple-glow-hover transition space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-emerald-600/30">
-              04
-            </div>
-            <h3 className="text-base font-black text-slate-900">Berita Acara & QR</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Sekali klik langsung terbit berita acara resmi bertanda tangan digital serta e-sertifikat ber-QR code yang dapat diverifikasi keasliannya.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. IKLAN CETAS KITA & CETAS PRODUCTION (THE UNBEATABLE MOAT OVER KATHAREKAP!) */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-950 to-purple-950 p-8 sm:p-12 text-white shadow-xl">
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-purple-500/20 blur-2xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-80 h-80 bg-cyan-400/10 blur-2xl pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
-            <div className="space-y-3 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1 text-xs font-extrabold uppercase tracking-wider text-purple-200 border border-white/20">
-                <Zap className="h-3.5 w-3.5 text-amber-300" />
-                Infrastruktur Produksi Turnamen Terlengkap
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="p-4 space-y-1">
+              <div className="text-3xl sm:text-5xl font-black text-[#0066FF] font-mono">
+                {totalEventsCount > 0 ? `${totalEventsCount}+` : "24+"}
               </div>
-              <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
-                Sewa Audio Line-Array, Videotron LED & Rigging Panggung
-              </h2>
-              <p className="text-sm sm:text-base text-purple-100 max-w-2xl leading-relaxed">
-                Berbeda dengan penyedia software biasa, CETAS memiliki vendor fisik satu atap: Sound System Line-Array 10.000-30.000 Watt, Videotron LED P3.9, Panggung Rigging Aluminium, Lighting Moving Head, serta cetak Kaos, Medali & Lanyard Turnamen.
-              </p>
+              <p className="text-xs sm:text-sm font-bold text-slate-300">Event Terselenggara</p>
+              <p className="text-[10px] text-slate-500">Skala Daerah & Nasional</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row shrink-0 gap-3">
-              <Link
-                href="/production"
-                className="rounded-xl bg-white hover:bg-purple-50 text-purple-900 font-extrabold px-6 py-3.5 text-xs sm:text-sm shadow-md transition transform active:scale-95 text-center"
-              >
-                Katalog Alat & Sewa
-              </Link>
-              <a
-                href="https://wa.me/6281584682345?text=Halo%20Tim%20Cetas%20Production%2C%20saya%20ingin%20konsultasi%20sewa%20sound%20dan%20panggung."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-xl bg-purple-950/80 hover:bg-purple-900 text-white font-bold px-5 py-3.5 text-xs sm:text-sm border border-purple-400/40 transition text-center flex items-center justify-center gap-1.5"
-              >
-                <MessageCircle className="h-4 w-4 fill-white" />
-                Tanya WhatsApp
-              </a>
+            <div className="p-4 space-y-1">
+              <div className="text-3xl sm:text-5xl font-black text-cyan-400 font-mono">
+                {totalTeamsCount > 0 ? `${totalTeamsCount}+` : "1.200+"}
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-slate-300">Tim & Kontingen</p>
+              <p className="text-[10px] text-slate-500">SD, SMP, SMA, & Purna</p>
+            </div>
+
+            <div className="p-4 space-y-1">
+              <div className="text-3xl sm:text-5xl font-black text-emerald-400 font-mono">
+                0 Detik
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-slate-300">Rekapitulasi Juri</p>
+              <p className="text-[10px] text-slate-500">Real-time Zero-Touch Engine</p>
+            </div>
+
+            <div className="p-4 space-y-1">
+              <div className="text-3xl sm:text-5xl font-black text-amber-400 font-mono">
+                100%
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-slate-300">Sah & Terverifikasi</p>
+              <p className="text-[10px] text-slate-500">HMAC QR & Berita Acara Juri</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 5. 6 PILAR UTAMA EKOSISTEM CETAS */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12 space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200">
-            <Layers className="h-3.5 w-3.5 text-purple-600" />
-            Integrasi Terpadu
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            6 Pilar Layanan Ekosistem Cetas
-          </h2>
-          <p className="text-sm sm:text-base text-slate-500 max-w-2xl mx-auto">
-            Semua modul saling terhubung otomatis untuk memastikan kelancaran turnamen, ticketing, dan kenyamanan pengunjung.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ecosystemPillars.map((pillar, idx) => {
-            const Icon = pillar.icon;
-            return (
-              <div
-                key={idx}
-                className="group relative flex flex-col justify-between rounded-3xl border border-purple-100 bg-white p-6 shadow-xs purple-glow-hover transition-all duration-300"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr ${pillar.accent} text-white shadow-md shadow-purple-500/20`}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                      {pillar.badge}
-                    </span>
+      {/* ============================================================== */}
+      {/* 5. TENTANG CETAS SECTION                                       */}
+      {/* ============================================================== */}
+      <section id="tentang" className="py-16 sm:py-20 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50/50 via-white to-slate-50 p-8 sm:p-12 shadow-xs">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-8 space-y-4">
+                <span className="text-xs font-black uppercase tracking-wider text-[#0066FF]">
+                  Tentang Platform CETAS
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black text-[#071A3D] tracking-tight">
+                  Mengapa Kami Memilih &ldquo;MOVE DIFFERENT&rdquo;?
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
+                  Kompetisi dan acara modern tidak lagi bisa dikelola dengan cara konvensional yang rawan sengketa, manipulasi nilai, dan antrean tiket berantakan. CETAS hadir untuk menyatukan seluruh siklus hidup turnamen — mulai dari pendaftaran kontingen, penjualan tiket anti-duplikasi, voting publik via QRIS, penilaian dewan juri tanpa jeda, hingga peralatan panggung konser — dalam satu ekosistem digital yang kokoh dan berkesan.
+                </p>
+                <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold text-[#071A3D]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span>Transparansi 100% Dewan Hakim</span>
                   </div>
-
-                  <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-purple-700 transition">
-                    {pillar.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-500 leading-relaxed mb-6 font-normal">
-                    {pillar.description}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span>Gate Scanner Terenkripsi HMAC</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span>Layanan Alat Panggung Profesional</span>
+                  </div>
                 </div>
+              </div>
 
+              <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-white border border-blue-200/80 shadow-md text-center space-y-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0066FF]">
+                  <Sparkles className="h-7 w-7" />
+                </div>
+                <h4 className="text-base font-black text-[#071A3D]">Ingin Berkolaborasi?</h4>
+                <p className="text-xs text-slate-500">
+                  Gunakan CETAS untuk turnamen sekolah, kompetisi baris-berbaris, atau festival musik Anda.
+                </p>
                 <Link
-                  href={pillar.href}
-                  className="inline-flex items-center gap-2 text-xs font-bold text-purple-700 group-hover:gap-3 transition-all pt-4 border-t border-purple-50"
+                  href="/ajukan-event"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#0066FF] hover:bg-[#0052cc] text-white font-extrabold py-3 text-xs shadow-md shadow-blue-500/25 transition-transform active:scale-95"
                 >
-                  {pillar.cta}
+                  <span>Daftarkan Event Anda</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 6. SEJARAH SINGKAT TENTANG CETAS & IKLAN RESMI CETAS */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10">
-        {/* Bagian A: Sejarah Singkat & Profil Perjalanan CETAS */}
-        <div className="rounded-3xl border border-purple-100 bg-white p-6 sm:p-10 shadow-sm space-y-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-purple-100 pb-6">
-            <div className="space-y-2 max-w-3xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200">
-                <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                Profil &amp; Sejarah Singkat CETAS
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                Perjalanan CETAS Membangun Standar Baru Turnamen Modern
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Berpusat di <strong>Kedoya Utara, Kebon Jeruk, Jakarta Barat</strong>, <strong>CETAS (Centralized Electronic Tournament &amp; Award System)</strong> hadir sebagai pelopor ekosistem manajemen kompetisi, LKBB Paskibra, ajang olahraga, dan produksi event satu atap di Indonesia.
-              </p>
-            </div>
-
-            <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2.5 bg-purple-50/70 border border-purple-100 p-4 rounded-2xl text-xs">
-              <div className="flex items-center gap-2 font-black text-purple-950">
-                <MapPin className="h-4 w-4 text-purple-600 shrink-0" />
-                <span>Markas Resmi CETAS Grup</span>
-              </div>
-              <p className="text-[11px] text-slate-600 max-w-xs leading-relaxed">
-                Jl. Pesing Got Kedoya, RT.001/007, Kedoya Utara, Kebon Jeruk, Jakarta Barat, DKI Jakarta 11520
-              </p>
-              <div className="text-[11px] font-bold text-purple-700 pt-1 border-t border-purple-200/60">
-                WA/Telp: 0815-8468-2345 • cetasgrup@gmail.com
-              </div>
-            </div>
-          </div>
-
-          {/* 3 Fase Sejarah Singkat CETAS */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-6 space-y-3 relative overflow-hidden">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-purple-700 text-white font-black text-xs">
-                Awal Mula &amp; Gagasan
-              </div>
-              <h3 className="text-lg font-black text-slate-900">
-                Menjawab Keresahan Rekapitulasi Manual
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                CETAS lahir dari pengalaman langsung di lapangan melihat betapa melelahkannya proses rekapitulasi nilai kertas pada perlombaan baris-berbaris (LKBB) dan turnamen pelajar yang memakan waktu berjam-jam serta rawan salah hitung.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-6 space-y-3 relative overflow-hidden">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-indigo-600 text-white font-black text-xs">
-                Inovasi Digital Terpadu
-              </div>
-              <h3 className="text-lg font-black text-slate-900">
-                Lahirnya CETAS.SCORE, Vote &amp; Ticketing
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                CETAS mengembangkan arsitektur penilaian juri digital real-time 0 detik yang langsung memisahkan klasemen juara per kategori (SD, SMP, SMA, Umum), terintegrasi otomatis dengan bilik dukungan publik <strong>Cetas Vote</strong> dan <strong>Cetas Ticketing</strong> ber-QR dinamis.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-purple-100 bg-slate-50/60 p-6 space-y-3 relative overflow-hidden">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-600 text-white font-black text-xs">
-                Ekosistem Satu Atap
-              </div>
-              <h3 className="text-lg font-black text-slate-900">
-                Sinergi Software &amp; Cetas Production
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Kini CETAS bukan sekadar platform aplikasi, melainkan mitra penyelenggara satu atap yang menyatukan sistem digital turnamen dengan dukungan peralatan fisik <strong>Cetas Production</strong> (Sound System, Videotron LED, Lighting, Panggung, hingga Merchandise).
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bagian B: Banner Iklan Resmi dari CETAS (Iklan Cetas Kita) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Iklan 1: Promosi & Publikasi Event di CETAS */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 p-7 sm:p-8 text-white shadow-lg flex flex-col justify-between space-y-6">
-            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-purple-500/20 blur-2xl pointer-events-none" />
-            <div className="space-y-3 relative z-10">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-wider">
-                📢 Iklan Resmi CETAS • Publikasi Event
-              </div>
-              <h3 className="text-2xl font-black leading-tight">
-                Ingin Event &amp; Turnamen Anda Tayang Eksklusif di Portal CETAS?
-              </h3>
-              <p className="text-xs sm:text-sm text-purple-100/90 leading-relaxed">
-                Daftarkan dan publikasikan event sekolah, kampus, LKBB Paskibra, e-sports, atau festival Anda di ekosistem CETAS. Pendaftaran peserta per kategori (SD, SMP, SMA, Umum) langsung otomatis tersinkronisasi dengan bilik voting dan papan skor live!
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 relative z-10 pt-2">
-              <Link
-                href="/ajukan-event"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md transition active:scale-95"
-              >
-                <Send className="h-4 w-4" />
-                Ajukan Event Sekarang
-              </Link>
-              <a
-                href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20ingin%20pasang%20iklan%20atau%20publikasi%20event%20di%20CETAS."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Hubungi Tim Iklan CETAS
-              </a>
-            </div>
-          </div>
-
-          {/* Iklan 2: Cetas Production & Merchandise Resmi */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-7 sm:p-8 text-white shadow-lg flex flex-col justify-between space-y-6">
-            <div className="absolute -left-10 -bottom-10 h-44 w-44 rounded-full bg-cyan-400/20 blur-2xl pointer-events-none" />
-            <div className="space-y-3 relative z-10">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400 text-slate-950 text-[10px] font-black uppercase tracking-wider">
-                🎛️ Iklan Resmi CETAS • Cetas Production
-              </div>
-              <h3 className="text-2xl font-black leading-tight">
-                Solusi Sewa Alat Event, Videotron LED &amp; Cetak Merchandise
-              </h3>
-              <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-                Percayakan kebutuhan produksi fisik acara Anda pada <strong>Cetas Production</strong>. Tersedia paket sewa Sound System, Lighting, Videotron LED, Panggung Rigging, hingga pembuatan Kaos Event, Lanyard, ID Card, dan Piala/Medali Kejuaraan.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 relative z-10 pt-2">
-              <Link
-                href="/production"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-blue-50 text-blue-950 font-black text-xs shadow-md transition active:scale-95"
-              >
-                <ShoppingBag className="h-4 w-4 text-blue-700" />
-                Lihat Katalog Cetas Production
-              </Link>
-              <a
-                href="https://wa.me/6281584682345?text=Halo%20Cetas%20Production%2C%20saya%20ingin%20konsultasi%20sewa%20alat%20event%20dan%20merchandise."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Konsultasi Produksi WA
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. TABEL KOMPARASI: CETAS VS SISTEM TRADISIONAL / KOMPETITOR */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-purple-100 bg-white p-6 sm:p-10 shadow-sm space-y-6">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900">
-              Mengapa Penyelenggara Memilih CETAS?
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Perbandingan keunggulan CETAS terhadap sistem konvensional maupun software rekap biasa.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-purple-100 bg-purple-50/50">
-                  <th className="p-3.5 font-bold text-slate-700">Fitur & Kemampuan</th>
-                  <th className="p-3.5 font-bold text-slate-500">Metode Konvensional</th>
-                  <th className="p-3.5 font-bold text-slate-500">Software Rekap Biasa</th>
-                  <th className="p-3.5 font-black text-purple-800 bg-purple-100/60">CETAS Ecosystem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-purple-50">
-                <tr>
-                  <td className="p-3.5 font-bold text-slate-800">Kecepatan Rekapitulasi Nilai</td>
-                  <td className="p-3.5 text-slate-500">1 - 3 Jam (Kalkulator/Excel)</td>
-                  <td className="p-3.5 text-slate-500">10 - 20 Menit</td>
-                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">0 Detik (Real-time Instan)</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 font-bold text-slate-800">Keamanan Nilai Juri</td>
-                  <td className="p-3.5 text-slate-500">Kertas rawan tercecer / diubah</td>
-                  <td className="p-3.5 text-slate-500">Biasa tanpa enkripsi</td>
-                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">Terkunci Digital HMAC-SHA256</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 font-bold text-slate-800">Tiket Masuk & Gate Scanner</td>
-                  <td className="p-3.5 text-slate-500">Kertas sobek manual</td>
-                  <td className="p-3.5 text-slate-500">Tidak ada gate scanner</td>
-                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">QR Dinamis + Validator Cepat</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 font-bold text-slate-800">E-Voting Juara Favorit</td>
-                  <td className="p-3.5 text-slate-500">Kupon kertas manual</td>
-                  <td className="p-3.5 text-slate-500">Sering bot / manipulasi</td>
-                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">Xendit QRIS & E-Wallet Terverifikasi</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 font-bold text-slate-800">Penyediaan Sound & Videotron</td>
-                  <td className="p-3.5 text-slate-500">Cari vendor luar terpisah</td>
-                  <td className="p-3.5 text-slate-500">Tidak ada alat</td>
-                  <td className="p-3.5 font-bold text-purple-700 bg-purple-50/30">Cetas Production Satu Atap</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* 8. WHATSAPP & SUPPORT CTA SECTION */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-purple-200 bg-gradient-to-r from-purple-100/60 via-purple-50/40 to-indigo-50/60 p-8 sm:p-10 text-center relative overflow-hidden">
-          <div className="max-w-2xl mx-auto space-y-4">
-            <div className="flex justify-center">
-              <div className="h-18 w-18 rounded-full bg-white border-2 border-purple-400 p-1 flex items-center justify-center shadow-md">
-                <AntmanMascot pose="waving" enable3DArm={false} size={64} />
-              </div>
-            </div>
-
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900">
-              Siap Menyelenggarakan Turnamen Berkelas bersama CETAS?
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-              Tim CETAS dan maskot Anty si Manusia Semut siap membantu konsultasi sistem juri, e-ticketing, e-voting, hingga rental sound & videotron untuk event Anda.
-            </p>
-
-            <div className="pt-2 flex flex-wrap justify-center gap-3">
-              <a
-                href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20ingin%20konsultasi%20sistem%20turnamen."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-sm px-6 py-3.5 shadow-md shadow-emerald-500/20 transition transform active:scale-95"
-              >
-                <MessageCircle className="h-5 w-5 fill-white" />
-                Chat WhatsApp CS Official (0815-8468-2345)
-              </a>
-              <Link
-                href="/pelatih"
-                className="inline-flex items-center gap-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-sm px-6 py-3.5 shadow-md shadow-purple-700/25 transition"
-              >
-                <UserCheck className="h-5 w-5" />
-                Buka Portal Akses Pelatih
-              </Link>
             </div>
           </div>
         </div>

@@ -29,6 +29,7 @@ function formatDuration(totalSeconds: number) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const eventIdParam = String(searchParams.get("eventId") || "").trim();
     const levelId = String(
       searchParams.get("eventLevelId") || ""
     ).trim();
@@ -39,9 +40,7 @@ export async function GET(req: Request) {
      * karena data lama bisa mempunyai eventLevelId kosong.
      */
     const event = await db.event.findFirst({
-      where: {
-        status: "ACTIVE",
-      },
+      where: eventIdParam ? { id: eventIdParam } : { status: "ACTIVE" },
       orderBy: {
         createdAt: "desc",
       },

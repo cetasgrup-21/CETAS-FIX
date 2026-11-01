@@ -18,6 +18,9 @@ import {
   Layers,
   ChevronRight,
   Info,
+  Calendar,
+  ArrowLeft,
+  ChevronDown,
 } from "lucide-react";
 import {
   TournamentTeam,
@@ -33,8 +36,31 @@ import { TeamDetailModal } from "./team-detail-modal";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { launchConfettiShower } from "./confetti-shower";
 
+interface SimpleEventOption {
+  id: string;
+  title: string;
+  date?: string;
+  category?: string;
+}
+
+interface VoteCandidateSummary {
+  id: string;
+  name: string;
+  school?: string;
+  photoUrl?: string;
+  totalVotes: number;
+  percentage: number;
+  rank: number;
+}
+
 export function TournamentHubView() {
   const [activeTab, setActiveTab] = useState<HubTab>("leaderboard");
+  const [leaderboardMode, setLeaderboardMode] = useState<"score" | "vote">("score");
+
+  // Dynamic Event Switcher state
+  const [allEvents, setAllEvents] = useState<SimpleEventOption[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+
   const [selectedLevel, setSelectedLevel] = useState<string>("ALL");
   const [eventData, setEventData] = useState<TournamentEvent | null>(null);
   const [levels, setLevels] = useState<TournamentLevel[]>([]);
@@ -45,230 +71,314 @@ export function TournamentHubView() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("");
 
+  // Vote Leaderboard State
+  const [voteCandidates, setVoteCandidates] = useState<VoteCandidateSummary[]>([]);
+  const [voteCategoryName, setVoteCategoryName] = useState<string>("");
+
   // Keep ref of previous teams to detect rank changes and score updates
   const previousTeamsMapRef = useRef<Map<string, { rank: number | null; finalScore: number }>>(new Map());
 
-  // Data fetching logic connected strictly to existing GET /api/rekap
-  const fetchData = useCallback(async (isBackground = false) => {
-    if (!isBackground) setIsRefreshing(true);
-
-    try {
-      const res = await fetch("/api/rekap", { cache: "no-store" });
-      if (!res.ok) throw new Error("Gagal mengambil data rekap");
-
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Gagal memproses data");
-
-      setEventData(data.event);
-      if (Array.isArray(data.levels)) {
-        setLevels(data.levels);
-      }
-
-      const rows: any[] = Array.isArray(data.rows) ? data.rows : [];
-      const prevMap = previousTeamsMapRef.current;
-
-      const mappedTeams: TournamentTeam[] = rows.map((r) => {
-        const p = r.participant;
-        const currentRank = r.rank ?? null;
-        const currentScore = Number(r.finalScore || 0);
-
-        const prev = prevMap.get(p.id);
-        let rankChange = 0;
-        let isRecentlyUpdated = false;
-
-        if (prev) {
-          if (prev.rank !== null && currentRank !== null) {
-            // When rank number decreases (e.g. from 3 to 1), team climbed +2
-            rankChange = prev.rank - currentRank;
-          }
-          if (prev.finalScore !== currentScore) {
-            isRecentlyUpdated = true;
+  // 1. Fetch available events list on mount
+  useEffect(() => {
+    fetch("/api/events", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.events)) {
+          const list = data.events.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            date: e.date,
+            category: e.category,
+          }));
+          setAllEvents(list);
+          if (!selectedEventId && list.length > 0) {
+            setSelectedEventId(list[0].id);
           }
         }
-
-        return {
-          id: p.id,
-          number: p.number,
-          name: p.name,
-          school: p.school || p.name,
-          level: p.level || "UMUM",
-          eventLevelId: p.eventLevelId || null,
-          displayOrder: p.displayOrder || p.number,
-          rawScore: Number(r.rawScore || 0),
-          bonus: Number(r.bonus || 0),
-          penalty: Number(r.penalty || 0),
-          finalScore: currentScore,
-          complete: Boolean(r.complete),
-          rank: currentRank,
-          previousRank: prev?.rank ?? currentRank,
-          rankChange,
-          isRecentlyUpdated,
-          timerSeconds: r.timerSeconds,
-          timerText: r.timerText,
-          categories: (r.categories || []).map((c: any) => ({
-            categoryId: c.categoryId,
-            categoryName: c.categoryName,
-            percentage: c.percentage,
-            maximum: c.maximum,
-            score: c.score,
-            complete: c.complete,
-            scored: c.scored,
-            expected: c.expected,
-            judgeCount: c.judgeCount,
-            judges: c.judges,
-          })),
-        };
-      });
-
-      // Update map for next tick comparison
-      const nextMap = new Map<string, { rank: number | null; finalScore: number }>();
-      mappedTeams.forEach((t) => nextMap.set(t.id, { rank: t.rank, finalScore: t.finalScore }));
-      previousTeamsMapRef.current = nextMap;
-
-      setTeams(mappedTeams);
-
-      // Construct live stage tracker performance data
-      const activeTeam = mappedTeams.find((t) => !t.complete) || mappedTeams[0] || null;
-      if (activeTeam) {
-        setStageData({
-          currentTeam: {
-            number: activeTeam.number,
-            name: activeTeam.name,
-            school: activeTeam.school,
-            category: activeTeam.categories[0]?.categoryName || "PBB & Variasi",
-            level: activeTeam.level,
-            durationSeconds: activeTeam.timerSeconds || 320,
-            maxDurationSeconds: 600,
-            status: activeTeam.complete ? "FINISHED" : "ON_STAGE",
-          },
-          nextTeams: mappedTeams
-            .filter((t) => t.id !== activeTeam.id && !t.complete)
-            .slice(0, 3)
-            .map((t, idx) => ({
-              number: t.number,
-              name: t.name,
-              school: t.school,
-              level: t.level,
-              callOrder: idx + 1,
-              standbyArea: `Holding Area ${String.fromCharCode(65 + idx)}`,
-            })),
-          activeJudgesCount: 3,
-          totalJudgesCount: 3,
-        });
-      }
-
-      setLastSyncTime(
-        new Date().toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
-      );
-    } catch (err) {
-      console.error("Tournament Hub fetch error:", err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
+      })
+      .catch((err) => console.warn("Failed to load events list:", err));
   }, []);
 
-  // Initial load
+  // 2. Fetch Score Recap Data
+  const fetchData = useCallback(
+    async (isBackground = false) => {
+      if (!isBackground) setIsRefreshing(true);
+
+      try {
+        const query = selectedEventId ? `?eventId=${encodeURIComponent(selectedEventId)}` : "";
+        const res = await fetch(`/api/rekap${query}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Gagal mengambil data rekap");
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Gagal memproses data");
+
+        setEventData(data.event);
+        if (Array.isArray(data.levels)) {
+          setLevels(data.levels);
+        }
+
+        const rows: any[] = Array.isArray(data.rows) ? data.rows : [];
+        const prevMap = previousTeamsMapRef.current;
+
+        const mappedTeams: TournamentTeam[] = rows.map((r) => {
+          const p = r.participant;
+          const currentRank = r.rank ?? null;
+          const currentScore = Number(r.finalScore || 0);
+
+          const prev = prevMap.get(p.id);
+          let rankChange = 0;
+          let isRecentlyUpdated = false;
+
+          if (prev) {
+            if (prev.rank !== null && currentRank !== null) {
+              rankChange = prev.rank - currentRank;
+            }
+            if (prev.finalScore !== currentScore) {
+              isRecentlyUpdated = true;
+            }
+          }
+
+          return {
+            id: p.id,
+            number: p.number,
+            name: p.name,
+            school: p.school || p.name,
+            level: p.level || "UMUM",
+            eventLevelId: p.eventLevelId || null,
+            displayOrder: p.displayOrder || p.number,
+            rawScore: Number(r.rawScore || 0),
+            bonus: Number(r.bonus || 0),
+            penalty: Number(r.penalty || 0),
+            finalScore: currentScore,
+            complete: Boolean(r.complete),
+            rank: currentRank,
+            previousRank: prev?.rank ?? currentRank,
+            rankChange,
+            isRecentlyUpdated,
+            timerSeconds: r.timerSeconds,
+            timerText: r.timerText,
+            categories: (r.categories || []).map((c: any) => ({
+              categoryId: c.categoryId,
+              categoryName: c.categoryName,
+              percentage: c.percentage,
+              maximum: c.maximum,
+              score: c.score,
+              complete: c.complete,
+              scored: c.scored,
+              expected: c.expected,
+              judgeCount: c.judgeCount,
+              judges: c.judges,
+            })),
+          };
+        });
+
+        // Update map for next tick comparison
+        const nextMap = new Map<string, { rank: number | null; finalScore: number }>();
+        mappedTeams.forEach((t) => nextMap.set(t.id, { rank: t.rank, finalScore: t.finalScore }));
+        previousTeamsMapRef.current = nextMap;
+
+        setTeams(mappedTeams);
+
+        // Construct live stage tracker performance data
+        const activeTeam = mappedTeams.find((t) => !t.complete) || mappedTeams[0] || null;
+        if (activeTeam) {
+          setStageData({
+            currentTeam: {
+              number: activeTeam.number,
+              name: activeTeam.name,
+              school: activeTeam.school,
+              category: activeTeam.categories[0]?.categoryName || "PBB & Variasi",
+              level: activeTeam.level,
+              durationSeconds: activeTeam.timerSeconds || 320,
+              maxDurationSeconds: 600,
+              status: activeTeam.complete ? "FINISHED" : "ON_STAGE",
+            },
+            nextTeams: mappedTeams
+              .filter((t) => t.id !== activeTeam.id && !t.complete)
+              .slice(0, 3)
+              .map((t, idx) => ({
+                number: t.number,
+                name: t.name,
+                school: t.school,
+                level: t.level,
+                callOrder: idx + 1,
+                standbyArea: `Holding Area ${String.fromCharCode(65 + idx)}`,
+              })),
+            activeJudgesCount: 3,
+            totalJudgesCount: 3,
+          });
+        }
+
+        setLastSyncTime(
+          new Date().toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        );
+      } catch (err) {
+        console.error("Tournament Hub fetch error:", err);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [selectedEventId]
+  );
+
+  // 3. Fetch Vote Data for Vote Leaderboard
+  const fetchVoteData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/vote", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.votings)) {
+        const matchedConfig =
+          data.votings.find((v: any) => v.eventId === selectedEventId) || data.votings[0];
+        if (matchedConfig && matchedConfig.categories && matchedConfig.categories.length > 0) {
+          const firstCat = matchedConfig.categories[0];
+          setVoteCategoryName(firstCat.name || "Kategori Terfavorit");
+          const cands = firstCat.candidates || [];
+          const totalVotes = cands.reduce((sum: number, c: any) => sum + (c.totalVotes || 0), 0);
+
+          const sorted = [...cands]
+            .sort((a, b) => b.totalVotes - a.totalVotes)
+            .map((c, idx) => ({
+              id: c.id,
+              name: c.name,
+              school: c.school || c.name,
+              photoUrl: c.photoUrl,
+              totalVotes: c.totalVotes,
+              percentage: totalVotes > 0 ? Math.round((c.totalVotes / totalVotes) * 100) : 0,
+              rank: idx + 1,
+            }));
+          setVoteCandidates(sorted);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch vote data:", err);
+    }
+  }, [selectedEventId]);
+
+  // Initial load when selectedEventId changes
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchVoteData();
+  }, [fetchData, fetchVoteData]);
 
-  // Polling every 5 seconds for live rank-shift sync
+  // Live polling every 5 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       fetchData(true);
+      fetchVoteData();
     }, 5000);
     return () => clearInterval(timer);
-  }, [fetchData]);
+  }, [fetchData, fetchVoteData]);
 
-  // Sorted top 3 for podium
+  // Sorted top 3 for score podium
   const topTeams = [...teams]
     .filter((t) => t.rank !== null)
     .sort((a, b) => (a.rank || 999) - (b.rank || 999))
     .slice(0, 3);
 
+  // Convert top 3 vote candidates to tournament teams shape for Podium3D
+  const topVoteTeams: TournamentTeam[] = voteCandidates.slice(0, 3).map((v) => ({
+    id: v.id,
+    number: v.rank,
+    name: v.name,
+    school: v.school || v.name,
+    level: "FAVORIT",
+    eventLevelId: null,
+    displayOrder: v.rank,
+    rawScore: v.totalVotes,
+    bonus: 0,
+    penalty: 0,
+    finalScore: v.totalVotes,
+    complete: true,
+    rank: v.rank,
+    categories: [
+      {
+        categoryId: "vote",
+        categoryName: "Perolehan Vote",
+        percentage: 100,
+        maximum: 1000,
+        score: v.totalVotes,
+        complete: true,
+        scored: 1,
+        expected: 1,
+        judgeCount: 1,
+      },
+    ],
+  }));
+
   return (
     <div className="min-h-screen bg-[#070A12] text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-8">
       {/* ============================================================== */}
-      {/* 1. TOP SPORT-TECH NAVBAR                                       */}
+      {/* 1. TOP SPORT-TECH NAVBAR WITH DYNAMIC EVENT SWITCHER           */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Brand & Event Title */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
+      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl px-4 sm:px-6 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          {/* Brand & Event Selector */}
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/" className="flex items-center gap-2 group shrink-0">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-emerald-500 p-0.5 shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-transform group-hover:scale-105">
                 <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#0B0F19]">
                   <Activity className="h-5 w-5 text-cyan-400" />
                 </div>
               </div>
-              <div>
+              <div className="hidden sm:block">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-black tracking-wider text-white">CETAS</span>
                   <span className="rounded bg-gradient-to-r from-cyan-500 to-emerald-500 px-1.5 py-0.2 text-[9px] font-black uppercase text-slate-950 font-mono">
                     HUB
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium truncate max-w-[150px] sm:max-w-xs">
-                  {eventData?.name || "Tournament Leaderboard Live"}
-                </p>
               </div>
             </Link>
+
+            {/* Dynamic Event Switcher Dropdown */}
+            {allEvents.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-900/90 pl-3 pr-8 py-1.5 text-xs font-bold text-white focus:border-cyan-500 focus:outline-none cursor-pointer max-w-[190px] sm:max-w-xs truncate"
+                >
+                  {allEvents.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.title}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              </div>
+            )}
           </div>
 
-          {/* Desktop Navigation Tabs */}
-          <div className="hidden md:flex items-center gap-1 rounded-xl bg-slate-900/90 border border-slate-800 p-1">
+          {/* Dual Mode Switcher: Skor Juri vs Vote Favorit */}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-900/90 border border-slate-800 p-1">
             <button
-              onClick={() => setActiveTab("leaderboard")}
+              onClick={() => setLeaderboardMode("score")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                activeTab === "leaderboard"
+                leaderboardMode === "score"
                   ? "bg-cyan-500 text-slate-950 shadow-sm"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <Layers className="h-3.5 w-3.5" />
-              <span>Skor Live</span>
+              <Trophy className="h-3.5 w-3.5" />
+              <span>Skor Juri</span>
             </button>
             <button
-              onClick={() => setActiveTab("podium")}
+              onClick={() => setLeaderboardMode("vote")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                activeTab === "podium"
+                leaderboardMode === "vote"
                   ? "bg-amber-400 text-slate-950 shadow-sm"
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <Trophy className="h-3.5 w-3.5" />
-              <span>Podium 3D</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("stage")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                activeTab === "stage"
-                  ? "bg-emerald-400 text-slate-950 shadow-sm"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Radio className="h-3.5 w-3.5" />
-              <span>Stage Tracker</span>
-            </button>
-            <Link
-              href="/vote"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-            >
               <Vote className="h-3.5 w-3.5" />
-              <span>Cetas Vote</span>
-            </Link>
-            <Link
-              href="/pelatih"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-            >
-              <UserCheck className="h-3.5 w-3.5" />
-              <span>Portal Pelatih</span>
-            </Link>
+              <span>Vote Favorit</span>
+            </button>
           </div>
 
           {/* Sync Status & Action Buttons */}
@@ -291,6 +401,14 @@ export function TournamentHubView() {
             >
               <Sparkles className="h-4 w-4" />
             </button>
+
+            <Link
+              href="/"
+              className="hidden lg:inline-flex items-center gap-1 rounded-xl bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-700 transition"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Beranda</span>
+            </Link>
           </div>
         </div>
       </header>
@@ -307,10 +425,10 @@ export function TournamentHubView() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                Total Kontingen
+                {leaderboardMode === "score" ? "Total Kontingen" : "Total Kandidat"}
               </span>
               <span className="text-base font-black text-white font-mono">
-                {teams.length} Tim
+                {leaderboardMode === "score" ? `${teams.length} Tim` : `${voteCandidates.length} Peserta`}
               </span>
             </div>
           </div>
@@ -321,10 +439,12 @@ export function TournamentHubView() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                Selesai Dinilai
+                {leaderboardMode === "score" ? "Selesai Dinilai" : "Total Suara Masuk"}
               </span>
               <span className="text-base font-black text-emerald-400 font-mono">
-                {teams.filter((t) => t.complete).length} / {teams.length}
+                {leaderboardMode === "score"
+                  ? `${teams.filter((t) => t.complete).length} / ${teams.length}`
+                  : `${voteCandidates.reduce((sum, c) => sum + c.totalVotes, 0).toLocaleString("id-ID")} Suara`}
               </span>
             </div>
           </div>
@@ -335,10 +455,12 @@ export function TournamentHubView() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                Pemuncak Skor
+                {leaderboardMode === "score" ? "Pemuncak Nilai" : "Favorit #1"}
               </span>
               <span className="text-xs font-extrabold text-amber-300 truncate max-w-[120px] block">
-                {topTeams[0]?.school || "Menunggu..."}
+                {leaderboardMode === "score"
+                  ? topTeams[0]?.school || "Menunggu..."
+                  : voteCandidates[0]?.school || voteCandidates[0]?.name || "Menunggu..."}
               </span>
             </div>
           </div>
@@ -349,21 +471,26 @@ export function TournamentHubView() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">
-                Engine Status
+                Dimensi Hub
               </span>
-              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Zero-Touch Active
+              <span className="text-xs font-bold text-cyan-300 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                {leaderboardMode === "score" ? "CETAS.SCORE" : "CETAS.VOTE"}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Tab 1: Leaderboard View (Podium + Adaptive Table) */}
-        {activeTab === "leaderboard" && (
+        {/* ============================================================== */}
+        {/* MODE A: LEADERBOARD SKOR CETAS.SCORE                           */}
+        {/* ============================================================== */}
+        {leaderboardMode === "score" && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* 3D Podium at the top of leaderboard */}
             <Podium3D topTeams={topTeams} onSelectTeam={setSelectedTeam} />
+
+            {/* Live Stage Tracker */}
+            <LiveStageTracker stageData={stageData} onRefresh={() => fetchData()} />
 
             {/* Adaptive Card View (Phone) & Desktop Data Grid */}
             <div className="pt-2">
@@ -371,7 +498,7 @@ export function TournamentHubView() {
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-1 rounded-full bg-cyan-400" />
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Papan Skor Kontingen (Leaderboard)
+                    Papan Skor Kontingen Juknis Resmi
                   </h3>
                 </div>
                 <span className="text-xs text-slate-400 font-mono">
@@ -390,95 +517,98 @@ export function TournamentHubView() {
           </div>
         )}
 
-        {/* Tab 2: Visual 3D Podium Dedicated View */}
-        {activeTab === "podium" && (
+        {/* ============================================================== */}
+        {/* MODE B: LEADERBOARD VOTE CETAS.VOTE                            */}
+        {/* ============================================================== */}
+        {leaderboardMode === "vote" && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            <Podium3D topTeams={topTeams} onSelectTeam={setSelectedTeam} />
+            {/* 3D Podium for Top Vote Winners */}
+            <Podium3D topTeams={topVoteTeams} />
 
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
-              <h4 className="text-sm font-bold text-white mb-2">
-                Aturan & Algoritma Penentuan Juara
-              </h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Penentuan peringkat podium menggunakan rumus akumulasi bobot persentase juknis
-                resmi CETAS.SCORE. Jika terdapat nilai akhir sama (*tie*), tie-breaker dijalankan
-                berdasarkan urutan prioritas kategori utama (PBB Murni), disusul Variasi &
-                Formasi, Danton, dan penalti pelanggaran.
-              </p>
-            </div>
-          </div>
-        )}
+            {/* Vote Ranking List & Quick Vote Action */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <span>Leaderboard Perolehan Suara Terfavorit</span>
+                    <span className="rounded bg-amber-500/20 text-amber-300 px-2 py-0.5 text-[10px] font-mono">
+                      REALTIME QRIS
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {voteCategoryName || "Kategori Juara Favorit"}
+                  </p>
+                </div>
 
-        {/* Tab 3: Live Stage Tracker Dedicated View */}
-        {activeTab === "stage" && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <LiveStageTracker stageData={stageData} onRefresh={() => fetchData()} />
+                <Link
+                  href={`/vote?eventId=${selectedEventId}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black px-4 py-2 text-xs shadow-md hover:scale-105 active:scale-95 transition-transform"
+                >
+                  <Vote className="h-3.5 w-3.5" />
+                  <span>Beri Vote Sekarang</span>
+                </Link>
+              </div>
 
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
-              <h4 className="text-sm font-bold text-white mb-2">
-                Informasi Antrean Panggung & Arena
-              </h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Kontingen wajib standby di Holding Area minimal 2 penampilan sebelum nomor urut
-                tampil. Pengurangan poin durasi diberlakukan apabila penampilan melebihi batas waktu
-                maksimal yang ditentukan pada petunjuk teknis.
-              </p>
-            </div>
-          </div>
-        )}
+              {voteCandidates.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 text-xs">
+                  Belum ada perolehan suara vote pada event ini.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {voteCandidates.map((cand) => (
+                    <div
+                      key={cand.id}
+                      className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-mono font-black text-xs ${
+                            cand.rank === 1
+                              ? "bg-amber-400 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                              : cand.rank === 2
+                              ? "bg-slate-300 text-slate-950"
+                              : cand.rank === 3
+                              ? "bg-amber-700 text-amber-100"
+                              : "bg-slate-800 text-slate-300"
+                          }`}
+                        >
+                          #{cand.rank}
+                        </span>
 
-        {/* Tab 4: Cetas Vote Direct Link & Preview */}
-        {activeTab === "vote" && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-8 text-center space-y-4 animate-in fade-in duration-300">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Vote className="h-8 w-8" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Bilik E-Voting Juara Favorit</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Dukung sekolah dan kontingen jagoanmu secara realtime menggunakan QRIS instan
-              terverifikasi nasional dengan sistem anti-bot.
-            </p>
-            <div className="pt-2">
-              <Link
-                href="/vote"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-6 py-2.5 text-xs font-bold text-slate-950 shadow-lg hover:scale-105 active:scale-95 transition-transform"
-              >
-                <span>Buka Cetas Vote</span>
-                <ExternalLink className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        )}
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-white truncate">{cand.school}</h4>
+                          <p className="text-xs text-slate-400 truncate mt-0.5">{cand.name}</p>
+                        </div>
+                      </div>
 
-        {/* Tab 5: Sanggahan Digital */}
-        {activeTab === "dispute" && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-8 text-center space-y-4 animate-in fade-in duration-300">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <UserCheck className="h-8 w-8" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Portal Sanggahan & Pelatih</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Untuk mengajukan sanggahan resmi dengan batas waktu 15 menit pasca rilis nilai, pilih
-              kontingen Anda melalui daftar skor di tab <strong>Skor Live</strong> atau klik tombol
-              di bawah.
-            </p>
-            <div className="pt-2 flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("leaderboard");
-                  if (teams[0]) setSelectedTeam(teams[0]);
-                }}
-                className="rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition-colors"
-              >
-                Pilih Kontingen Saya
-              </button>
-              <Link
-                href="/pelatih"
-                className="rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-700 transition-colors"
-              >
-                Login Portal Pelatih
-              </Link>
+                      {/* Vote Count & Progress Bar */}
+                      <div className="flex items-center gap-4 min-w-[200px]">
+                        <div className="flex-1">
+                          <div className="flex justify-between text-[11px] font-mono mb-1">
+                            <span className="font-bold text-white">
+                              {cand.totalVotes.toLocaleString("id-ID")} Suara
+                            </span>
+                            <span className="text-amber-400">{cand.percentage}%</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${cand.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <Link
+                          href={`/vote?eventId=${selectedEventId}&candidateId=${cand.id}`}
+                          className="shrink-0 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-bold text-amber-300"
+                        >
+                          Vote
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -494,7 +624,7 @@ export function TournamentHubView() {
       />
 
       {/* ============================================================== */}
-      {/* 4. MOBILE FLOATING BOTTOM NAV (Thumb Navigation)                */}
+      {/* 4. MOBILE FLOATING BOTTOM NAV                                  */}
       {/* ============================================================== */}
       <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>

@@ -5,166 +5,191 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Ticket,
-  Award,
-  ShoppingBag,
-  Send,
-  ShieldCheck,
-  Calendar,
   Menu,
   X,
-  MessageCircle,
-  UserCheck,
+  Search,
+  LogIn,
+  Sparkles,
+  Ticket,
+  Award,
+  ShieldCheck,
+  ShoppingBag,
+  ArrowRight,
 } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const navLinks = [
-    { href: "/", label: "Beranda", icon: Calendar },
-    { href: "/score", label: "Cetas.Score", icon: ShieldCheck, badge: "LIVE" },
-    { href: "/events", label: "Cetas Ticketing", icon: Ticket },
-    { href: "/vote", label: "Cetas Vote", icon: Award },
-    { href: "/pelatih", label: "Akses Pelatih", icon: UserCheck },
-    { href: "/production", label: "Cetas Production", icon: ShoppingBag },
-    { href: "/ajukan-event", label: "Ajukan Event", icon: Send },
+    { href: "/", label: "Beranda" },
+    { href: "/events", label: "Event" },
+    { href: "/#layanan", label: "Layanan" },
+    { href: "/#tentang", label: "Tentang" },
   ];
 
+  const handleOpenLogin = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cetas:open-login"));
+    }
+    setMobileMenuOpen(false);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    window.location.href = `/events?q=${encodeURIComponent(searchQuery.trim())}`;
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-purple-100 bg-white/90 backdrop-blur-xl shadow-xs">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-xl transition-all shadow-xs">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand Logo with Official Cetas Mark */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="relative h-11 w-11 shrink-0 overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+        {/* ================= BRAND LOGO ================= */}
+        <Link href="/" className="flex items-center gap-3 group select-none">
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
             <Image
               src="/logo/cetas_logo_transparent.png"
               alt="CETAS Official Logo"
-              width={44}
-              height={44}
+              width={40}
+              height={40}
               priority
               className="object-contain"
             />
           </div>
           <div className="flex flex-col">
-            <span className="font-black text-xl tracking-tight text-slate-900 leading-none flex items-center gap-1">
-              CETAS<span className="text-purple-600">.</span>
-            </span>
-            <span className="text-[9px] font-semibold text-purple-700 tracking-wider uppercase mt-0.5 line-clamp-1">
-              Centralized Electronic Tournament & Award System
+            <div className="flex items-center gap-1">
+              <span className="font-black text-xl tracking-tight text-[#071A3D] leading-none">
+                CETAS
+              </span>
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0066FF]" />
+            </div>
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 hidden sm:inline">
+              Move Different
             </span>
           </div>
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-1.5">
-          {navLinks.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
+        {/* ================= DESKTOP NAVIGATION ================= */}
+        <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+          {navLinks.map((link) => {
+            const isActive =
+              link.href === "/"
+                ? pathname === "/"
+                : link.href.startsWith("/#")
+                ? false
+                : pathname.startsWith(link.href);
+
             return (
               <Link
-                key={item.href}
-                href={item.href}
-                className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                key={link.label}
+                href={link.href}
+                className={`rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
                   isActive
-                    ? "bg-purple-50 text-purple-700 border border-purple-200 shadow-xs"
-                    : "text-slate-600 hover:text-purple-700 hover:bg-purple-50/50 border border-transparent"
+                    ? "bg-blue-50 text-[#0066FF]"
+                    : "text-slate-600 hover:text-[#0066FF] hover:bg-slate-50"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-purple-600" : "text-slate-400"}`} />
-                {item.label}
-                {item.badge && (
-                  <span className="ml-0.5 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-wider animate-pulse">
-                    {item.badge}
-                  </span>
-                )}
+                {link.label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Right Action CTAs */}
-        <div className="flex items-center gap-2.5">
-          {/* WhatsApp Direct Help Link */}
-          <a
-            href="https://wa.me/6281584682345?text=Halo%20Admin%20Cetas%2C%20saya%20butuh%20bantuan%20seputar%20web%20Cetas."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs"
-            title="Chat WhatsApp CS"
-          >
-            <MessageCircle className="h-3.5 w-3.5 fill-emerald-600 text-white" />
-            <span>WA Support</span>
-          </a>
+        {/* ================= RIGHT CONTROLS ================= */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Search Trigger */}
+          {searchOpen ? (
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Cari event, tiket..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-40 sm:w-56 rounded-full border border-blue-200 bg-blue-50/50 pl-3 pr-8 py-1.5 text-xs text-[#071A3D] placeholder-slate-400 focus:border-[#0066FF] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                className="absolute right-2 text-slate-400 hover:text-slate-600 text-xs font-mono"
+              >
+                ×
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Cari Event"
+              className="rounded-xl p-2 text-slate-500 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          )}
 
-          {/* Admin Backoffice Portal */}
-          <Link
-            href="/admin"
-            className="flex items-center gap-1.5 bg-purple-900 hover:bg-purple-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
+          {/* Tombol Masuk (Reveals Animated Login Screen) */}
+          <button
+            type="button"
+            onClick={handleOpenLogin}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 hover:border-[#0066FF] hover:bg-blue-50/50 px-3.5 py-2 text-xs font-bold text-[#071A3D] transition-all active:scale-95"
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-cyan-300" />
-            <span className="hidden sm:inline">Lingkup Kerja Cetas</span>
-            <span className="sm:hidden">Admin</span>
+            <LogIn className="h-3.5 w-3.5 text-[#0066FF]" />
+            <span className="hidden sm:inline">Masuk</span>
+          </button>
+
+          {/* Tombol Daftar */}
+          <Link
+            href="/ajukan-event"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0066FF] hover:bg-[#0052cc] text-white px-4 py-2 text-xs font-extrabold shadow-sm shadow-blue-500/25 transition-all hover:scale-105 active:scale-95"
+          >
+            <span>Daftar</span>
+            <ArrowRight className="h-3.5 w-3.5 hidden sm:inline" />
           </Link>
 
           {/* Mobile Menu Toggle Button */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-purple-50 border border-slate-200 transition"
-            aria-label="Toggle Menu"
+            className="rounded-xl p-2 text-slate-700 hover:bg-slate-100 md:hidden"
+            aria-label="Toggle Mobile Menu"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* ================= MOBILE DROPDOWN MENU ================= */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-purple-100 bg-white/98 backdrop-blur-2xl px-4 pt-2 pb-5 space-y-2">
-          {navLinks.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
-                  isActive
-                    ? "bg-purple-50 text-purple-700 border border-purple-200 font-bold"
-                    : "text-slate-700 hover:bg-purple-50/50"
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? "text-purple-600" : "text-slate-400"}`} />
-                <span className="flex-1">{item.label}</span>
-                {item.badge && (
-                  <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-wider">
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-
-          <div className="pt-2 border-t border-purple-100 flex flex-col gap-2">
+        <div className="md:hidden border-t border-slate-100 bg-white/98 backdrop-blur-xl px-4 py-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
+          {navLinks.map((link) => (
             <Link
-              href="/register-event"
+              key={link.label}
+              href={link.href}
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-purple-50"
+              className="flex items-center justify-between rounded-xl p-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-[#0066FF]"
             >
-              <UserCheck className="h-4 w-4 text-purple-600" />
-              Pendaftaran Peserta Lomba / Event
+              <span>{link.label}</span>
+              <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
             </Link>
-            <a
-              href="https://wa.me/6281584682345"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 transition shadow-xs"
+          ))}
+
+          <div className="pt-2 border-t border-slate-100 flex gap-2">
+            <button
+              type="button"
+              onClick={handleOpenLogin}
+              className="flex-1 rounded-xl border border-slate-200 py-2.5 text-center text-xs font-bold text-[#071A3D] hover:bg-slate-50"
             >
-              <MessageCircle className="h-4 w-4 fill-white" />
-              Chat WhatsApp CS (0815-8468-2345)
-            </a>
+              Masuk
+            </button>
+            <Link
+              href="/ajukan-event"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex-1 rounded-xl bg-[#0066FF] py-2.5 text-center text-xs font-bold text-white shadow-sm"
+            >
+              Daftar
+            </Link>
           </div>
         </div>
       )}

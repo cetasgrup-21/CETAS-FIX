@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   Ticket,
   Award,
@@ -69,53 +68,6 @@ export default function HomePage() {
   const totalEventsCount = eventsList.length;
   const totalTeamsCount = eventsList.reduce((sum, ev) => sum + (ev.lkbbTeams?.length || 0), 0);
 
-  const services = [
-    {
-      id: "tiket",
-      title: "CETAS.TIKET",
-      subtitle: "Reservasi tiket elektronik & gate scanner.",
-      description:
-        "Sistem ticketing anti-duplikasi dengan dynamic HMAC QR Code. Validasi instan di gerbang masuk via scanner mobile terintegrasi serta verifikasi pembayaran real-time.",
-      icon: Ticket,
-      href: "/events",
-      accentBg: "bg-blue-50 text-[#126BDE]",
-      badge: "Tiket & Registrasi",
-    },
-    {
-      id: "id",
-      title: "CETAS.ID",
-      subtitle: "Bilik e-voting publik & dukungan kontingen.",
-      description:
-        "Bilik suara digital transparan untuk kontes dan turnamen. Mendukung Free Vote harian dan Paid Vote QRIS dengan leaderboard langsung tanpa risiko manipulasi data.",
-      icon: Award,
-      href: "/vote",
-      accentBg: "bg-amber-50 text-amber-600",
-      badge: "E-Voting Live",
-    },
-    {
-      id: "production",
-      title: "CETAS.PRODUCTION",
-      subtitle: "Peralatan panggung, audio & multimedia.",
-      description:
-        "Penyedia kebutuhan teknis satu atap: rental sound system line-array konser, lighting panggung, videotron LED screen indoor/outdoor, panggung rigging, hingga official merchandise.",
-      icon: ShoppingBag,
-      href: "/production",
-      accentBg: "bg-indigo-50 text-indigo-600",
-      badge: "Alat & Panggung",
-    },
-    {
-      id: "score",
-      title: "CETAS.SCORE",
-      subtitle: "Engine rekapitulasi penilaian juri 0 detik.",
-      description:
-        "Mesin rekapitulasi penilaian juri zero-touch untuk LKBB dan turnamen nasional. Perhitungan bobot akurat 0 detik, berita acara digital sah F4, dan 3D Tournament Hub.",
-      icon: ShieldCheck,
-      href: "/score",
-      accentBg: "bg-emerald-50 text-emerald-600",
-      badge: "Rekap Juri 0 Detik",
-    },
-  ];
-
   return (
     <div className="flex flex-col min-h-screen bg-[#06132E] text-white selection:bg-[#00D9FF] selection:text-[#06132E] font-sans">
       {/* ============================================================== */}
@@ -133,29 +85,29 @@ export default function HomePage() {
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
-            {/* Left Column: Brand & Editorial Headline */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+            {/* Left Column: Brand & Editorial Headline — RATA TENGAH (GAMBAR 2) */}
+            <div className="lg:col-span-7 space-y-6 text-center">
               {/* Tagline Pill */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#00D9FF]/15 border border-[#00D9FF]/40 px-4 py-1.5 text-xs font-bold text-[#00D9FF] font-mono shadow-xs">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#00D9FF]/15 border border-[#00D9FF]/40 px-4 py-1.5 text-xs font-bold text-[#00D9FF] font-mono shadow-xs mx-auto">
                 <Sparkles className="h-3.5 w-3.5 text-[#00D9FF]" />
                 <span>Centralized Electronic Tournament &amp; Award System</span>
               </div>
 
-              {/* Main Headline with Milesdane Display Style */}
-              <div className="space-y-3">
-                <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08] font-display">
-                  CETAS.{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#55DFFF] to-[#126BDE]">
-                    Make it a story!
-                  </span>
+              {/* Main Headline — Rata Tengah "Make it a story!" di bawah "CETAS." */}
+              <div className="space-y-2 text-center max-w-2xl mx-auto">
+                <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black text-white tracking-tight leading-none font-display">
+                  CETAS.
                 </h1>
-                <p className="text-base sm:text-lg lg:text-xl font-normal text-slate-200 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                <div className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#55DFFF] to-[#126BDE] font-display">
+                  Make it a story!
+                </div>
+                <p className="text-base sm:text-lg font-normal text-slate-200 max-w-xl mx-auto leading-relaxed pt-2">
                   Ekosistem teknologi terpadu untuk registrasi peserta, tiket QR anti-duplikasi, bilik e-voting real-time, dan rekap penilaian juri zero-touch.
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3">
+              {/* Action Buttons — Rata Tengah */}
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <a
                   href="#turnamen-live"
                   className="inline-flex items-center gap-2 rounded-xl bg-[#126BDE] hover:bg-[#0055CC] text-white font-black px-6 py-3.5 text-xs tracking-wider shadow-lg shadow-blue-600/30 transition-all hover:scale-105 active:scale-95"
@@ -163,14 +115,6 @@ export default function HomePage() {
                   <Ticket className="h-4 w-4" />
                   <span>Jelajahi Event &amp; Tiket</span>
                   <ArrowRight className="h-4 w-4" />
-                </a>
-
-                <a
-                  href="#tentang-cetas"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#0A2450] hover:bg-blue-900/60 text-white font-bold px-6 py-3.5 text-xs border border-blue-400/40 hover:border-[#00D9FF] transition-all hover:scale-105 active:scale-95"
-                >
-                  <Zap className="h-4 w-4 text-[#00D9FF]" />
-                  <span>Tentang Platform</span>
                 </a>
 
                 <Link
@@ -183,7 +127,7 @@ export default function HomePage() {
               </div>
 
               {/* Trust Metric Chips */}
-              <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto lg:mx-0">
+              <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto">
                 <div className="p-3.5 rounded-2xl bg-[#0A2450]/80 border border-blue-500/30 text-center shadow-md">
                   <div className="text-xl font-black text-[#00D9FF] font-mono">0 Detik</div>
                   <div className="text-[11px] text-slate-200 font-bold">Rekap Juri Live</div>
@@ -370,72 +314,7 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 4. EKOSISTEM PLATFORM — SOFT GRAY (#F4F6F9)                    */}
-      {/* ============================================================== */}
-      <section id="layanan" className="py-20 bg-[#F4F6F9] text-[#06132E] border-b border-slate-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-xs font-black uppercase tracking-widest text-[#126BDE] font-mono">
-              Ekosistem Platform
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#06132E] tracking-tight font-display">
-              Empat Pilar Layanan CETAS
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
-              Dirancang secara modular dan terintegrasi untuk melayani kebutuhan penonton, peserta kontingen, dan panitia penyelenggara.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((svc) => {
-              const Icon = svc.icon;
-              return (
-                <div
-                  key={svc.id}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-[#126BDE] hover:shadow-lg transition-all duration-300"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${svc.accentBg}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-mono font-bold text-slate-800">
-                        {svc.badge}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-black text-[#06132E]">
-                        {svc.title}
-                      </h3>
-                      <p className="text-xs font-bold text-[#126BDE] mt-0.5">
-                        {svc.subtitle}
-                      </p>
-                    </div>
-
-                    <p className="text-xs text-slate-700 leading-relaxed font-normal">
-                      {svc.description}
-                    </p>
-                  </div>
-
-                  <div className="pt-6">
-                    <Link
-                      href={svc.href}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#126BDE] hover:underline"
-                    >
-                      <span>Buka Layanan</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================== */}
-      {/* 5. KEMITRAAN PENYELENGGARA — PRIMARY BLUE (#126BDE)            */}
+      {/* 4. KEMITRAAN PENYELENGGARA — PRIMARY BLUE (#126BDE)            */}
       {/* ============================================================== */}
       <section id="kemitraan" className="py-20 bg-gradient-to-b from-[#126BDE] to-[#0A4BB3] text-white border-b border-blue-400/30">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-6">
@@ -472,59 +351,7 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 6. TENTANG PLATFORM CETAS — WHITE (#FFFFFF)                    */}
-      {/* ============================================================== */}
-      <section id="tentang-cetas" className="relative py-20 bg-white text-[#06132E] border-b border-slate-200">
-        <span id="tentang" className="absolute -top-24" />
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="max-w-3xl space-y-4">
-            <span className="text-xs font-black uppercase tracking-widest text-[#126BDE] font-mono">
-              Tentang Platform CETAS
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#06132E] tracking-tight font-display">
-              Standar Baru Pengelolaan Turnamen &amp; Acara di Indonesia
-            </h2>
-            <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-medium">
-              Penyelenggaraan kompetisi dan turnamen modern membutuhkan transparansi mutlak, kecepatan olah data, dan keamanan transaksi yang kokoh. CETAS hadir menjawab tantangan tersebut dengan menyatukan seluruh mata rantai penyelenggaraan event dalam satu platform digital terpadu.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
-            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#126BDE]/10 text-[#126BDE]">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <h3 className="text-lg font-black text-[#06132E]">Transparansi Dewan Juri</h3>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                Algoritma kalkulasi juknis mengunci nilai secara kriptografis pasca tanda tangan digital dewan juri, meniadakan potensi rekayasa skor.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-[#126BDE]">
-                <Lock className="h-6 w-6" />
-              </div>
-              <h3 className="text-lg font-black text-[#06132E]">Tiket QR Anti-Fraud</h3>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                Setiap tiket elektronik terenkripsi dengan kunci HMAC SHA-256 yang divalidasi instan oleh gate scanner resmi untuk mencegah tiket palsu.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
-                <Building2 className="h-6 w-6" />
-              </div>
-              <h3 className="text-lg font-black text-[#06132E]">Produksi &amp; Alat Satu Atap</h3>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                Dukungan penyediaan panggung rigging konser, sound system line-array, dan videotron LED indoor/outdoor berstandar internasional.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================== */}
-      {/* 7. TRANSPARANSI LEGALITAS PERUSAHAAN — DEEP NAVY (#06132E)      */}
+      {/* 5. TRANSPARANSI LEGALITAS PERUSAHAAN — DEEP NAVY (#06132E)      */}
       {/* ============================================================== */}
       <section id="legalitas" className="py-20 bg-[#06132E] text-white border-b border-blue-500/20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10">

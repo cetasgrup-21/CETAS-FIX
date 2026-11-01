@@ -29,8 +29,8 @@ export function Navbar() {
     { href: "/tournament-hub", label: "Tournament Hub", badge: "LIVE" },
     { href: "/events", label: "Event & Tiket" },
     { href: "/pelatih", label: "Portal Pelatih", badge: "KONTINGEN" },
-    { href: "/#layanan", label: "Layanan" },
-    { href: "/#tentang", label: "Tentang" },
+    { href: "/layanan", label: "Layanan" },
+    { href: "/tentang", label: "Tentang" },
   ];
 
   const handleOpenLogin = () => {

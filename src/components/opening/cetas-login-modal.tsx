@@ -344,27 +344,27 @@ export function CetasLoginModal() {
                 <span>Portal Resmi Pelatih &amp; Kontingen</span>
               </div>
               <p className="text-[11px] text-amber-100/90 leading-relaxed font-medium">
-                Gunakan kode badge registrasi atau nomor urut peserta untuk memantau rekap skor live, unduh Berita Acara F4, dan sertifikat tim Anda.
+                Gunakan Kode Batch pendaftaran, Email resmi, atau No. WhatsApp pelatih yang terdaftar untuk memantau rekap skor live, unduh Berita Acara F4, dan sertifikat tim Anda.
               </p>
             </div>
 
-            {/* Input Kode Badge / No Peserta */}
+            {/* Input Kode Batch / Email / WhatsApp */}
             <div>
               <label className="block text-white font-bold mb-1">
-                Kode Badge Pelatih / Nomor Peserta
+                Kode Batch / Email / No. WhatsApp Pelatih
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400" />
                 <input
                   type="text"
-                  placeholder="Contoh: COACH-14 atau No Peserta 14..."
+                  placeholder="Contoh: BATCH-LKBB-24, email@gmail.com, atau 0812..."
                   value={coachCode}
                   onChange={(e) => setCoachCode(e.target.value)}
                   className="w-full rounded-xl border border-amber-400/40 bg-[#06132E] pl-9 pr-3 py-2.5 text-white placeholder-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/40 text-xs font-mono font-bold"
                 />
               </div>
               <p className="text-[10px] text-slate-300 mt-1">
-                *Kosongkan input untuk langsung membuka halaman direktori pencarian pelatih.
+                *Gunakan Kode Batch, Email, atau No. WhatsApp terdaftar (bukan nomor urut peserta).
               </p>
             </div>
 
@@ -374,7 +374,7 @@ export function CetasLoginModal() {
                 type="submit"
                 className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black py-3 shadow-[0_0_20px_rgba(245,158,11,0.35)] transition-transform hover:scale-[1.01] active:scale-95 cursor-pointer"
               >
-                <span>{coachCode.trim() ? "Buka Nilai & Dokumen Tim" : "Buka Halaman Portal Pelatih"}</span>
+                <span>{coachCode.trim() ? "Verifikasi & Buka Nilai Tim" : "Buka Halaman Portal Pelatih"}</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
 

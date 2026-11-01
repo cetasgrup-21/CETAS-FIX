@@ -81,6 +81,16 @@ export function Footer() {
                   <span>🏆 Tournament Hub 3D</span>
                 </Link>
               </li>
+              <li>
+                <Link href="/layanan" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  Semua Layanan &amp; Ekosistem
+                </Link>
+              </li>
+              <li>
+                <Link href="/tentang" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  Tentang Platform CETAS
+                </Link>
+              </li>
             </ul>
           </div>
 

@@ -3363,16 +3363,21 @@ export default function AdminDashboardPage() {
 
       {/* Super Admin Quick Controls */}
       {isSuperAdmin && (
-        <div className="rounded-2xl border border-amber-300 dark:border-amber-700/80 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="rounded-2xl border-2 border-amber-400/80 bg-gradient-to-r from-amber-500/20 via-amber-950/50 to-[#0B1C3D] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl shadow-amber-500/10 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-amber-500 flex items-center justify-center text-white shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-black shrink-0 shadow-md shadow-amber-500/30">
               <Crown className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-xs font-black text-amber-950 dark:text-amber-200">
-                Mode Super Admin Aktif (Otoritas Penuh)
-              </span>
-              <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 mt-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-amber-300 tracking-wide drop-shadow-sm">
+                  Mode Super Admin Aktif (Otoritas Penuh)
+                </span>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/40">
+                  Full Access
+                </span>
+              </div>
+              <p className="text-xs text-amber-100 font-medium mt-0.5 leading-relaxed">
                 Anda dapat membuat dan mengedit Event, Produk Production, Suara Vote (Event &rarr; Kategori &rarr; Peserta), Iklan, Finansial, dan Role Staf.
               </p>
             </div>
@@ -3381,16 +3386,16 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setIsEditingFinances(!isEditingFinances)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 transition active:scale-95 cursor-pointer"
             >
               <Edit3 className="h-3.5 w-3.5" />
               {isEditingFinances ? "Tutup Editor Omzet" : "Rubah Angka Omzet"}
             </button>
             <Link
               href="/scanner"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 font-bold text-xs shadow-md transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 hover:border-cyan-400 font-bold text-xs shadow-md transition active:scale-95"
             >
-              <Ticket className="h-3.5 w-3.5" />
+              <Ticket className="h-3.5 w-3.5 text-cyan-400" />
               Buka Scanner Gate
             </Link>
           </div>
@@ -3399,16 +3404,16 @@ export default function AdminDashboardPage() {
 
       {/* Scanner Staff Dedicated Quick Portal */}
       {currentUser.role === "SCANNER_STAFF" && (
-        <div className="rounded-2xl border border-blue-300 dark:border-blue-700/80 bg-gradient-to-r from-blue-500/10 via-cyan-400/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="rounded-2xl border-2 border-cyan-400/80 bg-gradient-to-r from-blue-600/25 via-blue-950/50 to-[#0B1C3D] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl shadow-cyan-500/10 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 font-black shrink-0 shadow-md shadow-cyan-500/30">
               <Ticket className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-xs font-black text-blue-950 dark:text-blue-200">
+              <span className="text-sm font-black text-cyan-300 tracking-wide drop-shadow-sm">
                 Akses Gatekeeper & Scanner Masuk Aktif
               </span>
-              <p className="text-[11px] text-blue-900/80 dark:text-blue-300/80 mt-0.5">
+              <p className="text-xs text-slate-100 font-medium mt-0.5 leading-relaxed">
                 Akun Anda memiliki izin resmi untuk memvalidasi dan check-in e-tiket peserta di pintu masuk gerbang event.
               </p>
             </div>
@@ -3416,7 +3421,7 @@ export default function AdminDashboardPage() {
 
           <Link
             href="/scanner"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-black text-xs shadow-md shadow-cyan-500/25 transition shrink-0 active:scale-95"
           >
             <Ticket className="h-3.5 w-3.5" />
             Buka Kamera Scanner Gate &rarr;

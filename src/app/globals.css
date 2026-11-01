@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: dark;
   --background: #06132e;
   --foreground: #ffffff;
   --cetas-navy: #06132e;

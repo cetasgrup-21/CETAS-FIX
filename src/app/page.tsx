@@ -125,7 +125,7 @@ export default function HomePage() {
       <CetasLoginModal />
 
       {/* ============================================================== */}
-      {/* 1. HERO SECTION — DEEP NAVY (#06132E)                          */}
+      {/* 1. HALAMAN BERANDA (HERO SECTION) — DEEP NAVY (#06132E)         */}
       {/* ============================================================== */}
       <section className="relative overflow-hidden pt-10 pb-16 lg:py-24 bg-[#06132E] border-b border-blue-500/20">
         {/* Subtle Ambient Glow */}
@@ -166,7 +166,7 @@ export default function HomePage() {
                 </a>
 
                 <a
-                  href="#pengenalan"
+                  href="#tentang-cetas"
                   className="inline-flex items-center gap-2 rounded-xl bg-[#0A2450] hover:bg-blue-900/60 text-white font-bold px-6 py-3.5 text-xs border border-blue-400/40 hover:border-[#00D9FF] transition-all hover:scale-105 active:scale-95"
                 >
                   <Zap className="h-4 w-4 text-[#00D9FF]" />
@@ -257,125 +257,62 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 2. PENGENALAN CETAS — WHITE (#FFFFFF)                           */}
+      {/* 2. REKAM JEJAK OPERASIONAL — MIDNIGHT NAVY (#0A1E44)           */}
       {/* ============================================================== */}
-      <section id="pengenalan" className="py-20 bg-white text-[#06132E] border-b border-slate-200">
+      <section id="rekam-jejak" className="py-20 bg-[#0A1E44] text-white border-b border-blue-500/25">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="max-w-3xl space-y-4">
-            <span className="text-xs font-black uppercase tracking-widest text-[#126BDE] font-mono">
-              Tentang Platform CETAS
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs font-black uppercase tracking-widest text-[#00D9FF] font-mono">
+              Rekam Jejak Operasional
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#06132E] tracking-tight font-display">
-              Standar Baru Pengelolaan Turnamen &amp; Acara di Indonesia
+            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight font-display">
+              Keandalan Teknologi di Setiap Detik Kompetisi
             </h2>
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
-              Penyelenggaraan kompetisi dan turnamen modern membutuhkan transparansi mutlak, kecepatan olah data, dan keamanan transaksi yang kokoh. CETAS hadir menjawab tantangan tersebut dengan menyatukan seluruh mata rantai penyelenggaraan event dalam satu platform digital terpadu.
+            <p className="text-xs sm:text-sm text-slate-200 max-w-xl mx-auto">
+              Performa pemrosesan data riil turnamen, ribuan kontingen terdata, dan rekapitulasi penilaian juri tanpa manipulasi.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
-            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#126BDE]/10 text-[#126BDE]">
-                <ShieldCheck className="h-6 w-6" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="p-6 rounded-2xl bg-[#06132E]/90 border border-blue-500/30 space-y-1 shadow-lg hover:border-[#00D9FF]/60 transition-all">
+              <div className="text-3xl sm:text-5xl font-black text-[#00D9FF] font-mono">
+                {totalEventsCount > 0 ? `${totalEventsCount}+` : "24+"}
               </div>
-              <h3 className="text-lg font-black text-[#06132E]">Transparansi Dewan Juri</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Algoritma kalkulasi juknis mengunci nilai secara kriptografis pasca tanda tangan digital dewan juri, meniadakan potensi rekayasa skor.
-              </p>
+              <p className="text-xs sm:text-sm font-bold text-white">Event Terselenggara</p>
+              <p className="text-[11px] text-cyan-200">Skala Daerah &amp; Nasional</p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-[#126BDE]">
-                <Lock className="h-6 w-6" />
+            <div className="p-6 rounded-2xl bg-[#06132E]/90 border border-blue-500/30 space-y-1 shadow-lg hover:border-emerald-400/60 transition-all">
+              <div className="text-3xl sm:text-5xl font-black text-emerald-400 font-mono">
+                {totalTeamsCount > 0 ? `${totalTeamsCount}+` : "1.200+"}
               </div>
-              <h3 className="text-lg font-black text-[#06132E]">Tiket QR Anti-Fraud</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Setiap tiket elektronik terenkripsi dengan kunci HMAC SHA-256 yang divalidasi instan oleh gate scanner resmi untuk mencegah tiket palsu.
-              </p>
+              <p className="text-xs sm:text-sm font-bold text-white">Kontingen &amp; Tim</p>
+              <p className="text-[11px] text-emerald-200">SD, SMP, SMA, &amp; Purna</p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
-                <Building2 className="h-6 w-6" />
+            <div className="p-6 rounded-2xl bg-[#06132E]/90 border border-blue-500/30 space-y-1 shadow-lg hover:border-blue-400/60 transition-all">
+              <div className="text-3xl sm:text-5xl font-black text-white font-mono">
+                0 Detik
               </div>
-              <h3 className="text-lg font-black text-[#06132E]">Produksi &amp; Alat Satu Atap</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Dukungan penyediaan panggung rigging konser, sound system line-array, dan videotron LED indoor/outdoor berstandar internasional.
-              </p>
+              <p className="text-xs sm:text-sm font-bold text-white">Rekapitulasi Juri</p>
+              <p className="text-[11px] text-cyan-200">Zero-Touch Score Engine</p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-[#06132E]/90 border border-blue-500/30 space-y-1 shadow-lg hover:border-amber-400/60 transition-all">
+              <div className="text-3xl sm:text-5xl font-black text-amber-400 font-mono">
+                100%
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-white">Sah &amp; Terverifikasi</p>
+              <p className="text-[11px] text-amber-200">HMAC QR &amp; Berita Acara</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ============================================================== */}
-      {/* 3. FITUR PLATFORM / 4 PILAR — SOFT GRAY (#F4F6F9)              */}
+      {/* 3. EVENT BERJALAN & LIVE SCORING — DEEP NAVY (#06132E)          */}
       {/* ============================================================== */}
-      <section id="layanan" className="py-20 bg-[#F4F6F9] text-[#06132E] border-b border-slate-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-xs font-black uppercase tracking-widest text-[#126BDE] font-mono">
-              Ekosistem Platform
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-[#06132E] tracking-tight font-display">
-              Empat Pilar Layanan CETAS
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Dirancang secara modular dan terintegrasi untuk melayani kebutuhan penonton, peserta kontingen, dan panitia penyelenggara.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {services.map((svc) => {
-              const Icon = svc.icon;
-              return (
-                <div
-                  key={svc.id}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-[#126BDE] hover:shadow-md transition-all duration-300"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${svc.accentBg}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-mono font-bold text-slate-700">
-                        {svc.badge}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-black text-[#06132E]">
-                        {svc.title}
-                      </h3>
-                      <p className="text-xs font-semibold text-[#126BDE] mt-0.5">
-                        {svc.subtitle}
-                      </p>
-                    </div>
-
-                    <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                      {svc.description}
-                    </p>
-                  </div>
-
-                  <div className="pt-6">
-                    <Link
-                      href={svc.href}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#126BDE] hover:underline"
-                    >
-                      <span>Buka Layanan</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================== */}
-      {/* 4. PUSAT TURNAMEN & LIVE EVENT — DARK BLUE (#0A2450)           */}
-      {/* ============================================================== */}
-      <section id="turnamen-live" className="py-20 bg-[#0A2450] text-white border-b border-blue-500/20">
+      <section id="turnamen-live" className="py-20 bg-[#06132E] text-white border-b border-blue-500/20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
@@ -392,13 +329,13 @@ export default function HomePage() {
             </div>
 
             {/* Slider Switcher */}
-            <div className="flex items-center gap-1.5 rounded-xl bg-[#06132E] border border-blue-500/40 p-1.5">
+            <div className="flex items-center gap-1.5 rounded-xl bg-[#0A2450] border border-blue-500/40 p-1.5 shadow-md">
               <button
                 type="button"
                 onClick={() => setSliderMode("score")}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-black transition-all ${
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-black transition-all cursor-pointer ${
                   sliderMode === "score"
-                    ? "bg-[#126BDE] text-white shadow-md"
+                    ? "bg-[#126BDE] text-white shadow-md shadow-blue-500/30"
                     : "text-slate-300 hover:text-white"
                 }`}
               >
@@ -408,9 +345,9 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setSliderMode("vote")}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-black transition-all ${
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-black transition-all cursor-pointer ${
                   sliderMode === "vote"
-                    ? "bg-amber-400 text-slate-950 shadow-md"
+                    ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-500/30"
                     : "text-slate-300 hover:text-white"
                 }`}
               >
@@ -433,67 +370,82 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 5. KEUNGGULAN & STATISTIK — DEEP NAVY (#06132E)                */}
+      {/* 4. EKOSISTEM PLATFORM — SOFT GRAY (#F4F6F9)                    */}
       {/* ============================================================== */}
-      <section className="py-20 bg-[#06132E] text-white border-b border-blue-500/20">
+      <section id="layanan" className="py-20 bg-[#F4F6F9] text-[#06132E] border-b border-slate-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-[#00D9FF] font-mono">
-              Rekam Jejak Operasional
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <span className="text-xs font-black uppercase tracking-widest text-[#126BDE] font-mono">
+              Ekosistem Platform
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight font-display">
-              Keandalan Teknologi di Setiap Detik Kompetisi
+            <h2 className="text-3xl sm:text-4xl font-black text-[#06132E] tracking-tight font-display">
+              Empat Pilar Layanan CETAS
             </h2>
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+              Dirancang secara modular dan terintegrasi untuk melayani kebutuhan penonton, peserta kontingen, dan panitia penyelenggara.
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <div className="p-6 rounded-2xl bg-[#0A2450]/60 border border-blue-500/30 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-[#00D9FF] font-mono">
-                {totalEventsCount > 0 ? `${totalEventsCount}+` : "24+"}
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-white">Event Terselenggara</p>
-              <p className="text-[11px] text-cyan-200">Skala Daerah &amp; Nasional</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {services.map((svc) => {
+              const Icon = svc.icon;
+              return (
+                <div
+                  key={svc.id}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-[#126BDE] hover:shadow-lg transition-all duration-300"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${svc.accentBg}`}>
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-mono font-bold text-slate-800">
+                        {svc.badge}
+                      </span>
+                    </div>
 
-            <div className="p-6 rounded-2xl bg-[#0A2450]/60 border border-blue-500/30 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-emerald-400 font-mono">
-                {totalTeamsCount > 0 ? `${totalTeamsCount}+` : "1.200+"}
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-white">Kontingen &amp; Tim</p>
-              <p className="text-[11px] text-cyan-200">SD, SMP, SMA, &amp; Purna</p>
-            </div>
+                    <div>
+                      <h3 className="text-lg font-black text-[#06132E]">
+                        {svc.title}
+                      </h3>
+                      <p className="text-xs font-bold text-[#126BDE] mt-0.5">
+                        {svc.subtitle}
+                      </p>
+                    </div>
 
-            <div className="p-6 rounded-2xl bg-[#0A2450]/60 border border-blue-500/30 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-white font-mono">
-                0 Detik
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-white">Rekapitulasi Juri</p>
-              <p className="text-[11px] text-cyan-200">Zero-Touch Score Engine</p>
-            </div>
+                    <p className="text-xs text-slate-700 leading-relaxed font-normal">
+                      {svc.description}
+                    </p>
+                  </div>
 
-            <div className="p-6 rounded-2xl bg-[#0A2450]/60 border border-blue-500/30 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-amber-400 font-mono">
-                100%
-              </div>
-              <p className="text-xs sm:text-sm font-bold text-white">Sah &amp; Terverifikasi</p>
-              <p className="text-[11px] text-cyan-200">HMAC QR &amp; Berita Acara</p>
-            </div>
+                  <div className="pt-6">
+                    <Link
+                      href={svc.href}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#126BDE] hover:underline"
+                    >
+                      <span>Buka Layanan</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ============================================================== */}
-      {/* 6. CALL TO ACTION — PRIMARY BLUE (#126BDE)                     */}
+      {/* 5. KEMITRAAN PENYELENGGARA — PRIMARY BLUE (#126BDE)            */}
       {/* ============================================================== */}
-      <section className="py-20 bg-[#126BDE] text-white border-b border-blue-400/30">
+      <section id="kemitraan" className="py-20 bg-gradient-to-b from-[#126BDE] to-[#0A4BB3] text-white border-b border-blue-400/30">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <span className="inline-block rounded-full bg-white/20 px-4 py-1 text-xs font-bold uppercase tracking-wider font-mono">
+          <span className="inline-block rounded-full bg-white/20 border border-white/30 px-4 py-1 text-xs font-bold uppercase tracking-wider font-mono shadow-sm">
             Kemitraan Penyelenggara
           </span>
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight font-display">
             Siap Mengangkat Standar Acara Anda?
           </h2>
-          <p className="text-sm sm:text-base text-blue-100 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base text-blue-100 max-w-2xl mx-auto leading-relaxed font-medium">
             Gunakan CETAS untuk mengelola tiket, voting transparan, sewa peralatan panggung, dan rekapitulasi penilaian kompetisi sekolah atau festival Anda.
           </p>
 
@@ -510,7 +462,7 @@ export default function HomePage() {
               href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20tertarik%20bekerja%20sama%20menggunakan%20platform%20CETAS%20untuk%20event%20kami."
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-900/40 hover:bg-blue-900/60 border border-white/30 text-white font-bold px-6 py-4 text-xs transition-all hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-950/60 hover:bg-blue-950/80 border border-white/40 text-white font-bold px-6 py-4 text-xs transition-all hover:scale-105 active:scale-95 shadow-md"
             >
               <MessageCircle className="h-4 w-4" />
               <span>Hubungi Tim Kemitraan</span>
@@ -520,62 +472,114 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 7. RINGKASAN LEGALITAS & KEPATUHAN — WHITE (#FFFFFF)           */}
+      {/* 6. TENTANG PLATFORM CETAS — WHITE (#FFFFFF)                    */}
       {/* ============================================================== */}
-      <section className="py-16 bg-white text-[#06132E]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
+      <section id="tentang-cetas" className="relative py-20 bg-white text-[#06132E] border-b border-slate-200">
+        <span id="tentang" className="absolute -top-24" />
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+          <div className="max-w-3xl space-y-4">
+            <span className="text-xs font-black uppercase tracking-widest text-[#126BDE] font-mono">
+              Tentang Platform CETAS
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-[#06132E] tracking-tight font-display">
+              Standar Baru Pengelolaan Turnamen &amp; Acara di Indonesia
+            </h2>
+            <p className="text-sm sm:text-base text-slate-700 leading-relaxed font-medium">
+              Penyelenggaraan kompetisi dan turnamen modern membutuhkan transparansi mutlak, kecepatan olah data, dan keamanan transaksi yang kokoh. CETAS hadir menjawab tantangan tersebut dengan menyatukan seluruh mata rantai penyelenggaraan event dalam satu platform digital terpadu.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4">
+            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#126BDE]/10 text-[#126BDE]">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-black text-[#06132E]">Transparansi Dewan Juri</h3>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                Algoritma kalkulasi juknis mengunci nilai secara kriptografis pasca tanda tangan digital dewan juri, meniadakan potensi rekayasa skor.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-[#126BDE]">
+                <Lock className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-black text-[#06132E]">Tiket QR Anti-Fraud</h3>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                Setiap tiket elektronik terenkripsi dengan kunci HMAC SHA-256 yang divalidasi instan oleh gate scanner resmi untuk mencegah tiket palsu.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-slate-200 bg-[#F4F6F9] space-y-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-black text-[#06132E]">Produksi &amp; Alat Satu Atap</h3>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                Dukungan penyediaan panggung rigging konser, sound system line-array, dan videotron LED indoor/outdoor berstandar internasional.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================== */}
+      {/* 7. TRANSPARANSI LEGALITAS PERUSAHAAN — DEEP NAVY (#06132E)      */}
+      {/* ============================================================== */}
+      <section id="legalitas" className="py-20 bg-[#06132E] text-white border-b border-blue-500/20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3.5 py-1 text-xs font-bold text-emerald-700 mb-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-3.5 py-1 text-xs font-bold text-emerald-300 mb-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
                 <span>Kepatuhan Hukum &amp; Regulasi Republik Indonesia</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-[#06132E] font-display">
+              <h2 className="text-2xl sm:text-4xl font-black text-white font-display">
                 Transparansi Legalitas Perusahaan
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-xl mt-1">
+              <p className="text-xs sm:text-sm text-slate-200 max-w-xl mt-1 leading-relaxed">
                 CETAS dioperasikan secara legal dan bertanggung jawab demi keamanan transaksi seluruh pengguna.
               </p>
             </div>
 
             <Link
               href="/legalitas"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#06132E] hover:bg-slate-800 text-white font-black px-5 py-2.5 text-xs shadow-md"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#126BDE] hover:bg-[#0055CC] text-white font-black px-5 py-3 text-xs shadow-lg shadow-blue-600/30 transition-all hover:scale-105 active:scale-95 shrink-0"
             >
               <span>Halaman Legalitas Lengkap</span>
               <ExternalLink className="h-3.5 w-3.5 text-cyan-300" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-[#F4F6F9] p-4 space-y-2">
-              <span className="text-[10px] font-bold text-slate-500 font-mono uppercase">KEMENTERIAN HUKUM RI</span>
-              <h4 className="text-sm font-black text-[#06132E]">Pendaftaran AHU</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
+              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">KEMENTERIAN HUKUM RI</span>
+              <h4 className="text-base font-black text-white">Pendaftaran AHU</h4>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Perseroan Perorangan terdaftar secara sah pada Ditjen AHU Kementerian Hukum Republik Indonesia.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-[#F4F6F9] p-4 space-y-2">
-              <span className="text-[10px] font-bold text-slate-500 font-mono uppercase">OSS INDONESIA</span>
-              <h4 className="text-sm font-black text-[#06132E]">NIB Berizin Efektif</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
+              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">OSS INDONESIA</span>
+              <h4 className="text-base font-black text-white">NIB Berizin Efektif</h4>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Nomor Induk Berusaha berbasis risiko terdaftar pada sistem OSS dengan KBLI jasa pemrograman dan MICE.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-[#F4F6F9] p-4 space-y-2">
-              <span className="text-[10px] font-bold text-slate-500 font-mono uppercase">KOMINFO RI</span>
-              <h4 className="text-sm font-black text-[#06132E]">Penyelenggara PSE</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
+              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">KOMINFO RI</span>
+              <h4 className="text-base font-black text-white">Penyelenggara PSE</h4>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Penyelenggara Sistem Elektronik (PSE) Lingkup Privat yang mematuhi standar keandalan sistem digital.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-[#F4F6F9] p-4 space-y-2">
-              <span className="text-[10px] font-bold text-slate-500 font-mono uppercase">UU NO. 27 TAHUN 2022</span>
-              <h4 className="text-sm font-black text-[#06132E]">Perlindungan Data (PDP)</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
+              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">UU NO. 27 TAHUN 2022</span>
+              <h4 className="text-base font-black text-white">Perlindungan Data (PDP)</h4>
+              <p className="text-xs text-slate-200 leading-relaxed font-normal">
                 Standar enkripsi SHA-256 untuk perlindungan data pribadi peserta dan transparansi skor lomba.
               </p>
             </div>

@@ -100,10 +100,25 @@ export function CetasHorizontalSlider({
       >
         {/* Render Event Cards */}
         {events.map((ev, idx) => {
-          const lowestPrice =
+          // 1. Tentukan Biaya Pendaftaran Peserta Tim (ev.price dari Pengaturan Biaya Registrasi di Admin)
+          const regPrice = ev.price !== undefined && ev.price !== null ? Number(ev.price) : 0;
+          const isRegOpen = ev.isOpenOnlineRegistration !== false;
+
+          // 2. Tiket Penonton (ev.tiers)
+          const lowestTierPrice =
             ev.tiers && ev.tiers.length > 0
-              ? Math.min(...ev.tiers.map((t) => t.price))
+              ? Math.min(...ev.tiers.map((t) => Number(t.price) || 0))
               : 0;
+
+          // 3. Tentukan label harga yang benar & akurat
+          let priceBadge = "TERBUKA / GRATIS";
+          if (isRegOpen) {
+            priceBadge = regPrice > 0 ? `${formatRupiah(regPrice)}/TIM` : "PENDAFTARAN GRATIS";
+          } else if (ev.isOpenTicketing && ev.tiers && ev.tiers.length > 0) {
+            priceBadge = lowestTierPrice > 0 ? `${formatRupiah(lowestTierPrice)}/TIKET` : "TIKET GRATIS";
+          } else {
+            priceBadge = regPrice > 0 ? `${formatRupiah(regPrice)}/TIM` : "PENDAFTARAN GRATIS";
+          }
 
           return (
             <div
@@ -137,7 +152,7 @@ export function CetasHorizontalSlider({
                 {/* Price Tag Overlay */}
                 <div className="inline-block rounded-xl bg-[#06132E]/95 backdrop-blur-md border border-[#00D9FF]/70 px-3 py-1 shadow-xl">
                   <span className="text-xs font-black font-mono text-[#00D9FF] drop-shadow-[0_0_8px_rgba(0,217,255,0.4)]">
-                    {lowestPrice > 0 ? `${formatRupiah(lowestPrice)}/TIM` : "TERBUKA / GRATIS"}
+                    {priceBadge}
                   </span>
                 </div>
 

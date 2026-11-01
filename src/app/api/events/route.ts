@@ -63,7 +63,7 @@ function normalizeEventCategoriesAndQuota(
           {
             id: `tier-${ev.id || "ev"}-1`,
             name: "Tiket Reguler",
-            price: Number(ev.price) > 0 ? Number(ev.price) : 10000,
+            price: Math.max(0, Number(ev.price) || 0),
             quotaTotal: 300,
             quotaRemaining: 300,
             benefits: ["E-Ticket QR Code Resmi"],

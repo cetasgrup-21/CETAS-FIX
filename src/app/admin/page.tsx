@@ -292,8 +292,6 @@ export default function AdminDashboardPage() {
     ticketsSold: 0,
     votesCount: 0,
   });
-  const [isEditingFinances, setIsEditingFinances] = useState(false);
-  const [tempFinances, setTempFinances] = useState(finances);
 
   // Unified Events State (CRUD & Workspace)
   const [eventsList, setEventsList] = useState<UnifiedEvent[]>([]);
@@ -696,7 +694,6 @@ export default function AdminDashboardPage() {
       .then((data) => {
         if (data.success && data.finances) {
           setFinances(data.finances);
-          setTempFinances(data.finances);
           if (Array.isArray(data.eventBreakdowns)) {
             setEventFinancesData(data.eventBreakdowns);
           }
@@ -3384,13 +3381,6 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsEditingFinances(!isEditingFinances)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/25 transition active:scale-95 cursor-pointer"
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-              {isEditingFinances ? "Tutup Editor Omzet" : "Rubah Angka Omzet"}
-            </button>
             <Link
               href="/scanner"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 hover:border-cyan-400 font-bold text-xs shadow-md transition active:scale-95"

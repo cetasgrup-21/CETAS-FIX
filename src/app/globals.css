@@ -23,15 +23,20 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-outfit);
-  --font-display: var(--font-space-grotesk);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-sans: var(--font-sans);
+  --font-display: "Milesdane", "Cinzel", "Playfair Display", "Times New Roman", serif;
+  --font-mono: var(--font-mono);
+}
+
+.font-display {
+  font-family: "Milesdane", "Cinzel", "Playfair Display", Georgia, serif;
+  letter-spacing: -0.02em;
 }
 
 body {
   background: #06132e;
   color: #ffffff;
-  font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans), "General Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   letter-spacing: -0.01em;
 }

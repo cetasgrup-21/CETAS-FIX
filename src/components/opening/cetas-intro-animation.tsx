@@ -242,8 +242,8 @@ export function CetasIntroAnimation() {
             <p className="text-[10px] sm:text-xs font-bold text-[#00D9FF] uppercase tracking-[0.25em] font-mono">
               Centralized Electronic Tournament & Award System
             </p>
-            <p className="text-xs sm:text-sm font-semibold text-white/90 italic tracking-wide pt-0.5">
-              &ldquo;Not Just an Event. It&apos;s an Experience.&rdquo;
+            <p className="text-sm sm:text-base font-bold text-white tracking-wide pt-1 font-display">
+              Your Event, Elevated.
             </p>
           </div>
         </div>

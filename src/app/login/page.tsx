@@ -4,21 +4,16 @@ import { useState, Suspense, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Lock, ShieldCheck, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { saveAdminSession, ROLE_DEFINITIONS, AdminRole } from "@/lib/admin-auth";
 
 function LoginForm() {
   const search = useSearchParams();
   const requestedNext = search.get("next");
 
-  let next = requestedNext || "/admin/dashboard";
-
-  // Jika middleware mengirim /admin, arahkan ke scoring dashboard
-  if (next === "/admin") {
-    next = "/admin/dashboard";
-  }
-
   // Sanitasi redirect luar
+  let next = requestedNext || "/admin";
   if (!next.startsWith("/") || next.startsWith("//")) {
-    next = "/admin/dashboard";
+    next = "/admin";
   }
 
   const isJudgePath = next === "/judge" || next.startsWith("/judge/");
@@ -106,21 +101,54 @@ function LoginForm() {
 
       const role = String(data.role || "").toUpperCase();
 
-      // Aturan RBAC:
-      // 1. JURI: HANYA PENILAIAN (selalu ke /judge)
-      // 2. SUPER ADMIN: BISA SEMUA
-      // 3. ADMIN BIASA (OPERATOR, ADMIN, EVENT_ADMIN, PROD_ADMIN, FINANCE_ADMIN, STAFF_REKAP, PANITIA): BISA SEMUA DI CETAS SCORE
-      let targetUrl = next;
+      // Sinkronkan sesi admin ke localStorage jika role memiliki wewenang administratif
+      const adminRoles = [
+        "SUPER_ADMIN",
+        "ADMIN",
+        "OPERATOR",
+        "EVENT_ADMIN",
+        "FINANCE_ADMIN",
+        "PROD_ADMIN",
+        "SCANNER_STAFF",
+        "STAFF_REKAP",
+        "PANITIA",
+        "ORGANIZER",
+      ];
+
+      if (adminRoles.includes(role)) {
+        const fallbackDefs = ROLE_DEFINITIONS[role as AdminRole] || ROLE_DEFINITIONS.SUPER_ADMIN;
+        saveAdminSession({
+          id: `usr-${Date.now()}`,
+          name: data.name || cleanUser,
+          email: cleanUser.includes("@") ? cleanUser : `${cleanUser}@cetas.co.id`,
+          role: (role === "ADMIN" ? "SUPER_ADMIN" : role) as AdminRole,
+          roleTitle: fallbackDefs.title,
+          avatarColor: "bg-blue-600 text-white",
+          lastLogin: "Baru saja",
+          ...fallbackDefs,
+        });
+      }
+
+      // Aturan Target Routing Berdasarkan Role:
+      // 1. ADMIN, SUPER_ADMIN, OPERATOR -> Dashboard Admin (/admin)
+      // 2. ORGANIZER -> Dashboard Organizer (/admin?tab=EVENTS)
+      // 3. JUDGE -> Penilaian Dewan Juri (/judge)
+      // 4. TIMER -> Petugas Timer (/timer)
+      // 5. USER -> Dashboard User (/events)
+      let targetUrl = "/admin";
 
       if (role === "JUDGE") {
         targetUrl = "/judge";
       } else if (role === "TIMER") {
         targetUrl = "/timer";
+      } else if (role === "ORGANIZER") {
+        targetUrl = "/admin?tab=EVENTS";
+      } else if (role === "USER") {
+        targetUrl = "/events";
+      } else if (requestedNext && requestedNext !== "/login" && requestedNext !== "/judge") {
+        targetUrl = requestedNext;
       } else {
-        // Super Admin & Admin Biasa: jika tidak ada path spesifik, arahkan ke dashboard Cetas Score
-        if (!requestedNext || requestedNext === "/login" || requestedNext === "/judge") {
-          targetUrl = "/admin/dashboard";
-        }
+        targetUrl = "/admin";
       }
 
       window.location.assign(targetUrl);

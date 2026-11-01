@@ -1,14 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Sparkles, Mail, Phone, MapPin, MessageCircle, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Sparkles, Mail, MapPin, MessageCircle, ShieldCheck, CheckCircle2, FileText, ExternalLink } from "lucide-react";
 
 export function Footer() {
   return (
     <footer className="border-t border-blue-500/20 bg-[#06132E] text-slate-100 select-none">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Info with Official Logo */}
-          <div className="space-y-4 md:col-span-1">
+          <div className="space-y-4 lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5">
               <div className="relative h-10 w-10 shrink-0">
                 <Image
@@ -24,159 +24,141 @@ export function Footer() {
                   <span className="font-black text-xl tracking-tight text-white leading-none">
                     CETAS
                   </span>
-                  <span className="rounded bg-gradient-to-r from-[#00D9FF] to-[#006BFF] px-1.5 py-0.2 text-[8px] font-black uppercase text-slate-950 font-mono">
-                    HUB
+                  <span className="rounded bg-gradient-to-r from-[#00D9FF] to-[#126BDE] px-1.5 py-0.2 text-[8px] font-black uppercase text-slate-950 font-mono">
+                    OFFICIAL
                   </span>
                 </div>
-                <span className="text-[9px] font-extrabold text-[#00D9FF] uppercase tracking-wider mt-0.5">
-                  Move Different
+                <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider mt-0.5 font-display">
+                  Your Event, Elevated.
                 </span>
               </div>
             </Link>
-            <p className="text-xs text-slate-200 leading-relaxed font-normal">
-              Not Just an Event. It&apos;s an Experience. Platform ekosistem digital resmi untuk ticketing, e-voting turnamen, rekap juri zero-touch, dan produksi event.
+            <p className="text-xs font-semibold text-white uppercase tracking-wider font-mono">
+              Centralized Electronic Tournament & Award System
             </p>
-            <div className="flex items-center gap-1.5 text-xs text-[#00D9FF] font-bold">
-              <Sparkles className="h-4 w-4" />
-              <span>Satu Platform, Pengalaman Maksimal</span>
+            <p className="text-xs text-slate-200 leading-relaxed max-w-sm">
+              Platform ekosistem teknologi resmi untuk mendukung pengelolaan event, registrasi peserta, ticketing QR anti-fraud, bilik e-voting turnamen terverifikasi, dan rekap penilaian juri zero-touch.
+            </p>
+            <div className="pt-1 flex items-center gap-2 text-xs text-[#00D9FF] font-bold">
+              <ShieldCheck className="h-4 w-4 text-[#00D9FF]" />
+              <span>Teknologi Event Andal, Terenkripsi &amp; Terpercaya</span>
             </div>
           </div>
 
-          {/* 4 Layanan Utama CETAS */}
+          {/* Kolom 1: Platform */}
           <div>
             <h4 className="text-xs font-black text-[#00D9FF] tracking-wider uppercase mb-4 font-mono">
-              Layanan CETAS
+              Platform
             </h4>
             <ul className="space-y-2.5 text-xs">
               <li>
-                <Link href="/events" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  <strong className="text-[#00D9FF]">CETAS.TIKET</strong> — Tiket & Registrasi Event
+                <Link href="/events" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  CETAS.TIKET (Tiket &amp; Gate)
                 </Link>
               </li>
               <li>
-                <Link href="/vote" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  <strong className="text-amber-400">CETAS.ID</strong> — E-Voting Turnamen Live
+                <Link href="/vote" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  CETAS.ID (E-Voting Live)
                 </Link>
               </li>
               <li>
-                <Link href="/production" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  <strong className="text-indigo-400">CETAS.PRODUCTION</strong> — Rental Alat & Panggung
+                <Link href="/production" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  CETAS.PRODUCTION (Rental Alat)
                 </Link>
               </li>
               <li>
-                <Link href="/score" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  <strong className="text-emerald-400">CETAS.SCORE</strong> — Rekap Penilaian Juri LKBB
+                <Link href="/score" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  CETAS.SCORE (Engine Juri)
                 </Link>
               </li>
               <li>
-                <Link href="/tournament-hub" className="text-[#00D9FF] hover:underline transition font-black flex items-center gap-1">
-                  <span>🏆 Tournament Hub 3D Live</span>
+                <Link href="/tournament-hub" className="text-cyan-300 hover:underline transition font-bold flex items-center gap-1">
+                  <span>🏆 Tournament Hub 3D</span>
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* ========================================================= */}
-          {/* LEGAL & BANTUAN SECTION (PERSIS KAYA GAMBAR 1 DARI USER)   */}
-          {/* ========================================================= */}
+          {/* Kolom 2: Legalitas & Kepatuhan */}
           <div>
             <h4 className="text-xs font-black text-[#00D9FF] tracking-wider uppercase mb-4 font-mono">
-              LEGAL & BANTUAN
+              Legal &amp; Kepatuhan
             </h4>
             <ul className="space-y-2.5 text-xs">
               <li>
-                <Link href="/#bantuan" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  FAQ (Tanya Jawab)
+                <Link href="/legalitas" className="text-white hover:text-[#00D9FF] transition font-semibold flex items-center gap-1">
+                  <span>Legalitas Perusahaan</span>
+                  <ExternalLink className="h-3 w-3 text-cyan-400" />
                 </Link>
               </li>
               <li>
-                <Link href="/#bantuan" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  Paket & Harga
+                <Link href="/kebijakan-privasi" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  Privacy Policy (UU PDP)
                 </Link>
               </li>
               <li>
-                <Link href="/#bantuan" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  Testimoni Pelatih & Juri
+                <Link href="/syarat-ketentuan" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  Terms &amp; Conditions
                 </Link>
               </li>
               <li>
-                <a
-                  href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20butuh%20bantuan."
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-white hover:text-[#00D9FF] transition font-semibold"
-                >
-                  Hubungi Kontak
-                </a>
-              </li>
-              <li>
-                <Link href="/#bantuan" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  Refund Policy
+                <Link href="/kebijakan-layanan" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  Kebijakan Pembayaran &amp; Refund
                 </Link>
               </li>
               <li>
-                <Link href="/#bantuan" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  Syarat & Ketentuan
+                <Link href="/legalitas#faq" className="text-slate-100 hover:text-[#00D9FF] transition font-medium">
+                  FAQ &amp; Bantuan Hukum
                 </Link>
               </li>
-              <li>
-                <Link href="/#bantuan" className="text-white hover:text-[#00D9FF] transition font-semibold">
-                  Kebijakan Privasi
-                </Link>
-              </li>
-              {/* All Systems Operational Indicator */}
-              <li className="pt-2">
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-400 px-3 py-1 text-xs font-black text-emerald-300 shadow-md">
+            </ul>
+          </div>
+
+          {/* Kolom 3: Business Information */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-[#00D9FF] tracking-wider uppercase mb-4 font-mono">
+              Informasi Bisnis
+            </h4>
+            <div className="space-y-2 text-xs text-slate-200">
+              <div>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Badan Usaha</span>
+                <span className="font-semibold text-white">Perseroan Perorangan CETAS</span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Status AHU</span>
+                <span className="font-medium text-slate-100">Terdaftar Kemenkumham RI</span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Status NIB</span>
+                <span className="font-medium text-slate-100">Terdaftar Sistem OSS</span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Status PSE</span>
+                <span className="font-medium text-slate-100">Penyelenggara Sistem Elektronik</span>
+              </div>
+              <div className="pt-1">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-2.5 py-0.5 text-[10px] font-black text-emerald-300 shadow-sm">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                   </span>
                   <span>All Systems Operational</span>
                 </div>
-              </li>
-            </ul>
-          </div>
-
-          {/* Kontak & Dukungan */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-black text-white tracking-wider uppercase mb-4 font-mono">
-              Hubungi Kami
-            </h4>
-            <p className="text-xs text-slate-200 leading-relaxed font-normal">
-              Butuh asistensi sistem scoring, tiket, atau sewa peralatan panggung?
-            </p>
-            <div className="space-y-2 text-xs">
-              <a
-                href="https://wa.me/6281584682345?text=Halo%20Tim%20CETAS%2C%20saya%20ingin%20berkonsultasi."
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-emerald-400 hover:underline font-bold"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span>WhatsApp: 0815-8468-2345</span>
-              </a>
-              <div className="flex items-center gap-2 text-white font-medium">
-                <Mail className="h-4 w-4 text-[#00D9FF]" />
-                <span>support@cetas.co.id</span>
-              </div>
-              <div className="flex items-center gap-2 text-white font-medium">
-                <MapPin className="h-4 w-4 text-[#00D9FF]" />
-                <span>Jakarta, Indonesia</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright & Legal */}
-        <div className="mt-12 pt-6 border-t border-blue-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-300 font-medium">
+        {/* Bottom Bar: Copyright & Tagline */}
+        <div className="mt-12 pt-6 border-t border-blue-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-300">
           <div className="flex items-center gap-2">
-            <span>&copy; {new Date().getFullYear()} CETAS (Centralized Electronic Tournament & Award System).</span>
-            <span className="hidden sm:inline font-bold text-[#00D9FF]">Move Different.</span>
+            <span>&copy; {new Date().getFullYear()} CETAS — Centralized Electronic Tournament &amp; Award System. All Rights Reserved.</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold">
-            <Link href="/#bantuan" className="text-slate-200 hover:text-[#00D9FF]">Ketentuan Layanan</Link>
-            <Link href="/#bantuan" className="text-slate-200 hover:text-[#00D9FF]">Kebijakan Privasi</Link>
-            <Link href="/#bantuan" className="text-slate-200 hover:text-[#00D9FF]">Bantuan</Link>
+            <span className="text-cyan-300 font-display italic">Your Event, Elevated.</span>
+            <Link href="/legalitas" className="text-slate-200 hover:text-[#00D9FF]">Legalitas</Link>
+            <Link href="/kebijakan-privasi" className="text-slate-200 hover:text-[#00D9FF]">Privasi</Link>
+            <Link href="/syarat-ketentuan" className="text-slate-200 hover:text-[#00D9FF]">Ketentuan</Link>
           </div>
         </div>
       </div>

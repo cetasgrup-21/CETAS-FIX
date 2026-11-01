@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import { saveAdminSession, ROLE_DEFINITIONS, AdminRole } from "@/lib/admin-auth";
 
 export function CetasLoginModal() {
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -64,16 +65,49 @@ export function CetasLoginModal() {
 
       setLoginSuccess(true);
 
+      const role = String(data.role || "").toUpperCase();
+
+      const adminRoles = [
+        "SUPER_ADMIN",
+        "ADMIN",
+        "OPERATOR",
+        "EVENT_ADMIN",
+        "FINANCE_ADMIN",
+        "PROD_ADMIN",
+        "SCANNER_STAFF",
+        "STAFF_REKAP",
+        "PANITIA",
+        "ORGANIZER",
+      ];
+
+      if (adminRoles.includes(role)) {
+        const fallbackDefs = ROLE_DEFINITIONS[role as AdminRole] || ROLE_DEFINITIONS.SUPER_ADMIN;
+        saveAdminSession({
+          id: `usr-${Date.now()}`,
+          name: data.name || cleanUser,
+          email: cleanUser.includes("@") ? cleanUser : `${cleanUser}@cetas.co.id`,
+          role: (role === "ADMIN" ? "SUPER_ADMIN" : role) as AdminRole,
+          roleTitle: fallbackDefs.title,
+          avatarColor: "bg-blue-600 text-white",
+          lastLogin: "Baru saja",
+          ...fallbackDefs,
+        });
+      }
+
       setTimeout(() => {
         setShowLoginModal(false);
-        if (data.role === "ADMIN" || data.role === "OPERATOR") {
-          window.location.href = "/admin/dashboard";
-        } else if (data.role === "JURY") {
+        if (role === "JUDGE") {
           window.location.href = "/judge";
+        } else if (role === "TIMER") {
+          window.location.href = "/timer";
+        } else if (role === "ORGANIZER") {
+          window.location.href = "/admin?tab=EVENTS";
+        } else if (role === "USER") {
+          window.location.href = "/events";
         } else {
-          window.location.reload();
+          window.location.href = "/admin";
         }
-      }, 1000);
+      }, 900);
     } catch (err: any) {
       setLoginError(err.message || "Gagal masuk. Periksa kembali akun Anda.");
     } finally {

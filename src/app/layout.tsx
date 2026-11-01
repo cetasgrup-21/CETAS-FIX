@@ -1,26 +1,21 @@
 import type { Metadata } from "next";
-import { Outfit, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { MascotWhatsAppWidget } from "@/components/mascot-whatsapp-widget";
 import { MobileBottomDock } from "@/components/mobile-bottom-dock";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const generalSans = Plus_Jakarta_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -171,9 +166,9 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${outfit.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${generalSans.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#070A12] text-slate-100 selection:bg-cyan-500 selection:text-slate-950 font-sans">
+      <body className="min-h-full flex flex-col bg-[#06132E] text-white selection:bg-[#00D9FF] selection:text-[#06132E] font-sans">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -165,7 +165,7 @@ export function CetasHorizontalSlider({
                   {mode === "score" ? (
                     <Link
                       href={`/tournament-hub`}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006BFF] to-[#00D9FF] hover:from-[#0055CC] hover:to-[#00C2E5] text-white font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-blue-500/40 transition-all hover:scale-[1.02] active:scale-95"
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#126BDE] hover:bg-[#0055CC] text-white font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-95"
                     >
                       <span>BUKA LIVE SCORING</span>
                       <ArrowRight className="h-4 w-4" />

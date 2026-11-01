@@ -7,6 +7,7 @@ const AUTH_SECRET =
 const secret = new TextEncoder().encode(AUTH_SECRET);
 
 const PROTECTED_ADMIN_PAGES = [
+  "/admin",
   "/admin/dashboard",
   "/admin/judges",
   "/admin/participants",
@@ -17,11 +18,12 @@ const PROTECTED_ADMIN_PAGES = [
   "/penentuan-juara",
 ];
 
-// Peran staf admin yang diizinkan mengakses seluruh CETAS.SCORE
+// Peran staf admin yang diizinkan mengakses Dashboard Admin & CETAS.SCORE
 const ALLOWED_ADMIN_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
   "OPERATOR",
+  "ORGANIZER",
   "EVENT_ADMIN",
   "PROD_ADMIN",
   "FINANCE_ADMIN",
@@ -137,12 +139,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/admin/dashboard/:path*",
-    "/admin/judges/:path*",
-    "/admin/participants/:path*",
-    "/admin/review/:path*",
-    "/admin/score/:path*",
-    "/admin/score-changes/:path*",
+    "/admin",
+    "/admin/:path*",
     "/rekap/:path*",
     "/penentuan-juara/:path*",
     "/judge/:path*",

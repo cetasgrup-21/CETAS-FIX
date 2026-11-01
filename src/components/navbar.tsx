@@ -69,8 +69,8 @@ export function Navbar() {
                 HUB
               </span>
             </div>
-            <span className="text-[9px] font-bold text-[#00D9FF] uppercase tracking-wider mt-0.5 hidden sm:inline">
-              Move Different
+            <span className="text-[9px] font-bold text-cyan-200 uppercase tracking-wider mt-0.5 hidden sm:inline">
+              Your Event, Elevated.
             </span>
           </div>
         </Link>

@@ -766,20 +766,12 @@ export default function AdminReviewPage() {
       }
 
       try {
-        const [eventRes, levelRes] = await Promise.all([
-          fetch(`/api/event?_=${Date.now()}`, {
-            cache: "no-store",
-            headers: {
-              "Cache-Control": "no-cache",
-            },
-          }),
-          fetch(`/api/event-levels?_=${Date.now()}`, {
-            cache: "no-store",
-            headers: {
-              "Cache-Control": "no-cache",
-            },
-          }).catch(() => null),
-        ]);
+        const eventRes = await fetch(`/api/event?_=${Date.now()}`, {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
 
         const data = await eventRes.json();
 
@@ -792,24 +784,37 @@ export default function AdminReviewPage() {
         if (!active) return;
 
         let levels: EventLevel[] = [];
-        if (levelRes && levelRes.ok) {
-          const levelJson = await levelRes.json().catch(() => null);
-          const rawLevels = Array.isArray(levelJson)
-            ? levelJson
-            : levelJson?.levels ||
-              levelJson?.eventLevels ||
-              levelJson?.data ||
-              [];
+        try {
+          const levelRes = await fetch(
+            `/api/event-levels?eventId=${encodeURIComponent(data.id)}&_=${Date.now()}`,
+            {
+              cache: "no-store",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            }
+          );
+          if (levelRes.ok) {
+            const levelJson = await levelRes.json().catch(() => null);
+            const rawLevels = Array.isArray(levelJson)
+              ? levelJson
+              : levelJson?.levels ||
+                levelJson?.eventLevels ||
+                levelJson?.data ||
+                [];
 
-          if (Array.isArray(rawLevels)) {
-            levels = rawLevels.map((level: any) => ({
-              id: String(level.id),
-              code: String(level.code || ""),
-              name: String(level.name || ""),
-              sortOrder: Number(level.sortOrder || 0),
-              status: level.status,
-            }));
+            if (Array.isArray(rawLevels)) {
+              levels = rawLevels.map((level: any) => ({
+                id: String(level.id),
+                code: String(level.code || ""),
+                name: String(level.name || ""),
+                sortOrder: Number(level.sortOrder || 0),
+                status: level.status,
+              }));
+            }
           }
+        } catch {
+          levels = [];
         }
 
         const levelMap = new Map(
@@ -918,7 +923,56 @@ export default function AdminReviewPage() {
       });
       const data = await res.json();
       if (res.ok && data?.id) {
-        setEvent(data);
+        let levels: EventLevel[] = [];
+        try {
+          const levelRes = await fetch(
+            `/api/event-levels?eventId=${encodeURIComponent(data.id)}&_=${Date.now()}`,
+            {
+              cache: "no-store",
+              headers: { "Cache-Control": "no-cache" },
+            }
+          );
+          if (levelRes.ok) {
+            const levelJson = await levelRes.json().catch(() => null);
+            const rawLevels = Array.isArray(levelJson)
+              ? levelJson
+              : levelJson?.levels || levelJson?.eventLevels || levelJson?.data || [];
+            if (Array.isArray(rawLevels)) {
+              levels = rawLevels.map((level: any) => ({
+                id: String(level.id),
+                code: String(level.code || ""),
+                name: String(level.name || ""),
+                sortOrder: Number(level.sortOrder || 0),
+                status: level.status,
+              }));
+            }
+          }
+        } catch {
+          levels = [];
+        }
+
+        const levelMap = new Map(levels.map((level) => [level.id, level]));
+        const normalizedCategories = (data.categories || []).map(
+          (category: any): Category => {
+            const eventLevelId =
+              category.eventLevelId ??
+              category.eventLevel?.id ??
+              null;
+
+            return {
+              ...category,
+              eventLevelId,
+              eventLevel:
+                category.eventLevel ||
+                (eventLevelId ? levelMap.get(eventLevelId) || null : null),
+            };
+          }
+        );
+
+        setEvent({
+          ...data,
+          categories: normalizedCategories,
+        });
       }
     } catch (err) {
       console.error("Manual refresh error:", err);

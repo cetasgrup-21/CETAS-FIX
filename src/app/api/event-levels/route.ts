@@ -243,9 +243,17 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const eventId = clean(
+    let eventId = clean(
       searchParams.get("eventId")
     );
+
+    if (!eventId) {
+      const activeEvent = await db.event.findFirst({
+        where: { status: "ACTIVE" },
+        select: { id: true },
+      });
+      eventId = activeEvent?.id || "";
+    }
 
     if (!eventId) {
       return NextResponse.json(

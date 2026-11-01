@@ -130,6 +130,7 @@ export async function GET(req: Request) {
           },
 
           include: {
+            eventLevel: true,
             judgeLinks: {
               orderBy: {
                 judgeId: "asc",

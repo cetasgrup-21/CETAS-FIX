@@ -102,7 +102,7 @@ body {
 
 @media print {
   /* Sembunyikan semua elemen UI web interaktif saat cetak */
-  header,
+  header:not(.print-allow):not(.sheet-top),
   nav,
   button,
   .no-print,

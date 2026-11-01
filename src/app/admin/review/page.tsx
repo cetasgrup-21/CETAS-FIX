@@ -445,9 +445,13 @@ function ScoreTable({
 function CategoryPrintBlock({
   event,
   category,
+  isLastCategory = false,
+  bottomArea = null,
 }: {
   event: EventData;
   category: Category;
+  isLastCategory?: boolean;
+  bottomArea?: React.ReactNode;
 }) {
   const subCategories =
     category.subCategories || [];
@@ -463,41 +467,82 @@ function CategoryPrintBlock({
 
       {subCategories.length > 0 ? (
         subCategories.map(
-          (subCategory) => (
-            <div
-              className="sub-block"
-              key={subCategory.id}
-            >
-              <div className="sub-heading">
-                {subCategory.name}
-              </div>
+          (subCategory, subIndex) => {
+            const isLastSubCategory =
+              isLastCategory && subIndex === subCategories.length - 1;
 
-              <ScoreTable
-                event={event}
-                category={category}
-                subCategory={
-                  subCategory
-                }
-                criteria={
-                  subCategory.criteria ||
-                  []
-                }
-              />
-            </div>
-          )
+            if (isLastSubCategory && bottomArea) {
+              return (
+                <div
+                  className="last-sub-with-bottom"
+                  key={subCategory.id}
+                >
+                  <div className="sub-block">
+                    <div className="sub-heading">
+                      {subCategory.name}
+                    </div>
+
+                    <ScoreTable
+                      event={event}
+                      category={category}
+                      subCategory={subCategory}
+                      criteria={
+                        subCategory.criteria || []
+                      }
+                    />
+                  </div>
+                  {bottomArea}
+                </div>
+              );
+            }
+
+            return (
+              <div
+                className="sub-block"
+                key={subCategory.id}
+              >
+                <div className="sub-heading">
+                  {subCategory.name}
+                </div>
+
+                <ScoreTable
+                  event={event}
+                  category={category}
+                  subCategory={subCategory}
+                  criteria={
+                    subCategory.criteria || []
+                  }
+                />
+              </div>
+            );
+          }
         )
       ) : directCriteria.length > 0 ? (
-        <ScoreTable
-          event={event}
-          category={category}
-          subCategory={null}
-          criteria={directCriteria}
-        />
+        isLastCategory && bottomArea ? (
+          <div className="last-sub-with-bottom">
+            <ScoreTable
+              event={event}
+              category={category}
+              subCategory={null}
+              criteria={directCriteria}
+            />
+            {bottomArea}
+          </div>
+        ) : (
+          <ScoreTable
+            event={event}
+            category={category}
+            subCategory={null}
+            criteria={directCriteria}
+          />
+        )
       ) : (
-        <div className="empty-box">
-          Belum ada materi pada
-          kategori ini.
-        </div>
+        <>
+          <div className="empty-box">
+            Belum ada materi pada kategori ini.
+          </div>
+          {isLastCategory && bottomArea}
+        </>
       )}
     </div>
   );
@@ -544,6 +589,29 @@ function PrintSheet({
     .map((category) => category.name)
     .join(" + ");
 
+  const bottomAreaElement = (
+    <div className="bottom-area">
+      {/* CATATAN JURI */}
+      <div className="notes">
+        <b>CATATAN JURI</b>
+
+        <div className="notes-space">
+          <div className="note-line" />
+          <div className="note-line" />
+        </div>
+      </div>
+
+      {/* TTD JURI */}
+      <div className="signature">
+        <b>TTD JURI</b>
+
+        <div className="signature-space" />
+
+        <div className="signature-line" />
+      </div>
+    </div>
+  );
+
   return (
     <section className="review-sheet">
 
@@ -559,10 +627,10 @@ function PrintSheet({
       </div>
 
       {/* =================================================
-          HEADER
+          HEADER (DIV PRINT-ALLOW AGAR TIDAK TERSEMBUNYI SAAT CETAK)
       ================================================= */}
 
-      <header className="sheet-top">
+      <div className="sheet-top print-allow">
         <div className="logo-left">
           <img
             src="/cetas-score-logo.png"
@@ -629,52 +697,28 @@ function PrintSheet({
           <div className="label">Waktu Tampil</div>
           <div className="blank identity-wide" />
         </div>
-      </header>
+      </div>
       
       {/* =================================================
-          KATEGORI
+          KATEGORI (CATATAN MENYATU DENGAN SUBKATEGORI TERAKHIR)
       ================================================= */}
 
       <div className="category-list">
         {categories.map(
-          (category) => (
-            <CategoryPrintBlock
-              key={category.id}
-              event={event}
-              category={category}
-            />
-          )
+          (category, catIndex) => {
+            const isLastCategory = catIndex === categories.length - 1;
+            return (
+              <CategoryPrintBlock
+                key={category.id}
+                event={event}
+                category={category}
+                isLastCategory={isLastCategory}
+                bottomArea={isLastCategory ? bottomAreaElement : null}
+              />
+            );
+          }
         )}
       </div>
-
-      {/* =================================================
-          CATATAN + TTD
-          TANPA KOTAK
-      ================================================= */}
-
-      <div className="bottom-area">
-
-        {/* CATATAN JURI */}
-        <div className="notes">
-          <b>CATATAN JURI</b>
-
-          <div className="notes-space">
-            <div className="note-line" />
-            <div className="note-line" />
-          </div>
-        </div>
-
-        {/* TTD JURI */}
-        <div className="signature">
-          <b>TTD JURI</b>
-
-          <div className="signature-space" />
-
-          <div className="signature-line" />
-        </div>
-
-      </div>
-
 
     </section>
   );
@@ -704,88 +748,52 @@ export default function AdminReviewPage() {
   const [error, setError] =
     useState("");
 
+  const [refreshing, setRefreshing] =
+    useState(false);
+
   /* =====================================================
-     LOAD EVENT + REFRESH SCORE OPTIONS
-
-     Review harus selalu membaca konfigurasi terbaru dari database.
-     Sebelum mengambil /api/event, kita minta server menghitung ulang
-     ScoreOption untuk seluruh kategori event aktif. Jadi perubahan dari
-     halaman Admin (total poin, bobot kategori, materi, interval, atau
-     jumlah juri) langsung tercermin di Review.
-
-     Refresh juga dijalankan ketika tab kembali aktif/focus, sehingga
-     Review yang masih terbuka ikut memperbarui data tanpa F5.
+     LOAD EVENT
+     Mengambil konfigurasi kategori & event secara langsung
+     dan cepat (<2 detik) tanpa menahan UI.
   ===================================================== */
 
   useEffect(() => {
     let active = true;
-    let refreshing = false;
 
-    async function load(initial = false) {
-      if (refreshing) return;
-      refreshing = true;
-
-      if (initial) {
+    async function load(showInitialSpinner = false) {
+      if (showInitialSpinner) {
         setLoading(true);
       }
 
       try {
-        const refreshResponse = await fetch(
-          "/api/admin/review/refresh",
-          {
-            method: "POST",
+        const [eventRes, levelRes] = await Promise.all([
+          fetch(`/api/event?_=${Date.now()}`, {
             cache: "no-store",
             headers: {
               "Cache-Control": "no-cache",
             },
-          }
-        );
-
-        const refreshResult =
-          await refreshResponse.json().catch(() => null);
-
-        if (!refreshResponse.ok) {
-          throw new Error(
-            refreshResult?.error ||
-              "Gagal memperbarui konfigurasi nilai."
-          );
-        }
-
-        const res = await fetch(
-          `/api/event?_=${Date.now()}`,
-          {
+          }),
+          fetch(`/api/event-levels?_=${Date.now()}`, {
             cache: "no-store",
             headers: {
               "Cache-Control": "no-cache",
             },
-          }
-        );
+          }).catch(() => null),
+        ]);
 
-        const data = await res.json();
+        const data = await eventRes.json();
 
-        if (!res.ok || !data?.id) {
+        if (!eventRes.ok || !data?.id) {
           throw new Error(
-            data?.error ||
-              "Event belum tersedia."
+            data?.error || "Event belum tersedia."
           );
         }
 
         if (!active) return;
 
-        // Ambil nama tingkatan agar ID internal tidak pernah tampil di UI.
         let levels: EventLevel[] = [];
-        try {
-          const levelResponse = await fetch(
-            `/api/event-levels?eventId=${encodeURIComponent(data.id)}&_=${Date.now()}`,
-            {
-              cache: "no-store",
-              headers: {
-                "Cache-Control": "no-cache",
-              },
-            }
-          );
-
-          const levelJson = await levelResponse.json().catch(() => null);
+        if (levelRes && levelRes.ok) {
+          const levelJson = await levelRes.json().catch(() => null);
           const rawLevels = Array.isArray(levelJson)
             ? levelJson
             : levelJson?.levels ||
@@ -802,8 +810,6 @@ export default function AdminReviewPage() {
               status: level.status,
             }));
           }
-        } catch {
-          levels = [];
         }
 
         const levelMap = new Map(
@@ -862,6 +868,18 @@ export default function AdminReviewPage() {
         );
 
         setError("");
+
+        // Sinkronisasi server di latar belakang secara asinkron tanpa mengunci UI
+        fetch("/api/admin/review/refresh", {
+          method: "POST",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        }).catch((err) => {
+          console.warn("Background review refresh notice:", err);
+        });
+
       } catch (e) {
         if (active) {
           setError(
@@ -871,9 +889,7 @@ export default function AdminReviewPage() {
           );
         }
       } finally {
-        refreshing = false;
-
-        if (active && initial) {
+        if (active && showInitialSpinner) {
           setLoading(false);
         }
       }
@@ -882,74 +898,34 @@ export default function AdminReviewPage() {
     // Pertama kali halaman dibuka.
     void load(true);
 
-    // Jika Admin mengubah konfigurasi di tab lain lalu kembali ke Review,
-    // browser akan memicu focus/visibilitychange dan data disegarkan lagi.
-    const handleRefresh = () => {
-      if (document.visibilityState === "visible") {
-        void load(false);
-      }
-    };
-
-    window.addEventListener("focus", handleRefresh);
-    document.addEventListener(
-      "visibilitychange",
-      handleRefresh
-    );
-
     return () => {
       active = false;
-      window.removeEventListener(
-        "focus",
-        handleRefresh
-      );
-      document.removeEventListener(
-        "visibilitychange",
-        handleRefresh
-      );
     };
   }, []);
 
-  /* =====================================================
-     SAVE SHEET CONFIG
-  ===================================================== */
+  async function handleManualRefresh() {
+    setRefreshing(true);
+    try {
+      await fetch("/api/admin/review/refresh", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
 
-  useEffect(() => {
-    if (
-      !event ||
-      !sheets.length
-    ) {
-      return;
+      const res = await fetch(`/api/event?_=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      const data = await res.json();
+      if (res.ok && data?.id) {
+        setEvent(data);
+      }
+    } catch (err) {
+      console.error("Manual refresh error:", err);
+    } finally {
+      setRefreshing(false);
     }
-
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(sheets)
-    );
-  }, [event, sheets]);
-
-  /* =====================================================
-     AFTER PRINT -> DASHBOARD
-  ===================================================== */
-
-  useEffect(() => {
-    const handleAfterPrint =
-      () => {
-        router.replace(
-          "/admin/dashboard"
-        );
-      };
-
-    window.addEventListener(
-      "afterprint",
-      handleAfterPrint
-    );
-
-    return () =>
-      window.removeEventListener(
-        "afterprint",
-        handleAfterPrint
-      );
-  }, [router]);
+  }
 
   /* =====================================================
      CATEGORY MAP
@@ -1208,6 +1184,15 @@ export default function AdminReviewPage() {
             className="secondary-button"
           >
             ← Dashboard Admin
+          </button>
+
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="secondary-button"
+            title="Sinkronkan ulang nilai terbaru dari database"
+          >
+            {refreshing ? "Menyinkronkan..." : "🔄 Segarkan Nilai"}
           </button>
 
           <button
@@ -2171,14 +2156,15 @@ export default function AdminReviewPage() {
         }
 
         /* =================================================
-           PRINT F4
+           PRINT LEGAL (8.5in x 14in / 215.9mm x 355.6mm)
+           MARGIN NORMAL (10mm 12mm)
         ================================================= */
 
         @media print {
 
           @page {
-            size: 215mm 330mm;
-            margin: 5mm;
+            size: legal portrait;
+            margin: 10mm 12mm 10mm 12mm;
           }
 
           html,
@@ -2186,11 +2172,13 @@ export default function AdminReviewPage() {
             background: #fff !important;
             margin: 0 !important;
             padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .review-page {
-            padding: 0;
-            background: #fff;
+            padding: 0 !important;
+            background: #fff !important;
           }
 
           .review-toolbar,
@@ -2200,20 +2188,20 @@ export default function AdminReviewPage() {
           }
 
           .print-document {
-            width: 100%;
-            margin: 0;
+            width: 100% !important;
+            margin: 0 !important;
           }
 
           .review-sheet {
-            width: 100%;
+            width: 100% !important;
             height: auto !important;
             min-height: 0 !important;
             max-height: none !important;
-            margin: 0;
+            margin: 0 !important;
             border: 0 !important;
-            border-radius: 0;
-            padding: 5mm;
-            box-sizing: border-box;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
             overflow: visible !important;
             break-after: auto;
             page-break-after: auto;
@@ -2227,79 +2215,246 @@ export default function AdminReviewPage() {
            * tidak pernah menghasilkan halaman kosong tambahan.
            */
           .review-sheet + .review-sheet {
-            break-before: page;
-            page-break-before: always;
+            break-before: page !important;
+            page-break-before: always !important;
           }
 
           /*
-           * SATU SUBKATEGORI = SATU BLOK UTUH.
-           * Kalau ruang halaman tersisa tidak cukup, seluruh
-           * subkategori dipindahkan ke halaman berikutnya.
-           * Heading + tabel tidak boleh terpisah.
+           * HEADER LEMBAR PENILAIAN
+           * Pastikan header selalu tampil lengkap di bagian atas setiap lembar cetak.
            */
+          .sheet-top {
+            display: grid !important;
+            grid-template-columns: 130px minmax(0, 1fr) 110px 270px !important;
+            align-items: center !important;
+            gap: 8px !important;
+            min-height: 85px !important;
+            border-bottom: 2px solid #071a3d !important;
+            padding-bottom: 6px !important;
+            margin-bottom: 8px !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+          }
+
+          .sheet-top * {
+            visibility: visible !important;
+          }
+
+          .logo-left img {
+            width: 130px !important;
+            max-width: 130px !important;
+            max-height: 68px !important;
+            object-fit: contain !important;
+          }
+
+          .logo-right img {
+            width: 110px !important;
+            max-width: 110px !important;
+            max-height: 68px !important;
+            object-fit: contain !important;
+          }
+
+          .logo-placeholder {
+            width: 82px !important;
+            height: 52px !important;
+          }
+
+          .event-name {
+            padding: 0 8px !important;
+          }
+
+          .event-kicker {
+            font-size: 14px !important;
+            color: #1769e0 !important;
+            font-weight: 950 !important;
+            line-height: 1.05 !important;
+          }
+
+          .event-name h1 {
+            font-size: 18px !important;
+            font-weight: 950 !important;
+            margin: 2px 0 0 !important;
+            line-height: 1.08 !important;
+          }
+
+          .event-level {
+            font-size: 10px !important;
+            font-weight: 950 !important;
+            margin-top: 2px !important;
+          }
+
+          .event-location {
+            font-size: 9px !important;
+            margin-top: 2px !important;
+          }
+
+          .identity-grid {
+            grid-template-columns: 85px minmax(0, 1fr) !important;
+            font-size: 8.5px !important;
+            border: 1px solid #071a3d !important;
+          }
+
+          .identity-grid > div {
+            min-height: 20px !important;
+            padding: 3px 5px !important;
+            border-right: 1px solid #071a3d !important;
+            border-bottom: 1px solid #071a3d !important;
+          }
+
+          .identity-grid .label {
+            background: #f5f8fc !important;
+            font-weight: 850 !important;
+          }
+
+          .identity-grid .blank {
+            background: #fff !important;
+          }
+
+          .judge-numbers {
+            font-size: 9px !important;
+            padding: 3px 5px !important;
+            min-height: 20px !important;
+          }
+
+          /*
+           * KATEGORI & SUBKATEGORI
+           * Pemotongan halaman HANYA terjadi di antar-subkategori.
+           * Materi dalam 1 subkategori TIDAK PERNAH terpotong di tengah halaman.
+           */
+          .category-block {
+            margin-top: 6px !important;
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
+
+          .category-heading {
+            background: #071a3d !important;
+            color: #fff !important;
+            padding: 5px 8px !important;
+            font-size: 10px !important;
+            font-weight: 950 !important;
+            text-transform: uppercase !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
           .sub-block {
-            display: table;
-            width: 100%;
-            margin-top: 6px;
+            display: block !important;
+            width: 100% !important;
+            margin-top: 5px !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
 
-          .category-block {
-            break-inside: auto;
-            page-break-inside: auto;
+          .sub-heading {
+            background: #e9f2ff !important;
+            color: #071a3d !important;
+            border: 1px solid #bcd4f4 !important;
+            border-bottom: 0 !important;
+            padding: 4px 6px !important;
+            font-size: 8.5px !important;
+            font-weight: 950 !important;
+            text-transform: uppercase !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
-          .category-heading {
-            break-after: avoid;
-            page-break-after: avoid;
+          .score-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            font-size: 8.5px !important;
+          }
+
+          .score-table tr {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .score-table th,
+          .score-table td {
+            padding: 2.5px 3.5px !important;
+            border: 1px solid #66788f !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .score-table th {
+            background: #eef3f9 !important;
+            font-size: 8.5px !important;
+            font-weight: 950 !important;
+          }
+
+          .classification-row th {
+            background: #f8fafc !important;
+            font-size: 8.5px !important;
+            padding: 2px 1px !important;
+          }
+
+          .material-name {
+            font-size: 8.5px !important;
+            font-weight: 800 !important;
+            line-height: 1.1 !important;
+          }
+
+          .score-option {
+            height: 17px !important;
+            font-size: 8.5px !important;
+            font-weight: 900 !important;
+            padding: 1px 1px !important;
+          }
+
+          /*
+           * JANGAN PISAHKAN CATATAN DENGAN SUBKATEGORI TERAKHIR
+           * Mengikat subkategori terakhir dan Catatan + TTD Juri dalam satu kesatuan
+           * agar catatan tidak pernah berdiri sendiri di halaman kosong.
+           */
+          .last-sub-with-bottom {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .bottom-area {
+            display: grid !important;
+            grid-template-columns: 1.65fr .7fr !important;
+            gap: 20px !important;
+            margin-top: 10px !important;
+            align-items: start !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            break-before: avoid !important;
+            page-break-before: avoid !important;
+          }
+
+          .notes,
+          .signature {
+            min-height: 50px !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .notes-space {
+            margin-top: 8px !important;
+          }
+
+          .note-line {
+            height: 16px !important;
+          }
+
+          .signature-space {
+            height: 26px !important;
           }
 
           .review-sheet:last-child {
             break-after: auto !important;
             page-break-after: auto !important;
-          }
-
-          /*
-           * Hindari tabel/subkategori terpotong
-           * di tengah blok/baris.
-           */
-          .sub-block,
-          tr {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-
-          .category-heading,
-          .sub-heading {
-            break-after: avoid;
-            page-break-after: avoid;
-          }
-
-          .score-table {
-            width: 100%;
-          }
-
-          .score-table th,
-          .score-table td {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-
-          .category-heading {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-
-          .sub-heading {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-
-          .notes,
-          .signature {
-            break-inside: avoid;
-            page-break-inside: avoid;
           }
         }
 

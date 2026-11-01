@@ -95,15 +95,19 @@ export async function POST(req: Request) {
 
     const results = [];
 
-    for (const category of categories) {
-      const result = await regenerateCategoryScoreOptions(
-        category.id
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < categories.length; i += BATCH_SIZE) {
+      const batch = categories.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (category) => {
+          const result = await regenerateCategoryScoreOptions(category.id);
+          return {
+            categoryId: category.id,
+            ...result,
+          };
+        })
       );
-
-      results.push({
-        categoryId: category.id,
-        ...result,
-      });
+      results.push(...batchResults);
     }
 
     console.info("[REVIEW REFRESH] Completed", {

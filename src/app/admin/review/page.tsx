@@ -125,7 +125,13 @@ function defaultSheets(categories: Category[]): SheetConfig[] {
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
     const pbb = sorted.find((c) => normalize(c.name) === "PBB");
-    const danton = sorted.find((c) => normalize(c.name) === "DANTON");
+    const danton = sorted.find(
+      (c) =>
+        normalize(c.name) === "DANTON" ||
+        normalize(c.name) === "KOMANDAN" ||
+        normalize(c.name).includes("DANTON") ||
+        normalize(c.name).includes("KOMANDAN")
+    );
     const used = new Set<string>();
     const levelId = sorted[0]?.eventLevelId || null;
 
@@ -307,13 +313,13 @@ function ScoreTable({
    * FORMAT HEADER NILAI — KHUSUS TAMPILAN REVIEW
    *
    * CETAS menggunakan tepat 8 kotak nilai pada setiap materi:
-   * P = Perlu Perbaikan  → 1 kotak
+   * P = Perlu Perbaikan  → 2 kotak
    * C = Cukup            → 2 kotak
    * B = Baik             → 2 kotak
-   * I = Istimewa         → 3 kotak
+   * I = Istimewa         → 2 kotak
    *
-   * Urutan kotak:
-   * P, C, C, B, B, I, I, I
+   * Urutan kotak simetris (4 predikat x 2 kotak = 8 kotak):
+   * P, P, C, C, B, B, I, I
    *
    * Nilai 0 hanya dikeluarkan dari tampilan melalui getReviewOptions().
    * Logic/perhitungan nilai tidak disentuh.
@@ -321,31 +327,41 @@ function ScoreTable({
   const headerOptions = reviewOptions[0]?.options || [];
 
   function getDisplayGroups(count: number) {
-    // Sistem CETAS selalu 8 pilihan.
-    // Jika data lama belum ter-regenerate dan jumlah bukan 8,
-    // tampilkan grouping yang aman tanpa mengubah nilai database.
     if (count === 8) {
       return [
-        { label: "P", count: 1 },
+        { label: "P", count: 2 },
         { label: "C", count: 2 },
         { label: "B", count: 2 },
-        { label: "I", count: 3 },
+        { label: "I", count: 2 },
       ];
     }
 
-    return Array.from(
-      { length: count },
-      (_, index) => ({
-        label: index === 0
-          ? "P"
-          : index < 3
-            ? "C"
-            : index < 5
-              ? "B"
-              : "I",
-        count: 1,
-      })
-    );
+    if (count === 4) {
+      return [
+        { label: "P", count: 1 },
+        { label: "C", count: 1 },
+        { label: "B", count: 1 },
+        { label: "I", count: 1 },
+      ];
+    }
+
+    if (count === 10) {
+      return [
+        { label: "P", count: 2 },
+        { label: "C", count: 3 },
+        { label: "B", count: 3 },
+        { label: "I", count: 2 },
+      ];
+    }
+
+    const quarter = Math.floor(count / 4);
+    const rem = count % 4;
+    return [
+      { label: "P", count: quarter + (rem > 0 ? 1 : 0) },
+      { label: "C", count: quarter + (rem > 1 ? 1 : 0) },
+      { label: "B", count: quarter + (rem > 2 ? 1 : 0) },
+      { label: "I", count: quarter },
+    ];
   }
 
   const visibleGroups = getDisplayGroups(headerOptions.length);

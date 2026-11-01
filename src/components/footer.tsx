@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Sparkles, Mail, Phone, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
+import { Sparkles, Mail, Phone, MapPin, MessageCircle, ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-800/80 bg-[#070A12] text-slate-400">
+    <footer className="border-t border-slate-800/80 bg-[#070A12] text-slate-300 select-none">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Info with Official Logo */}
@@ -44,27 +44,27 @@ export function Footer() {
 
           {/* 4 Layanan Utama CETAS */}
           <div>
-            <h4 className="text-xs font-black text-white tracking-wider uppercase mb-4">
+            <h4 className="text-xs font-black text-white tracking-wider uppercase mb-4 font-mono">
               Layanan CETAS
             </h4>
             <ul className="space-y-2.5 text-xs">
               <li>
-                <Link href="/events" className="text-slate-400 hover:text-cyan-400 transition font-medium">
+                <Link href="/events" className="text-slate-300 hover:text-cyan-400 transition font-medium">
                   <strong>CETAS.TIKET</strong> — Tiket & Registrasi Event
                 </Link>
               </li>
               <li>
-                <Link href="/vote" className="text-slate-400 hover:text-cyan-400 transition font-medium">
+                <Link href="/vote" className="text-slate-300 hover:text-cyan-400 transition font-medium">
                   <strong>CETAS.ID</strong> — E-Voting Turnamen Live
                 </Link>
               </li>
               <li>
-                <Link href="/production" className="text-slate-400 hover:text-cyan-400 transition font-medium">
+                <Link href="/production" className="text-slate-300 hover:text-cyan-400 transition font-medium">
                   <strong>CETAS.PRODUCTION</strong> — Rental Alat & Panggung
                 </Link>
               </li>
               <li>
-                <Link href="/score" className="text-slate-400 hover:text-cyan-400 transition font-medium">
+                <Link href="/score" className="text-slate-300 hover:text-cyan-400 transition font-medium">
                   <strong>CETAS.SCORE</strong> — Rekap Penilaian Juri LKBB
                 </Link>
               </li>
@@ -76,43 +76,70 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Portal Akses & Tentang */}
+          {/* ========================================================= */}
+          {/* LEGAL & BANTUAN SECTION (PERSIS KAYA GAMBAR 1 DARI USER)   */}
+          {/* ========================================================= */}
           <div>
-            <h4 className="text-xs font-black text-white tracking-wider uppercase mb-4">
-              Akses & Portal
+            <h4 className="text-xs font-black text-slate-400 tracking-wider uppercase mb-4 font-mono">
+              LEGAL & BANTUAN
             </h4>
             <ul className="space-y-2.5 text-xs">
               <li>
-                <Link href="/pelatih" className="text-slate-400 hover:text-cyan-400 transition">
-                  Portal Pelatih & Official
+                <Link href="/#bantuan" className="text-slate-300 hover:text-cyan-400 transition font-medium">
+                  FAQ (Tanya Jawab Seputar CETAS)
                 </Link>
               </li>
               <li>
-                <Link href="/judge" className="text-slate-400 hover:text-cyan-400 transition">
-                  Bilik Penilaian Juri
+                <Link href="/#bantuan" className="text-slate-300 hover:text-cyan-400 transition font-medium">
+                  Paket & Penawaran Event
                 </Link>
               </li>
               <li>
-                <Link href="/admin" className="text-slate-400 hover:text-cyan-400 transition">
-                  Admin Backoffice Dashboard
+                <Link href="/#bantuan" className="text-slate-300 hover:text-cyan-400 transition font-medium">
+                  Testimoni Pelatih & Dewan Juri
                 </Link>
               </li>
               <li>
-                <Link href="/ajukan-event" className="text-slate-400 hover:text-cyan-400 transition">
-                  Pengajuan & Kemitraan Event
+                <a
+                  href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20butuh%20bantuan."
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-slate-300 hover:text-cyan-400 transition font-medium"
+                >
+                  Hubungi Kontak CS
+                </a>
+              </li>
+              <li>
+                <Link href="/#bantuan" className="text-slate-300 hover:text-cyan-400 transition font-medium">
+                  Kebijakan Refund & Garansi
                 </Link>
               </li>
               <li>
-                <Link href="/verifikasi" className="text-slate-400 hover:text-cyan-400 transition">
-                  Verifikasi Sertifikat Nasional
+                <Link href="/#bantuan" className="text-slate-300 hover:text-cyan-400 transition font-medium">
+                  Syarat & Ketentuan Layanan
                 </Link>
+              </li>
+              <li>
+                <Link href="/#bantuan" className="text-slate-300 hover:text-cyan-400 transition font-medium">
+                  Kebijakan Privasi Data
+                </Link>
+              </li>
+              {/* All Systems Operational Indicator */}
+              <li className="pt-2">
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-extrabold text-emerald-400">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <span>All Systems Operational</span>
+                </div>
               </li>
             </ul>
           </div>
 
           {/* Kontak & Dukungan */}
           <div className="space-y-3">
-            <h4 className="text-xs font-black text-white tracking-wider uppercase mb-4">
+            <h4 className="text-xs font-black text-white tracking-wider uppercase mb-4 font-mono">
               Hubungi Kami
             </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
@@ -128,11 +155,11 @@ export function Footer() {
                 <MessageCircle className="h-4 w-4" />
                 <span>WhatsApp: 0815-8468-2345</span>
               </a>
-              <div className="flex items-center gap-2 text-slate-400">
+              <div className="flex items-center gap-2 text-slate-300">
                 <Mail className="h-4 w-4 text-cyan-400" />
                 <span>support@cetas.co.id</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-400">
+              <div className="flex items-center gap-2 text-slate-300">
                 <MapPin className="h-4 w-4 text-cyan-400" />
                 <span>Jakarta, Indonesia</span>
               </div>
@@ -141,15 +168,15 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar: Copyright & Legal */}
-        <div className="mt-12 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div className="mt-12 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span>&copy; {new Date().getFullYear()} CETAS (Centralized Electronic Tournament & Award System).</span>
             <span className="hidden sm:inline font-bold text-cyan-400">Move Different.</span>
           </div>
           <div className="flex items-center gap-4 text-[11px]">
-            <Link href="/events" className="hover:text-cyan-400">Ketentuan Layanan</Link>
-            <Link href="/events" className="hover:text-cyan-400">Kebijakan Privasi</Link>
-            <Link href="/events" className="hover:text-cyan-400">Bantuan</Link>
+            <Link href="/#bantuan" className="hover:text-cyan-400">Ketentuan Layanan</Link>
+            <Link href="/#bantuan" className="hover:text-cyan-400">Kebijakan Privasi</Link>
+            <Link href="/#bantuan" className="hover:text-cyan-400">Bantuan</Link>
           </div>
         </div>
       </div>

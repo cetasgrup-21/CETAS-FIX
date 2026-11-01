@@ -1,23 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #071a3d;
-  --cetas-blue: #0066ff;
-  --cetas-blue-hover: #0052cc;
-  --cetas-navy: #071a3d;
-  --cetas-navy-deep: #0a192f;
-  --cetas-light-blue: #f0f7ff;
-  --cetas-border: #e2e8f0;
+  --background: #070a12;
+  --foreground: #f8fafc;
   --cetas-cyan: #06b6d4;
   --cetas-emerald: #10b981;
+  --cetas-amber: #f59e0b;
+  --cetas-indigo: #6366f1;
+  --cetas-card: #0b0f19;
+  --cetas-border: #1e293b;
 }
 
 .card {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: #0b0f19;
+  border: 1px solid rgba(51, 65, 85, 0.7);
   border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(7, 26, 61, 0.05);
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
 }
 
 @theme inline {
@@ -28,27 +26,27 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #070a12;
+  color: #f8fafc;
   font-family: var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   letter-spacing: -0.015em;
 }
 
-/* Modern CETAS Blue Scrollbar */
+/* Dark Sport-Tech Scrollbar */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: #070a12;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #1e293b;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #0066ff;
+  background: #06b6d4;
 }
 
 /* Mascot Floating Animation */
@@ -57,7 +55,7 @@ body {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-10px);
   }
 }
 
@@ -89,23 +87,10 @@ body {
   transform-origin: 33.2% 48.3%;
 }
 
-/* Pulse glow for buttons and cards */
-@keyframes blue-pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(0, 102, 255, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 25px rgba(0, 102, 255, 0.45);
-  }
-}
-
-.cetas-blue-glow {
-  box-shadow: 0 10px 30px -5px rgba(0, 102, 255, 0.15), 0 4px 6px -4px rgba(0, 102, 255, 0.05);
-}
-
-.cetas-blue-glow-hover:hover {
-  border-color: #60a5fa;
-  box-shadow: 0 15px 35px -5px rgba(0, 102, 255, 0.25), 0 8px 10px -6px rgba(0, 102, 255, 0.12);
+/* Cyan Glow hover */
+.cetas-cyan-glow-hover:hover {
+  border-color: rgba(6, 182, 212, 0.6);
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.25);
   transform: translateY(-2px);
 }
 

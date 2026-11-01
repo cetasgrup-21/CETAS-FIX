@@ -35,7 +35,6 @@ export function CetasOpeningExperience() {
   const [loginSuccess, setLoginSuccess] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in or has seen the intro in this session
     try {
       const introSeen = sessionStorage.getItem("cetas_intro_seen");
       const isDirectSubpath =
@@ -54,16 +53,14 @@ export function CetasOpeningExperience() {
       setHasCheckedSession(true);
     }
 
-    // Progression of the intro
     const timer1 = setTimeout(() => {
       setStage("greeting");
     }, 1200);
 
     const timer2 = setTimeout(() => {
       setStage("choices");
-    }, 2800);
+    }, 2600);
 
-    // Listen for custom event from navbar or any button to open login modal anytime
     const handleOpenLogin = () => {
       setStage("login_reveal");
       setShowLoginModalOnly(true);
@@ -121,7 +118,6 @@ export function CetasOpeningExperience() {
 
       setTimeout(() => {
         setIsVisible(false);
-        // Redirect based on role or refresh
         if (data.role === "ADMIN" || data.role === "OPERATOR") {
           window.location.href = "/admin/dashboard";
         } else if (data.role === "JURY") {
@@ -146,31 +142,34 @@ export function CetasOpeningExperience() {
       role="dialog"
       aria-modal="true"
       aria-label="CETAS Experience & Login"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-300 select-none overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-2xl animate-in fade-in duration-300 select-none overflow-y-auto"
     >
-      {/* Background ambient light */}
-      <div className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-blue-600/20 via-cyan-400/25 to-blue-500/10 rounded-full blur-3xl" />
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-tr from-cyan-500/20 via-emerald-500/15 to-transparent rounded-full blur-3xl" />
 
-      {/* Skip Intro Button (Top-Right) */}
+      {/* Skip Intro Button */}
       <div className="absolute top-5 right-5 z-20">
         <button
           type="button"
           onClick={handleDismissIntro}
-          className="inline-flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md transition-all active:scale-95"
+          className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 px-4 py-1.5 text-xs font-semibold text-slate-300 hover:text-white backdrop-blur-md transition-all active:scale-95"
         >
           <span>{showLoginModalOnly ? "Tutup" : "Lewati Intro"}</span>
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {/* Main Container Card */}
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/20 bg-white/95 text-[#071A3D] shadow-2xl overflow-hidden p-6 sm:p-8 my-auto transition-all duration-500">
+      {/* Main Container Card — SPORT-TECH MIDNIGHT SLATE */}
+      <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-[#0B0F19]/98 text-white shadow-2xl overflow-hidden p-6 sm:p-8 my-auto transition-all duration-500">
+        {/* Glow corner line */}
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+
         {/* ========================================================= */}
         {/* VIEW 1: INTRO SEQUENCE (SPLASH -> GREETING -> CHOICES)     */}
         {/* ========================================================= */}
         {stage !== "login_reveal" && (
           <div className="flex flex-col items-center text-center space-y-5 animate-in fade-in duration-500">
-            {/* Top Logo */}
+            {/* Top Logo with Cyan Glow */}
             <div className="relative h-14 w-14 shrink-0 transition-transform duration-500 hover:scale-105">
               <Image
                 src="/logo/cetas_logo_transparent.png"
@@ -178,33 +177,34 @@ export function CetasOpeningExperience() {
                 width={56}
                 height={56}
                 priority
-                className="object-contain drop-shadow-md"
+                className="object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]"
               />
             </div>
 
-            {/* Mascot Showcase with floating animation */}
+            {/* Mascot Showcase with floating animation & stage ring */}
             <div className="relative h-44 sm:h-52 w-full flex items-center justify-center">
-              <div className="absolute bottom-0 w-36 h-6 bg-blue-500/20 rounded-full blur-md" />
+              <div className="absolute bottom-0 w-44 h-8 bg-cyan-400/20 rounded-full blur-md" />
+              <div className="absolute bottom-1 w-28 h-3 bg-emerald-400/30 rounded-full blur-xs" />
               <Image
                 src="/mascot/cetas_ant_waving_v3.png"
                 alt="Anty Maskot Resmi CETAS"
                 width={260}
                 height={350}
                 priority
-                className="w-auto h-44 sm:h-52 object-contain animate-mascot-float drop-shadow-lg"
+                className="w-auto h-44 sm:h-52 object-contain animate-mascot-float drop-shadow-[0_20px_40px_rgba(6,182,212,0.35)]"
               />
             </div>
 
             {/* Headline Greeting & Tagline */}
             <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-[11px] font-bold text-[#0066FF]">
-                <Sparkles className="h-3.5 w-3.5" />
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 px-3 py-1 text-[11px] font-bold text-cyan-300">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
                 <span>MOVE DIFFERENT</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-[#071A3D] tracking-tight">
-                HEY, WELCOME TO CETAS!
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                HEY, WELCOME TO <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">CETAS!</span>
               </h2>
-              <p className="text-xs sm:text-sm font-semibold text-slate-600">
+              <p className="text-xs sm:text-sm font-semibold text-slate-300">
                 &ldquo;Not Just an Event. It&apos;s an Experience.&rdquo;
               </p>
             </div>
@@ -214,7 +214,7 @@ export function CetasOpeningExperience() {
               <button
                 type="button"
                 onClick={handleDismissIntro}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0066FF] hover:bg-[#0052cc] text-white font-extrabold px-5 py-3.5 text-xs sm:text-sm shadow-lg shadow-blue-500/25 transition-transform hover:scale-[1.02] active:scale-95"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black px-5 py-3.5 text-xs sm:text-sm shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-transform hover:scale-[1.02] active:scale-95"
               >
                 <span>Jelajahi CETAS</span>
                 <ArrowRight className="h-4 w-4" />
@@ -223,9 +223,9 @@ export function CetasOpeningExperience() {
               <button
                 type="button"
                 onClick={() => setStage("login_reveal")}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-[#071A3D] font-extrabold px-5 py-3.5 text-xs sm:text-sm border border-slate-300 transition-transform hover:scale-[1.02] active:scale-95"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-5 py-3.5 text-xs sm:text-sm border border-slate-700 transition-transform hover:scale-[1.02] active:scale-95"
               >
-                <LogIn className="h-4 w-4 text-[#0066FF]" />
+                <LogIn className="h-4 w-4 text-cyan-400" />
                 <span>Masuk ke Akun</span>
               </button>
             </div>
@@ -233,20 +233,20 @@ export function CetasOpeningExperience() {
         )}
 
         {/* ========================================================= */}
-        {/* VIEW 2: LOGIN REVEAL TRANSITION                           */}
+        {/* VIEW 2: LOGIN REVEAL TRANSITION (SPORT-TECH DARK)         */}
         {/* ========================================================= */}
         {stage === "login_reveal" && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 space-y-4">
             {/* Header Form */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0066FF] border border-blue-200">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                   <Lock className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-[#071A3D]">Masuk ke Akun CETAS</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Akses portal Admin, Juri, Panitia, atau Pelatih
+                  <h3 className="text-base font-black text-white">Masuk ke Akun CETAS</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Portal Admin, Dewan Juri, Panitia, atau Pelatih
                   </p>
                 </div>
               </div>
@@ -254,35 +254,35 @@ export function CetasOpeningExperience() {
 
             {loginSuccess ? (
               <div className="py-8 text-center space-y-3">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h4 className="text-base font-black text-[#071A3D]">Autentikasi Berhasil!</h4>
-                <p className="text-xs text-slate-500">Menghubungkan ke sesi Anda...</p>
+                <h4 className="text-base font-black text-white">Autentikasi Berhasil!</h4>
+                <p className="text-xs text-slate-400">Menghubungkan ke sesi aman Anda...</p>
               </div>
             ) : (
               <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-xs">
                 {loginError && (
-                  <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-2.5 text-rose-700 text-xs">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
+                  <div className="flex items-center gap-2 rounded-xl bg-rose-950/40 border border-rose-500/40 p-2.5 text-rose-300 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
                     <span>{loginError}</span>
                   </div>
                 )}
 
                 {/* Email / Username */}
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">
+                  <label className="block text-slate-300 font-bold mb-1">
                     Email atau Username
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <input
                       type="text"
                       required
                       placeholder="Masukkan email atau username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 py-2.5 text-slate-800 placeholder-slate-400 focus:border-[#0066FF] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900/90 pl-9 pr-3 py-2.5 text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
                     />
                   </div>
                 </div>
@@ -290,30 +290,30 @@ export function CetasOpeningExperience() {
                 {/* Password / PIN */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-slate-700 font-bold">Password atau PIN</label>
+                    <label className="text-slate-300 font-bold">Password atau PIN</label>
                     <a
                       href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20butuh%20bantuan%20reset%20akun%20atau%20password."
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] font-semibold text-[#0066FF] hover:underline"
+                      className="text-[11px] font-semibold text-cyan-400 hover:underline"
                     >
                       Lupa password?
                     </a>
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <input
                       type={showPin ? "text" : "password"}
                       required
                       placeholder="Masukkan password atau PIN akun"
                       value={pin}
                       onChange={(e) => setPin(e.target.value)}
-                      className="w-full rounded-xl border border-slate-300 bg-white pl-9 pr-10 py-2.5 text-slate-800 placeholder-slate-400 focus:border-[#0066FF] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900/90 pl-9 pr-10 py-2.5 text-white placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPin(!showPin)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                     >
                       {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -327,9 +327,9 @@ export function CetasOpeningExperience() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-[#0066FF] focus:ring-blue-500"
+                      className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20"
                     />
-                    <span className="text-slate-600 font-medium">Ingat saya di perangkat ini</span>
+                    <span className="text-slate-400 font-medium">Ingat sesi di perangkat ini</span>
                   </label>
                 </div>
 
@@ -338,7 +338,7 @@ export function CetasOpeningExperience() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0066FF] hover:bg-[#0052cc] text-white font-extrabold py-3 shadow-lg shadow-blue-500/25 transition-transform hover:scale-[1.01] active:scale-95 disabled:opacity-60"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black py-3 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-transform hover:scale-[1.01] active:scale-95 disabled:opacity-60"
                   >
                     <span>{isLoading ? "Memverifikasi..." : "Masuk ke Akun"}</span>
                     <ArrowRight className="h-4 w-4" />
@@ -354,16 +354,16 @@ export function CetasOpeningExperience() {
                           setStage("choices");
                         }
                       }}
-                      className="text-slate-500 hover:text-slate-800 font-semibold"
+                      className="text-slate-400 hover:text-white font-semibold"
                     >
                       ← Kembali ke Pilihan
                     </button>
                     <Link
                       href="/ajukan-event"
                       onClick={handleDismissIntro}
-                      className="text-[#0066FF] font-bold hover:underline"
+                      className="text-cyan-400 font-bold hover:underline"
                     >
-                      Daftar Akun / Penyelenggara
+                      Daftar Akun Penyelenggara
                     </Link>
                   </div>
                 </div>

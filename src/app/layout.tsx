@@ -5,6 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { MascotWhatsAppWidget } from "@/components/mascot-whatsapp-widget";
 import { MobileBottomDock } from "@/components/mobile-bottom-dock";
+import { CetasLoginModal } from "@/components/opening/cetas-login-modal";
 
 const generalSans = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -176,6 +177,7 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         <Footer />
+        <CetasLoginModal />
         <MascotWhatsAppWidget />
         <MobileBottomDock />
       </body>

@@ -71,10 +71,10 @@ export default function GateScannerPage() {
       return;
     }
 
-    const savedAuth = sessionStorage.getItem("cetas_staff_auth");
+    const savedAuth = sessionStorage.getItem("cetas_staff_auth") || localStorage.getItem("cetas_staff_auth");
     if (savedAuth === "true") {
       setIsStaffAuthenticated(true);
-      setStaffName(sessionStorage.getItem("cetas_staff_name") || "Petugas Gatekeeper");
+      setStaffName(sessionStorage.getItem("cetas_staff_name") || localStorage.getItem("cetas_staff_name") || "Petugas Gatekeeper");
     }
 
     // Sinkronkan daftar akun staf terbaru dari database PostgreSQL

@@ -38,7 +38,17 @@ export function CetasLoginModal() {
   const [coachError, setCoachError] = useState("");
 
   useEffect(() => {
-    // Listen for "Masuk" click from navbar
+    // Muat data "Ingat Sesi di Perangkat Ini" jika sebelumnya diaktifkan
+    try {
+      const isRemember = localStorage.getItem("cetas_remember_session") === "true";
+      if (isRemember) {
+        setRememberMe(true);
+        const savedUser = localStorage.getItem("cetas_remembered_username");
+        if (savedUser) setUsername(savedUser);
+      }
+    } catch {}
+
+    // Listen for "Masuk" click from navbar or any page
     const handleOpenLogin = (e?: any) => {
       if (e?.detail?.type === "pelatih") {
         setPortalType("pelatih");
@@ -72,6 +82,7 @@ export function CetasLoginModal() {
         body: JSON.stringify({
           username: cleanUser,
           pin: cleanPin,
+          rememberMe,
         }),
       });
 
@@ -84,6 +95,19 @@ export function CetasLoginModal() {
       setLoginSuccess(true);
 
       const role = String(data.role || "").toUpperCase();
+
+      // Kelola persistensi "Ingat Sesi di Perangkat Ini"
+      try {
+        if (rememberMe) {
+          localStorage.setItem("cetas_remember_session", "true");
+          localStorage.setItem("cetas_remembered_username", cleanUser);
+          localStorage.setItem("cetas_remembered_role", role);
+        } else {
+          localStorage.removeItem("cetas_remember_session");
+          localStorage.removeItem("cetas_remembered_username");
+          localStorage.removeItem("cetas_remembered_role");
+        }
+      } catch {}
 
       const adminRoles = [
         "SUPER_ADMIN",
@@ -112,12 +136,33 @@ export function CetasLoginModal() {
         });
       }
 
+      // Khusus Scanner Staff: set sesi gatekeeper agar scanner langsung aktif tanpa prompt login kedua
+      if (role === "SCANNER_STAFF") {
+        try {
+          sessionStorage.setItem("cetas_staff_auth", "true");
+          localStorage.setItem("cetas_staff_auth", "true");
+          sessionStorage.setItem("cetas_staff_name", data.name || "Petugas Gate Scanner");
+          localStorage.setItem("cetas_staff_name", data.name || "Petugas Gate Scanner");
+        } catch {}
+      }
+
       setTimeout(() => {
         setShowLoginModal(false);
-        if (role === "JUDGE") {
+        // Direct Routing Sesuai Role Akun:
+        if (role === "SCANNER_STAFF") {
+          window.location.href = "/scanner";
+        } else if (role === "JUDGE") {
           window.location.href = "/judge";
         } else if (role === "TIMER") {
           window.location.href = "/timer";
+        } else if (role === "STAFF_REKAP") {
+          window.location.href = "/penentuan-juara";
+        } else if (role === "PROD_ADMIN") {
+          window.location.href = "/admin?tab=PRODUCTION";
+        } else if (role === "FINANCE_ADMIN") {
+          window.location.href = "/admin?tab=FINANCES";
+        } else if (role === "EVENT_ADMIN" || role === "PANITIA") {
+          window.location.href = "/admin?tab=EVENTS";
         } else if (role === "ORGANIZER") {
           window.location.href = "/admin?tab=EVENTS";
         } else if (role === "USER") {
@@ -125,7 +170,7 @@ export function CetasLoginModal() {
         } else {
           window.location.href = "/admin";
         }
-      }, 900);
+      }, 700);
     } catch (err: any) {
       setLoginError(err.message || "Gagal masuk. Periksa kembali akun Anda.");
     } finally {

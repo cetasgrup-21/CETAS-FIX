@@ -27,8 +27,23 @@ function LoginForm() {
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Muat akun tersimpan jika "Ingat sesi" aktif sebelumnya
+  useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const isRemember = localStorage.getItem("cetas_remember_session") === "true";
+        if (isRemember) {
+          setRememberMe(true);
+          const savedUser = localStorage.getItem("cetas_remembered_username");
+          if (savedUser) setUsername(savedUser);
+        }
+      } catch {}
+    }
+  });
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -70,6 +85,7 @@ function LoginForm() {
         body: JSON.stringify({
           username: cleanUser,
           pin: cleanPin,
+          rememberMe,
           ...(matchedStaff
             ? {
                 syncStaffAccount: true,
@@ -101,6 +117,19 @@ function LoginForm() {
 
       const role = String(data.role || "").toUpperCase();
 
+      // Kelola persistensi "Ingat Sesi di Perangkat Ini"
+      try {
+        if (rememberMe) {
+          localStorage.setItem("cetas_remember_session", "true");
+          localStorage.setItem("cetas_remembered_username", cleanUser);
+          localStorage.setItem("cetas_remembered_role", role);
+        } else {
+          localStorage.removeItem("cetas_remember_session");
+          localStorage.removeItem("cetas_remembered_username");
+          localStorage.removeItem("cetas_remembered_role");
+        }
+      } catch {}
+
       // Sinkronkan sesi admin ke localStorage jika role memiliki wewenang administratif
       const adminRoles = [
         "SUPER_ADMIN",
@@ -129,18 +158,33 @@ function LoginForm() {
         });
       }
 
+      // Khusus Scanner Staff: set sesi gatekeeper agar scanner langsung aktif tanpa prompt login kedua
+      if (role === "SCANNER_STAFF") {
+        try {
+          sessionStorage.setItem("cetas_staff_auth", "true");
+          localStorage.setItem("cetas_staff_auth", "true");
+          sessionStorage.setItem("cetas_staff_name", data.name || "Petugas Gate Scanner");
+          localStorage.setItem("cetas_staff_name", data.name || "Petugas Gate Scanner");
+        } catch {}
+      }
+
       // Aturan Target Routing Berdasarkan Role:
-      // 1. ADMIN, SUPER_ADMIN, OPERATOR -> Dashboard Admin (/admin)
-      // 2. ORGANIZER -> Dashboard Organizer (/admin?tab=EVENTS)
-      // 3. JUDGE -> Penilaian Dewan Juri (/judge)
-      // 4. TIMER -> Petugas Timer (/timer)
-      // 5. USER -> Dashboard User (/events)
       let targetUrl = "/admin";
 
-      if (role === "JUDGE") {
+      if (role === "SCANNER_STAFF") {
+        targetUrl = "/scanner";
+      } else if (role === "JUDGE") {
         targetUrl = "/judge";
       } else if (role === "TIMER") {
         targetUrl = "/timer";
+      } else if (role === "STAFF_REKAP") {
+        targetUrl = "/penentuan-juara";
+      } else if (role === "PROD_ADMIN") {
+        targetUrl = "/admin?tab=PRODUCTION";
+      } else if (role === "FINANCE_ADMIN") {
+        targetUrl = "/admin?tab=FINANCES";
+      } else if (role === "EVENT_ADMIN" || role === "PANITIA") {
+        targetUrl = "/admin?tab=EVENTS";
       } else if (role === "ORGANIZER") {
         targetUrl = "/admin?tab=EVENTS";
       } else if (role === "USER") {
@@ -236,6 +280,20 @@ function LoginForm() {
                   {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-orange-600 focus:ring-orange-500"
+                />
+                <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                  Ingat sesi di perangkat ini
+                </span>
+              </label>
             </div>
 
             <button

@@ -163,6 +163,18 @@ export async function POST(req: Request) {
         },
         update: { role: "STAFF_REKAP", status: "ACTIVE" },
       });
+    } else if (rawUsername === "scanner" || rawUsername === "scanner@cetas.co.id") {
+      user = await db.user.upsert({
+        where: { username: "scanner@cetas.co.id" },
+        create: {
+          name: "Petugas Gate Scanner",
+          username: "scanner@cetas.co.id",
+          pinHash: pinHash("RezaCetas2026!"),
+          role: "SCANNER_STAFF",
+          status: "ACTIVE",
+        },
+        update: { role: "SCANNER_STAFF", status: "ACTIVE" },
+      });
     }
   }
 
@@ -210,12 +222,15 @@ export async function POST(req: Request) {
 
   const isHttps = requestProtocol === "https";
 
+  const isRemember = Boolean(body.rememberMe);
+  const cookieMaxAge = isRemember ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 hari vs 24 jam
+
   response.cookies.set("cetas_session", token, {
     httpOnly: true,
     sameSite: "lax",
     secure: isHttps,
     path: "/",
-    maxAge: 60 * 60 * 8,
+    maxAge: cookieMaxAge,
   });
 
   return response;

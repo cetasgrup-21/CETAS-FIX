@@ -29,6 +29,7 @@ const ALLOWED_ADMIN_ROLES = [
   "FINANCE_ADMIN",
   "STAFF_REKAP",
   "PANITIA",
+  "SCANNER_STAFF",
 ];
 
 export async function proxy(request: NextRequest) {

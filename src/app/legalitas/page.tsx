@@ -102,6 +102,22 @@ export default function LegalitasPage() {
                   <dd className="font-bold text-[#06132E]">Perseroan Perorangan (PT Perorangan)</dd>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200">
+                  <dt className="text-slate-500">Nomor SK AHU:</dt>
+                  <dd className="font-mono font-bold text-[#06132E] text-right">AHU-A016435.AH.01.31.Tahun 2026</dd>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <dt className="text-slate-500">Nomor Induk Berusaha (NIB):</dt>
+                  <dd className="font-mono font-bold text-[#06132E]">2410260001294</dd>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <dt className="text-slate-500">NPWP Perusahaan:</dt>
+                  <dd className="font-mono font-bold text-[#06132E]">1000000011203939</dd>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <dt className="text-slate-500">Nomor PSE Kominfo:</dt>
+                  <dd className="font-mono font-bold text-[#06132E] text-right">030704.01/DJAI.PSE/10/2026</dd>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-200">
                   <dt className="text-slate-500">Tagline Resmi:</dt>
                   <dd className="font-bold text-[#126BDE]">Make it a story!</dd>
                 </div>
@@ -160,7 +176,7 @@ export default function LegalitasPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Card AHU */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3.5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 font-mono">KEMENTERIAN HUKUM RI</span>
                 <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">Terdaftar Resmi</span>
@@ -169,13 +185,20 @@ export default function LegalitasPage() {
               <p className="text-xs text-slate-600 leading-relaxed">
                 Pendaftaran Pendirian Perseroan Perorangan secara sah diterbitkan oleh Direktorat Jenderal Administrasi Hukum Umum (Ditjen AHU), Kementerian Hukum Republik Indonesia.
               </p>
-              <div className="pt-2 text-xs font-semibold text-slate-500">
-                Status: <span className="text-emerald-600 font-bold">Sah Berbadan Hukum</span>
+              <div className="rounded-xl bg-[#F4F6F9] border border-slate-200 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase font-mono block">Nomor SK Pendaftaran AHU</span>
+                <span className="text-xs sm:text-sm font-black font-mono text-[#06132E] select-all break-all">
+                  AHU-A016435.AH.01.31.Tahun 2026
+                </span>
+              </div>
+              <div className="pt-1 text-xs font-semibold text-slate-500 flex items-center justify-between">
+                <span>Status: <span className="text-emerald-600 font-bold">Sah Berbadan Hukum</span></span>
+                <span className="text-[11px] text-slate-400 font-mono">Kemenkumham RI</span>
               </div>
             </div>
 
             {/* Card NIB OSS */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3.5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 font-mono">SISTEM OSS INDONESIA</span>
                 <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">Berlaku Efektif</span>
@@ -184,38 +207,59 @@ export default function LegalitasPage() {
               <p className="text-xs text-slate-600 leading-relaxed">
                 Perizinan Berusaha Berbasis Risiko terdaftar pada sistem Online Single Submission (OSS) Kementerian Investasi/BKPM dengan Klasifikasi Baku Lapangan Usaha Indonesia (KBLI) relevan.
               </p>
-              <div className="pt-2 text-xs font-semibold text-slate-500">
-                KBLI: <span className="text-[#06132E] font-mono font-bold">62019, 62029, 82302, 77399</span>
+              <div className="rounded-xl bg-[#F4F6F9] border border-slate-200 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase font-mono block">Nomor Induk Berusaha (NIB)</span>
+                <span className="text-xs sm:text-sm font-black font-mono text-[#06132E] select-all">
+                  2410260001294
+                </span>
+              </div>
+              <div className="pt-1 text-xs font-semibold text-slate-500 flex items-center justify-between">
+                <span>KBLI: <span className="text-[#06132E] font-mono font-bold">62019, 62029, 82302, 77399</span></span>
+                <span className="text-[11px] text-slate-400 font-mono">OSS BKPM</span>
               </div>
             </div>
 
             {/* Card PSE */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3.5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 font-mono">KOMINFO RI</span>
-                <span className="rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-[10px] font-bold">Terdaftar / Dalam Proses</span>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">Terdaftar Resmi</span>
               </div>
               <h3 className="text-lg font-black text-[#06132E]">C. Pendaftaran PSE Lingkup Privat</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Penyelenggara Sistem Elektronik (PSE) Lingkup Privat yang mematuhi standar keamanan transmisi data dan integritas transaksi digital masyarakat.
               </p>
-              <div className="pt-2 text-xs font-semibold text-slate-500">
-                Sektor: <span className="text-[#126BDE] font-bold">Teknologi Informasi &amp; Event</span>
+              <div className="rounded-xl bg-[#F4F6F9] border border-slate-200 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase font-mono block">Nomor Tanda Daftar PSE</span>
+                <span className="text-xs sm:text-sm font-black font-mono text-[#06132E] select-all break-all">
+                  030704.01/DJAI.PSE/10/2026
+                </span>
+              </div>
+              <div className="pt-1 text-xs font-semibold text-slate-500 flex items-center justify-between">
+                <span>Sektor: <span className="text-[#126BDE] font-bold">Teknologi Informasi &amp; Event</span></span>
+                <span className="text-[11px] text-slate-400 font-mono">Kominfo RI</span>
               </div>
             </div>
 
             {/* Card Perpajakan NPWP */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-3.5 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 font-mono">DITJEN PAJAK RI</span>
-                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">Terdaftar</span>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">Terdaftar Resmi</span>
               </div>
               <h3 className="text-lg font-black text-[#06132E]">D. Identitas Perpajakan (NPWP)</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
                 Kepatuhan perpajakan perusahaan terdaftar secara resmi di Kantor Pelayanan Pajak (KPP) sesuai hukum keuangan Republik Indonesia.
               </p>
-              <div className="pt-2 text-xs font-semibold text-slate-500">
-                Kepatuhan: <span className="text-emerald-600 font-bold">Wajib Pajak Badan Terdaftar</span>
+              <div className="rounded-xl bg-[#F4F6F9] border border-slate-200 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase font-mono block">Nomor Pokok Wajib Pajak (NPWP)</span>
+                <span className="text-xs sm:text-sm font-black font-mono text-[#06132E] select-all">
+                  1000000011203939
+                </span>
+              </div>
+              <div className="pt-1 text-xs font-semibold text-slate-500 flex items-center justify-between">
+                <span>Kepatuhan: <span className="text-emerald-600 font-bold">Wajib Pajak Badan Terdaftar</span></span>
+                <span className="text-[11px] text-slate-400 font-mono">Ditjen Pajak RI</span>
               </div>
             </div>
           </div>

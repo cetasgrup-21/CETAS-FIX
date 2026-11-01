@@ -67,7 +67,7 @@ export function Navbar() {
                 CETAS
               </span>
               <span className="rounded bg-gradient-to-r from-[#00D9FF] to-[#006BFF] px-1.5 py-0.2 text-[8.5px] font-black uppercase text-slate-950 font-mono">
-                HUB
+                SPACE
               </span>
             </div>
             <span className="text-[9px] font-bold text-cyan-200 uppercase tracking-wider mt-0.5 hidden sm:inline">

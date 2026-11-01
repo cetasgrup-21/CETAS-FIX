@@ -330,7 +330,7 @@ export function TournamentHubView() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-black tracking-wider text-white">CETAS</span>
                   <span className="rounded bg-gradient-to-r from-cyan-500 to-emerald-500 px-1.5 py-0.2 text-[9px] font-black uppercase text-slate-950 font-mono">
-                    HUB
+                    SPACE
                   </span>
                 </div>
               </div>

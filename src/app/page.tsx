@@ -379,36 +379,60 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
-              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">KEMENTERIAN HUKUM RI</span>
-              <h4 className="text-base font-black text-white">Pendaftaran AHU</h4>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Perseroan Perorangan terdaftar secara sah pada Ditjen AHU Kementerian Hukum Republik Indonesia.
-              </p>
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2.5 shadow-md hover:border-cyan-400/60 transition-all flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">KEMENTERIAN HUKUM RI</span>
+                <h4 className="text-base font-black text-white">Pendaftaran AHU</h4>
+                <p className="text-xs text-slate-200 leading-relaxed font-normal">
+                  Perseroan Perorangan terdaftar secara sah pada Ditjen AHU Kemenkumham RI.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-blue-500/20">
+                <span className="text-[9px] text-cyan-300 font-mono uppercase block">Nomor SK AHU</span>
+                <span className="text-xs font-mono font-bold text-white break-all">AHU-A016435.AH.01.31.Tahun 2026</span>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
-              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">OSS INDONESIA</span>
-              <h4 className="text-base font-black text-white">NIB Berizin Efektif</h4>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Nomor Induk Berusaha berbasis risiko terdaftar pada sistem OSS dengan KBLI jasa pemrograman dan MICE.
-              </p>
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2.5 shadow-md hover:border-cyan-400/60 transition-all flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">OSS INDONESIA</span>
+                <h4 className="text-base font-black text-white">NIB Berizin Efektif</h4>
+                <p className="text-xs text-slate-200 leading-relaxed font-normal">
+                  Nomor Induk Berusaha berbasis risiko terdaftar pada sistem OSS BKPM.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-blue-500/20">
+                <span className="text-[9px] text-cyan-300 font-mono uppercase block">Nomor NIB</span>
+                <span className="text-xs font-mono font-bold text-white">2410260001294</span>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
-              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">KOMINFO RI</span>
-              <h4 className="text-base font-black text-white">Penyelenggara PSE</h4>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Penyelenggara Sistem Elektronik (PSE) Lingkup Privat yang mematuhi standar keandalan sistem digital.
-              </p>
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2.5 shadow-md hover:border-cyan-400/60 transition-all flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">KOMINFO RI</span>
+                <h4 className="text-base font-black text-white">Penyelenggara PSE</h4>
+                <p className="text-xs text-slate-200 leading-relaxed font-normal">
+                  Penyelenggara Sistem Elektronik (PSE) Lingkup Privat resmi terdaftar.
+                </p>
+              </div>
+              <div className="pt-2 border-t border-blue-500/20">
+                <span className="text-[9px] text-cyan-300 font-mono uppercase block">Tanda Daftar PSE</span>
+                <span className="text-xs font-mono font-bold text-white break-all">030704.01/DJAI.PSE/10/2026</span>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2 shadow-md hover:border-cyan-400/60 transition-all">
-              <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">UU NO. 27 TAHUN 2022</span>
-              <h4 className="text-base font-black text-white">Perlindungan Data (PDP)</h4>
-              <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                Standar enkripsi SHA-256 untuk perlindungan data pribadi peserta dan transparansi skor lomba.
-              </p>
+            <div className="rounded-2xl border border-blue-500/30 bg-[#0B1C3D] p-5 space-y-2.5 shadow-md hover:border-cyan-400/60 transition-all flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-cyan-300 font-mono uppercase tracking-wider">DITJEN PAJAK RI</span>
+                <h4 className="text-base font-black text-white">NPWP Perusahaan</h4>
+                <p className="text-xs text-slate-200 leading-relaxed font-normal">
+                  Kepatuhan pajak badan usaha resmi terdaftar pada Kantor Pelayanan Pajak (KPP).
+                </p>
+              </div>
+              <div className="pt-2 border-t border-blue-500/20">
+                <span className="text-[9px] text-cyan-300 font-mono uppercase block">Nomor NPWP</span>
+                <span className="text-xs font-mono font-bold text-white">1000000011203939</span>
+              </div>
             </div>
           </div>
         </div>

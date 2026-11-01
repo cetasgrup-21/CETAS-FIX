@@ -5,7 +5,7 @@ import { Sparkles, Mail, MapPin, MessageCircle, ShieldCheck, CheckCircle2, FileT
 export function Footer() {
   return (
     <footer className="border-t border-blue-500/20 bg-[#06132E] text-slate-100 select-none">
-      <div className="mx-auto max-w-7xl px-4 pt-12 pb-28 md:pb-14 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 pt-12 pb-36 md:pb-14 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Info with Official Logo */}
           <div className="space-y-4 lg:col-span-2">

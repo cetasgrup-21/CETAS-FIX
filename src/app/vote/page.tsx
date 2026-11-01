@@ -1475,7 +1475,7 @@ function VotePageContent() {
       )}
 
       {/* ============================================================= */}
-      {/* MODAL CHECKOUT VOTE VIA MIDTRANS                              */}
+      {/* MODAL CHECKOUT VOTE VIA XENDIT                                */}
       {/* ============================================================= */}
       {selectedCandidate && activeCategory && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">

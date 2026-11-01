@@ -5678,7 +5678,7 @@ export default function AdminDashboardPage() {
                           Kategori & Peserta Voting
                         </h3>
                         <p className="text-xs text-slate-500 mt-1">
-                          Atur kategori (misal: SMP, SMA, Purna) dan daftarkan peserta di masing-masing kategori. Pembayaran langsung via Midtrans QRIS & E-Wallet.
+                          Atur kategori (misal: SMP, SMA, Purna) dan daftarkan peserta di masing-masing kategori. Pembayaran langsung via Xendit QRIS & E-Wallet.
                         </p>
                       </div>
 
@@ -6001,7 +6001,7 @@ export default function AdminDashboardPage() {
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Metode Bayar Otomatis</span>
                       <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                        Midtrans QRIS &amp; E-Wallet
+                        Xendit QRIS &amp; E-Wallet
                       </div>
                     </div>
                   </div>
@@ -7342,8 +7342,8 @@ export default function AdminDashboardPage() {
               },
               {
                 time: "15 menit lalu",
-                action: "DOKU_SETTLEMENT",
-                detail: "Pembayaran paket suara voting diverifikasi otomatis via Midtrans Payment Gateway (QRIS/E-Wallet).",
+                action: "XENDIT_SETTLEMENT",
+                detail: "Pembayaran paket suara voting diverifikasi otomatis via Xendit Payment Gateway (QRIS/E-Wallet).",
               },
             ].map((log, idx) => (
               <div
@@ -7501,7 +7501,7 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                      Peserta baru otomatis dimulai dari <strong>0 suara sah</strong>. Jumlah suara <strong>tidak dapat dimanipulasi manual</strong> oleh admin dan hanya akan bertambah secara transparan dan realtime saat publik melakukan voting resmi via Midtrans Payment Gateway (QRIS & E-Wallet).
+                      Peserta baru otomatis dimulai dari <strong>0 suara sah</strong>. Jumlah suara <strong>tidak dapat dimanipulasi manual</strong> oleh admin dan hanya akan bertambah secara transparan dan realtime saat publik melakukan voting resmi via Xendit Payment Gateway (QRIS & E-Wallet).
                     </p>
                   </div>
                 </div>
@@ -7519,7 +7519,7 @@ export default function AdminDashboardPage() {
                         </span>
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Murni hasil voting publik via Midtrans Payment Gateway (Tidak dapat diedit atau dimanipulasi manual)
+                        Murni hasil voting publik via Xendit Payment Gateway (Tidak dapat diedit atau dimanipulasi manual)
                       </div>
                     </div>
                   </div>

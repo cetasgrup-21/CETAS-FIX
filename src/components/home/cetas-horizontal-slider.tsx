@@ -19,12 +19,12 @@ import { formatRupiah } from "@/lib/utils";
 
 interface CetasHorizontalSliderProps {
   events: UnifiedEvent[];
-  mode?: "score" | "vote";
+  mode?: "register" | "vote" | "score";
 }
 
 export function CetasHorizontalSlider({
   events,
-  mode = "score",
+  mode = "register",
 }: CetasHorizontalSliderProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -175,9 +175,17 @@ export function CetasHorizontalSlider({
                   </div>
                 </div>
 
-                {/* Main Action CTA Button (Katharekap Style) */}
+                {/* Main Action CTA Button */}
                 <div className="pt-2">
-                  {mode === "score" ? (
+                  {mode === "vote" ? (
+                    <Link
+                      href={`/vote?eventId=${ev.id}`}
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-amber-500/40 transition-all hover:scale-[1.02] active:scale-95"
+                    >
+                      <span>BUKA BILIK VOTE</span>
+                      <Vote className="h-4 w-4" />
+                    </Link>
+                  ) : mode === "score" ? (
                     <Link
                       href={`/tournament-hub`}
                       className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#126BDE] hover:bg-[#0055CC] text-white font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-95"
@@ -187,11 +195,11 @@ export function CetasHorizontalSlider({
                     </Link>
                   ) : (
                     <Link
-                      href={`/vote?eventId=${ev.id}`}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-amber-500/40 transition-all hover:scale-[1.02] active:scale-95"
+                      href={`/register-event?eventId=${ev.id}`}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#126BDE] hover:bg-[#0055CC] text-white font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-95"
                     >
-                      <span>BUKA BILIK VOTE</span>
-                      <Vote className="h-4 w-4" />
+                      <span>DAFTAR PESERTA SEKARANG</span>
+                      <ArrowRight className="h-4 w-4" />
                     </Link>
                   )}
                 </div>

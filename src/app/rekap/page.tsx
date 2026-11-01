@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import {
   useCallback,
@@ -2131,6 +2132,7 @@ export default function RekapPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Link href="/tournament-hub" target="_blank" className="rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:from-cyan-500 hover:to-emerald-500 flex items-center gap-1.5">🏆 Buka Tournament Hub Live</Link>
               <button
                 onClick={() =>
                   window.location.assign(

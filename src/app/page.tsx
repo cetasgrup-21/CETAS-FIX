@@ -6,6 +6,7 @@ import Image from "next/image";
 import {
   Ticket,
   Award,
+  Trophy,
   ShoppingBag,
   Send,
   ShieldCheck,
@@ -130,6 +131,16 @@ export default function HomePage() {
 
   const ecosystemPillars = [
     {
+      title: "CETAS Tournament Hub",
+      badge: "Next-Gen 3D & Radar",
+      description:
+        "Portal turnamen interaktif tercanggih: Visual Podium 3D Juara, Radar Analisis Juri (Spider Chart 5-Sumbu), Live Stage Tracker panggung arena, dan Sistem Sanggahan Digital 15 Menit.",
+      icon: Trophy,
+      href: "/tournament-hub",
+      accent: "from-cyan-500 to-emerald-500",
+      cta: "Buka Tournament Hub",
+    },
+    {
       title: "Cetas Ticketing",
       badge: "Anti-Fraud HMAC",
       description:
@@ -224,6 +235,13 @@ export default function HomePage() {
 
               {/* Action Buttons */}
               <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3">
+                <Link
+                  href="/tournament-hub"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black px-5 py-3.5 text-sm shadow-[0_0_20px_rgba(6,182,212,0.4)] transition transform hover:scale-105 active:scale-95"
+                >
+                  <Trophy className="h-4 w-4" />
+                  🏆 Tournament Hub (Live 3D & Radar)
+                </Link>
                 <Link
                   href="/events"
                   className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3.5 text-sm shadow-md shadow-blue-500/25 transition transform active:scale-95"

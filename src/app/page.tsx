@@ -31,7 +31,8 @@ import {
   Lock,
 } from "lucide-react";
 import { AntmanMascot } from "@/components/antman-mascot";
-import { CetasOpeningExperience } from "@/components/opening/cetas-opening-experience";
+import { CetasIntroAnimation } from "@/components/opening/cetas-intro-animation";
+import { CetasLoginModal } from "@/components/opening/cetas-login-modal";
 import { CetasHorizontalSlider } from "@/components/home/cetas-horizontal-slider";
 import { UnifiedEvent, getStoredEvents, saveStoredEvents } from "@/lib/events-unified-data";
 import { formatRupiah } from "@/lib/utils";
@@ -123,39 +124,40 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#070A12] text-slate-100 selection:bg-cyan-500 selection:text-slate-950 font-sans">
+    <div className="flex flex-col min-h-screen bg-[#06132E] text-white selection:bg-[#00D9FF] selection:text-slate-950 font-sans">
       {/* ============================================================== */}
-      {/* 0. WEBSITE OPENING & VECTOR LOGO INTRO ANIMATION               */}
+      {/* 0. WEBSITE OPENING ANIMATED MASCOT & LOGO INTRO (CETAS INTRO)  */}
       {/* ============================================================== */}
-      <CetasOpeningExperience />
+      <CetasIntroAnimation />
+      <CetasLoginModal />
 
       {/* ============================================================== */}
       {/* 1. HERO SECTION — MOVE DIFFERENT (HIGH CONTRAST SPORT-TECH)    */}
       {/* ============================================================== */}
-      <section className="relative overflow-hidden pt-8 pb-16 lg:py-24 bg-gradient-to-b from-[#0B0F19] via-[#070A12] to-[#070A12] border-b border-slate-800/80">
+      <section className="relative overflow-hidden pt-8 pb-16 lg:py-24 bg-gradient-to-b from-[#06132E] via-[#08193D] to-[#06132E] border-b border-blue-500/20">
         {/* Ambient background lighting */}
-        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[750px] h-[450px] bg-gradient-to-b from-cyan-500/15 via-emerald-500/10 to-transparent blur-3xl rounded-full" />
-        <div className="pointer-events-none absolute top-1/3 -right-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl" />
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[750px] h-[450px] bg-gradient-to-b from-[#00D9FF]/20 via-[#006BFF]/15 to-transparent blur-3xl rounded-full" />
+        <div className="pointer-events-none absolute top-1/3 -right-20 w-80 h-80 bg-[#006BFF]/20 rounded-full blur-3xl" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
             {/* Left Content Column */}
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               {/* Tagline Pill */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 border border-cyan-500/40 px-4 py-1.5 text-xs font-bold text-cyan-300 shadow-xs">
-                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#00D9FF]/15 border border-[#00D9FF]/50 px-4 py-1.5 text-xs font-bold text-[#00D9FF] shadow-md">
+                <Sparkles className="h-3.5 w-3.5 text-[#00D9FF]" />
                 <span>Not Just an Event. It&apos;s an Experience.</span>
               </div>
 
               {/* Main Headline */}
               <div className="space-y-3">
-                <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08]">
+                <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08] drop-shadow-md">
                   MOVE{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-teal-300 to-emerald-400 drop-shadow-[0_0_25px_rgba(6,182,212,0.5)]">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D9FF] via-[#38BDF8] to-[#006BFF] drop-shadow-[0_0_30px_rgba(0,217,255,0.6)]">
                     DIFFERENT.
                   </span>
                 </h1>
-                <p className="text-base sm:text-lg lg:text-xl font-medium text-slate-200 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                <p className="text-base sm:text-lg lg:text-xl font-medium text-white max-w-xl mx-auto lg:mx-0 leading-relaxed">
                   Satu platform untuk menemukan event, membeli tiket, memberikan dukungan, dan mengelola kompetisi.
                 </p>
               </div>
@@ -164,7 +166,7 @@ export default function HomePage() {
               <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3">
                 <a
                   href="#event-terbaru"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black px-6 py-4 text-sm shadow-[0_0_25px_rgba(6,182,212,0.45)] transition-all hover:scale-105 active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#00D9FF] to-[#006BFF] hover:from-[#00C2E5] hover:to-[#0055CC] text-slate-950 font-black px-6 py-4 text-sm shadow-[0_0_25px_rgba(0,217,255,0.45)] transition-all hover:scale-105 active:scale-95"
                 >
                   <Ticket className="h-4 w-4" />
                   <span>Jelajahi Event</span>
@@ -173,15 +175,15 @@ export default function HomePage() {
 
                 <a
                   href="#layanan"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-white font-bold px-6 py-4 text-sm border border-slate-700 hover:border-cyan-400 transition-all hover:scale-105 active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#0B1C3D] hover:bg-blue-900/60 text-white font-bold px-6 py-4 text-sm border border-blue-400/40 hover:border-[#00D9FF] transition-all hover:scale-105 active:scale-95 shadow-md"
                 >
-                  <Zap className="h-4 w-4 text-cyan-400" />
+                  <Zap className="h-4 w-4 text-[#00D9FF]" />
                   <span>Lihat Cara Kerja</span>
                 </a>
 
                 <Link
                   href="/tournament-hub"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 font-black px-5 py-4 text-sm shadow-[0_0_15px_rgba(245,158,11,0.25)] transition-all hover:scale-105 active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 font-black px-5 py-4 text-sm shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all hover:scale-105 active:scale-95"
                 >
                   <Trophy className="h-4 w-4 text-amber-400" />
                   <span>3D Tournament Hub</span>
@@ -190,55 +192,55 @@ export default function HomePage() {
 
               {/* Trust Metric Chips in High-Contrast Dark Glass */}
               <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto lg:mx-0">
-                <div className="p-3.5 rounded-2xl bg-[#0B0F19]/90 border border-slate-700/80 shadow-md text-center">
-                  <div className="text-xl font-black text-cyan-400 font-mono">0 Detik</div>
-                  <div className="text-[10px] text-slate-300 font-medium">Rekap Juri Live</div>
+                <div className="p-3.5 rounded-2xl bg-[#0B1C3D] border border-blue-500/40 shadow-lg text-center">
+                  <div className="text-xl font-black text-[#00D9FF] font-mono">0 Detik</div>
+                  <div className="text-[11px] text-slate-100 font-bold">Rekap Juri Live</div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-[#0B0F19]/90 border border-slate-700/80 shadow-md text-center">
+                <div className="p-3.5 rounded-2xl bg-[#0B1C3D] border border-blue-500/40 shadow-lg text-center">
                   <div className="text-xl font-black text-white font-mono">100% Sah</div>
-                  <div className="text-[10px] text-slate-300 font-medium">Bebas Manipulasi</div>
+                  <div className="text-[11px] text-slate-100 font-bold">Bebas Manipulasi</div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-[#0B0F19]/90 border border-slate-700/80 shadow-md text-center">
+                <div className="p-3.5 rounded-2xl bg-[#0B1C3D] border border-blue-500/40 shadow-lg text-center">
                   <div className="text-xl font-black text-emerald-400 font-mono">Anti-Bot</div>
-                  <div className="text-[10px] text-slate-300 font-medium">QRIS E-Voting</div>
+                  <div className="text-[11px] text-slate-100 font-bold">QRIS E-Voting</div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-[#0B0F19]/90 border border-slate-700/80 shadow-md text-center">
+                <div className="p-3.5 rounded-2xl bg-[#0B1C3D] border border-blue-500/40 shadow-lg text-center">
                   <div className="text-xl font-black text-amber-400 font-mono">Satu Atap</div>
-                  <div className="text-[10px] text-slate-300 font-medium">Production Vendor</div>
+                  <div className="text-[11px] text-slate-100 font-bold">Production Vendor</div>
                 </div>
               </div>
             </div>
 
             {/* Right Mascot Column — ANTY MASCOT WITH 3D STAGE & GLOW */}
             <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[480px] h-[380px] sm:h-[480px] bg-gradient-to-tr from-cyan-500/25 via-emerald-500/20 to-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[480px] h-[380px] sm:h-[480px] bg-gradient-to-tr from-[#00D9FF]/25 via-[#006BFF]/25 to-blue-900/30 rounded-full blur-3xl pointer-events-none" />
 
               {/* Floating Interactive Speech Bubble */}
               <div className="w-full max-w-sm mb-2 z-20">
-                <div className="relative rounded-2xl bg-slate-900/95 backdrop-blur-md p-3.5 shadow-2xl border border-cyan-500/50 transition-transform hover:scale-[1.02]">
+                <div className="relative rounded-2xl bg-[#0B1C3D]/95 backdrop-blur-md p-3.5 shadow-2xl border border-[#00D9FF]/70 transition-transform hover:scale-[1.02]">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-1.5">
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                       </span>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 font-mono">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#00D9FF] font-mono">
                         ANTY • Maskot Resmi CETAS
                       </span>
                     </div>
-                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-[#00D9FF]/20 text-[#00D9FF] border border-[#00D9FF]/50">
                       Move Different
                     </span>
                   </div>
-                  <p className="text-xs font-semibold text-white leading-snug">
+                  <p className="text-xs font-bold text-white leading-snug">
                     &ldquo;Halo sobat turnamen! 👋 Mau beli tiket, dukung tim di bilik vote, atau pantau rekap juri? Semua serba cepat bareng Anty!&rdquo;
                   </p>
-                  <div className="absolute -bottom-1.5 left-12 w-3 h-3 bg-slate-900 border-b border-r border-cyan-500/50 transform rotate-45 pointer-events-none" />
+                  <div className="absolute -bottom-1.5 left-12 w-3 h-3 bg-[#0B1C3D] border-b border-r border-[#00D9FF]/70 transform rotate-45 pointer-events-none" />
                 </div>
               </div>
 
               {/* The Mascot with Floating Animation */}
-              <div className="relative z-10 animate-mascot-float">
+              <div className="relative z-10 animate-mascot-gentle-breathe">
                 <AntmanMascot pose="waving" size={480} />
               </div>
 
@@ -248,7 +250,7 @@ export default function HomePage() {
                   href="https://wa.me/6281584682345?text=Halo%20Anty%2C%20saya%20mau%20konsultasi%20layanan%20CETAS."
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-transform active:scale-95 group"
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 group"
                 >
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-4 w-4 fill-white" />
@@ -263,34 +265,34 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 2. EVENT & VOTE HORIZONTAL CAROUSEL (PERSIS KAYA GAMBAR 2)     */}
+      {/* 2. EVENT & VOTE HORIZONTAL CAROUSEL (KATHAREKAP STYLE)         */}
       {/* ============================================================== */}
-      <section id="event-terbaru" className="py-16 sm:py-24 bg-[#070A12] border-b border-slate-800/80">
+      <section id="event-terbaru" className="py-16 sm:py-24 bg-[#06132E] border-b border-blue-500/20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
           {/* Section Header with Mode Toggle */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-400 px-3.5 py-1 text-xs font-bold border border-emerald-500/30">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 text-emerald-300 px-3.5 py-1 text-xs font-black border border-emerald-400/40 shadow-xs">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Pusat Turnamen & Bilik Suara Publik</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
                 {sliderMode === "score" ? "Event & Live Scoring" : "Bilik E-Voting Turnamen"}
               </h2>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
+              <p className="text-xs sm:text-sm text-slate-100 font-medium max-w-xl">
                 Gulir kartu event di bawah untuk melihat live scoreboard, membeli tiket resmi, atau memberikan suara vote favorit secara realtime.
               </p>
             </div>
 
             {/* Slider Mode Switcher: Scoring vs Voting */}
-            <div className="flex items-center gap-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 p-1.5">
+            <div className="flex items-center gap-1.5 rounded-2xl bg-[#0B1C3D] border border-blue-500/40 p-1.5 shadow-md">
               <button
                 type="button"
                 onClick={() => setSliderMode("score")}
                 className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
                   sliderMode === "score"
-                    ? "bg-cyan-500 text-slate-950 shadow-md"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-[#00D9FF] text-slate-950 shadow-md shadow-cyan-500/30"
+                    : "text-slate-200 hover:text-white"
                 }`}
               >
                 <Trophy className="h-3.5 w-3.5" />
@@ -301,8 +303,8 @@ export default function HomePage() {
                 onClick={() => setSliderMode("vote")}
                 className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition-all ${
                   sliderMode === "vote"
-                    ? "bg-amber-400 text-slate-950 shadow-md"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-amber-400 text-slate-950 shadow-md shadow-amber-500/30"
+                    : "text-slate-200 hover:text-white"
                 }`}
               >
                 <Vote className="h-3.5 w-3.5" />
@@ -313,8 +315,8 @@ export default function HomePage() {
 
           {/* Horizontal Coverflow Slider Component */}
           {isLoadingEvents ? (
-            <div className="py-16 text-center text-slate-400 text-sm">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-400 mb-3" />
+            <div className="py-16 text-center text-slate-200 text-sm">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-[#00D9FF] mb-3" />
               <span>Memuat kartu event interaktif...</span>
             </div>
           ) : (
@@ -324,20 +326,20 @@ export default function HomePage() {
       </section>
 
       {/* ============================================================== */}
-      {/* 3. SERVICE SECTION — 4 LAYANAN CETAS (DARK SPORT-TECH)         */}
+      {/* 3. SERVICE SECTION — 4 LAYANAN CETAS (HIGH CONTRAST)           */}
       {/* ============================================================== */}
-      <section id="layanan" className="py-16 sm:py-24 bg-[#0B0F19]/90 border-b border-slate-800/80">
+      <section id="layanan" className="py-16 sm:py-24 bg-[#08193D] border-b border-blue-500/20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
           {/* Section Header */}
           <div className="text-center max-w-2xl mx-auto space-y-3">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 text-cyan-300 px-3.5 py-1 text-xs font-bold border border-cyan-500/30">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[#00D9FF]/15 text-[#00D9FF] px-3.5 py-1 text-xs font-black border border-[#00D9FF]/40">
+              <Sparkles className="h-3.5 w-3.5 text-[#00D9FF]" />
               <span>Ekosistem Turnamen Terintegrasi</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
               Empat Pilar Layanan CETAS
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-100 font-medium leading-relaxed">
               Dari pengadaan tiket, bilik suara publik, perlengkapan panggung rigging, hingga engine rekap juri resmi tanpa kompromi.
             </p>
           </div>
@@ -349,7 +351,7 @@ export default function HomePage() {
               return (
                 <div
                   key={svc.id}
-                  className="group relative flex flex-col justify-between rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl hover:border-cyan-500/60 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] transition-all duration-300 hover:-translate-y-1"
+                  className="group relative flex flex-col justify-between rounded-3xl border border-blue-500/35 bg-[#0B1C3D] p-6 shadow-xl hover:border-[#00D9FF] hover:shadow-[0_0_30px_rgba(0,217,255,0.25)] transition-all duration-300 hover:-translate-y-1"
                 >
                   <div className="space-y-4">
                     {/* Icon & Badge */}
@@ -359,23 +361,23 @@ export default function HomePage() {
                       >
                         <Icon className="h-6 w-6" />
                       </div>
-                      <span className="rounded-full bg-slate-800 border border-slate-700 px-2.5 py-0.5 text-[10px] font-mono font-bold text-slate-300">
+                      <span className="rounded-full bg-blue-950/90 border border-blue-400/40 px-2.5 py-0.5 text-[10px] font-mono font-bold text-[#00D9FF]">
                         {svc.badge}
                       </span>
                     </div>
 
                     {/* Title & Subtitle */}
                     <div>
-                      <h3 className="text-lg font-black text-white group-hover:text-cyan-400 transition-colors">
+                      <h3 className="text-lg font-black text-white group-hover:text-[#00D9FF] transition-colors">
                         {svc.title}
                       </h3>
-                      <p className="text-xs font-bold text-slate-300 mt-0.5">
+                      <p className="text-xs font-bold text-cyan-200 mt-0.5">
                         {svc.subtitle}
                       </p>
                     </div>
 
                     {/* Description */}
-                    <p className="text-xs text-slate-300 leading-relaxed">
+                    <p className="text-xs text-slate-100 font-normal leading-relaxed">
                       {svc.description}
                     </p>
                   </div>
@@ -384,7 +386,7 @@ export default function HomePage() {
                   <div className="pt-6">
                     <Link
                       href={svc.href}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-400 group-hover:text-cyan-300 group-hover:underline"
+                      className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#00D9FF] group-hover:text-white group-hover:underline"
                     >
                       <span>Buka Layanan</span>
                       <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
@@ -400,41 +402,41 @@ export default function HomePage() {
       {/* ============================================================== */}
       {/* 4. STATISTICS SECTION (SPORT-TECH COUNTERS)                    */}
       {/* ============================================================== */}
-      <section className="py-16 bg-[#070A12] text-white relative overflow-hidden border-b border-slate-800/80">
-        <div className="pointer-events-none absolute -bottom-10 left-1/3 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+      <section className="py-16 bg-[#06132E] text-white relative overflow-hidden border-b border-blue-500/20">
+        <div className="pointer-events-none absolute -bottom-10 left-1/3 w-96 h-96 bg-[#00D9FF]/15 rounded-full blur-3xl" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div className="p-4 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-cyan-400 font-mono">
+              <div className="text-3xl sm:text-5xl font-black text-[#00D9FF] font-mono drop-shadow-[0_0_15px_rgba(0,217,255,0.4)]">
                 {totalEventsCount > 0 ? `${totalEventsCount}+` : "24+"}
               </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-200">Event Terselenggara</p>
-              <p className="text-[10px] text-slate-400">Skala Daerah & Nasional</p>
+              <p className="text-xs sm:text-sm font-black text-white">Event Terselenggara</p>
+              <p className="text-[11px] text-cyan-200 font-semibold">Skala Daerah & Nasional</p>
             </div>
 
             <div className="p-4 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-emerald-400 font-mono">
+              <div className="text-3xl sm:text-5xl font-black text-emerald-400 font-mono drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">
                 {totalTeamsCount > 0 ? `${totalTeamsCount}+` : "1.200+"}
               </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-200">Tim & Kontingen</p>
-              <p className="text-[10px] text-slate-400">SD, SMP, SMA, & Purna</p>
+              <p className="text-xs sm:text-sm font-black text-white">Tim & Kontingen</p>
+              <p className="text-[11px] text-cyan-200 font-semibold">SD, SMP, SMA, & Purna</p>
             </div>
 
             <div className="p-4 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-cyan-300 font-mono">
+              <div className="text-3xl sm:text-5xl font-black text-cyan-300 font-mono drop-shadow-[0_0_15px_rgba(6,182,212,0.4)]">
                 0 Detik
               </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-200">Rekapitulasi Juri</p>
-              <p className="text-[10px] text-slate-400">Real-time Zero-Touch Engine</p>
+              <p className="text-xs sm:text-sm font-black text-white">Rekapitulasi Juri</p>
+              <p className="text-[11px] text-cyan-200 font-semibold">Real-time Zero-Touch Engine</p>
             </div>
 
             <div className="p-4 space-y-1">
-              <div className="text-3xl sm:text-5xl font-black text-amber-400 font-mono">
+              <div className="text-3xl sm:text-5xl font-black text-amber-400 font-mono drop-shadow-[0_0_15px_rgba(245,158,11,0.4)]">
                 100%
               </div>
-              <p className="text-xs sm:text-sm font-bold text-slate-200">Sah & Terverifikasi</p>
-              <p className="text-[10px] text-slate-400">HMAC QR & Berita Acara Juri</p>
+              <p className="text-xs sm:text-sm font-black text-white">Sah & Terverifikasi</p>
+              <p className="text-[11px] text-cyan-200 font-semibold">HMAC QR & Berita Acara Juri</p>
             </div>
           </div>
         </div>
@@ -443,21 +445,21 @@ export default function HomePage() {
       {/* ============================================================== */}
       {/* 5. LEGAL & BANTUAN SECTION (PERSIS KAYA GAMBAR 1 DARI USER)     */}
       {/* ============================================================== */}
-      <section id="bantuan" className="py-16 sm:py-20 bg-[#0B0F19]/80 border-b border-slate-800/80">
+      <section id="bantuan" className="py-16 sm:py-20 bg-[#08193D] border-b border-blue-500/20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1 text-xs font-extrabold text-emerald-400 mb-2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-3.5 py-1 text-xs font-black text-emerald-300 mb-2 shadow-sm">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                 </span>
                 <span>All Systems Operational • Uptime 99.9%</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Pusat Bantuan & Jaminan Legalitas CETAS
               </h2>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-xl mt-1">
+              <p className="text-xs sm:text-sm text-slate-100 font-medium max-w-xl mt-1">
                 Transparansi, keamanan transaksi, dan perlindungan data peserta adalah komitmen utama kami.
               </p>
             </div>
@@ -466,7 +468,7 @@ export default function HomePage() {
               href="https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20butuh%20bantuan%20terkait%20event."
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-4 py-2.5 text-xs shadow-md"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black px-4 py-2.5 text-xs shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
             >
               <MessageCircle className="h-4 w-4" />
               <span>Hubungi Helpdesk 24/7</span>
@@ -475,42 +477,42 @@ export default function HomePage() {
 
           {/* Quick FAQ / Help Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
-              <div className="flex items-center gap-2 text-cyan-400">
+            <div className="rounded-2xl border border-blue-500/35 bg-[#0B1C3D] p-4 space-y-2 shadow-lg">
+              <div className="flex items-center gap-2 text-[#00D9FF]">
                 <HelpCircle className="h-5 w-5" />
-                <h4 className="text-sm font-bold text-white">FAQ (Tanya Jawab)</h4>
+                <h4 className="text-sm font-black text-white">FAQ (Tanya Jawab)</h4>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-100 font-medium leading-relaxed">
                 Panduan lengkap cara pembelian tiket QR, registrasi tim, dan penggunaan aplikasi juri.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
+            <div className="rounded-2xl border border-blue-500/35 bg-[#0B1C3D] p-4 space-y-2 shadow-lg">
               <div className="flex items-center gap-2 text-amber-400">
                 <Trophy className="h-5 w-5" />
-                <h4 className="text-sm font-bold text-white">Paket & Harga</h4>
+                <h4 className="text-sm font-black text-white">Paket & Harga</h4>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-100 font-medium leading-relaxed">
                 Skema sewa sistem scoring, gate scanner, sound system line-array, dan videotron LED.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
+            <div className="rounded-2xl border border-blue-500/35 bg-[#0B1C3D] p-4 space-y-2 shadow-lg">
               <div className="flex items-center gap-2 text-emerald-400">
                 <Users className="h-5 w-5" />
-                <h4 className="text-sm font-bold text-white">Testimoni Pelatih & Juri</h4>
+                <h4 className="text-sm font-black text-white">Testimoni Pelatih & Juri</h4>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-100 font-medium leading-relaxed">
                 Ulasan kepuasan dewan juri nasional dan pelatih kontingen terhadap kecepatan 0 detik CETAS.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
+            <div className="rounded-2xl border border-blue-500/35 bg-[#0B1C3D] p-4 space-y-2 shadow-lg">
               <div className="flex items-center gap-2 text-indigo-400">
                 <ShieldCheck className="h-5 w-5" />
-                <h4 className="text-sm font-bold text-white">Refund & Garansi</h4>
+                <h4 className="text-sm font-black text-white">Refund & Garansi</h4>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-100 font-medium leading-relaxed">
                 Jaminan pengembalian dana 100% apabila event dibatalkan oleh pihak penyelenggara resmi.
               </p>
             </div>
@@ -521,23 +523,23 @@ export default function HomePage() {
       {/* ============================================================== */}
       {/* 6. TENTANG CETAS SECTION                                       */}
       {/* ============================================================== */}
-      <section id="tentang" className="py-16 sm:py-24 bg-[#070A12]">
+      <section id="tentang" className="py-16 sm:py-24 bg-[#06132E]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-3xl border border-slate-800 bg-[#0B0F19]/90 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-            <div className="pointer-events-none absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 blur-3xl rounded-full" />
+          <div className="rounded-3xl border border-blue-500/35 bg-[#0B1C3D] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+            <div className="pointer-events-none absolute top-0 right-0 w-96 h-96 bg-[#00D9FF]/15 blur-3xl rounded-full" />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
               <div className="lg:col-span-8 space-y-4">
-                <span className="text-xs font-black uppercase tracking-wider text-cyan-400 font-mono">
+                <span className="text-xs font-black uppercase tracking-wider text-[#00D9FF] font-mono">
                   Tentang Platform CETAS
                 </span>
                 <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
                   Mengapa Kami Memilih &ldquo;MOVE DIFFERENT&rdquo;?
                 </h2>
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
+                <p className="text-xs sm:text-sm text-slate-100 leading-relaxed font-normal">
                   Kompetisi dan acara modern tidak lagi bisa dikelola dengan cara konvensional yang rawan sengketa, manipulasi nilai, dan antrean tiket berantakan. CETAS hadir untuk menyatukan seluruh siklus hidup turnamen — mulai dari pendaftaran kontingen, penjualan tiket anti-duplikasi, voting publik via QRIS, penilaian dewan juri tanpa jeda, hingga peralatan panggung konser — dalam satu ekosistem digital yang kokoh dan berkesan.
                 </p>
-                <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold text-slate-200">
+                <div className="pt-2 flex flex-wrap gap-4 text-xs font-bold text-white">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                     <span>Transparansi 100% Dewan Hakim</span>
@@ -553,17 +555,17 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl text-center space-y-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+              <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-[#06132E] border border-blue-500/40 shadow-xl text-center space-y-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00D9FF]/15 text-[#00D9FF] border border-[#00D9FF]/40">
                   <Sparkles className="h-7 w-7" />
                 </div>
                 <h4 className="text-base font-black text-white">Ingin Berkolaborasi?</h4>
-                <p className="text-xs text-slate-300">
+                <p className="text-xs text-slate-200">
                   Gunakan CETAS untuk turnamen sekolah, kompetisi baris-berbaris, atau festival musik Anda.
                 </p>
                 <Link
                   href="/ajukan-event"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black py-3 text-xs shadow-lg shadow-cyan-500/25 transition-transform active:scale-95"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#00D9FF] to-[#006BFF] hover:from-[#00C2E5] hover:to-[#0055CC] text-slate-950 font-black py-3 text-xs shadow-lg shadow-cyan-500/30 transition-transform active:scale-95"
                 >
                   <span>Daftarkan Event Anda</span>
                   <ArrowRight className="h-3.5 w-3.5" />

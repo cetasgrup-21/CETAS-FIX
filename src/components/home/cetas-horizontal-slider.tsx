@@ -118,16 +118,16 @@ export function CetasHorizontalSlider({
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
 
-              {/* Gradient Dark Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/20" />
+              {/* Gradient Dark Overlay with High Contrast Bottom Pad */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#06132E] via-[#06132E]/75 to-black/30 pointer-events-none" />
 
               {/* Top Badges */}
               <div className="relative z-10 p-4 flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 backdrop-blur-md px-3 py-1 text-[10px] font-black uppercase text-slate-950 shadow-md">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400 px-3 py-1 text-[10px] font-black uppercase text-slate-950 shadow-lg shadow-emerald-500/30">
                   <span className="h-2 w-2 rounded-full bg-slate-950 animate-pulse" />
                   LIVE / BERJALAN
                 </span>
-                <span className="rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 px-3 py-1 text-[10px] font-extrabold uppercase text-white shadow-sm font-mono">
+                <span className="rounded-full bg-[#06132E]/90 backdrop-blur-md border border-[#00D9FF]/50 px-3 py-1 text-[10px] font-black uppercase text-white shadow-md font-mono">
                   {ev.category || "KOMPETISI"}
                 </span>
               </div>
@@ -135,28 +135,28 @@ export function CetasHorizontalSlider({
               {/* Middle / Bottom Content */}
               <div className="relative z-10 p-5 space-y-4">
                 {/* Price Tag Overlay */}
-                <div className="inline-block rounded-xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 px-3 py-1 shadow-lg">
-                  <span className="text-xs font-black font-mono text-cyan-400">
+                <div className="inline-block rounded-xl bg-[#06132E]/95 backdrop-blur-md border border-[#00D9FF]/70 px-3 py-1 shadow-xl">
+                  <span className="text-xs font-black font-mono text-[#00D9FF] drop-shadow-[0_0_8px_rgba(0,217,255,0.4)]">
                     {lowestPrice > 0 ? `${formatRupiah(lowestPrice)}/TIM` : "TERBUKA / GRATIS"}
                   </span>
                 </div>
 
                 {/* Event Title */}
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-md group-hover:text-cyan-300 transition-colors">
+                  <h3 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] group-hover:text-[#00D9FF] transition-colors">
                     {ev.title}
                   </h3>
                 </div>
 
-                {/* Date & Location */}
-                <div className="space-y-1.5 text-xs text-slate-300 font-medium">
+                {/* Date & Location - Ultra High Contrast */}
+                <div className="space-y-1.5 text-xs text-white font-bold drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-cyan-400 shrink-0" />
-                    <span>{ev.date}</span>
+                    <Calendar className="h-4 w-4 text-[#00D9FF] shrink-0 drop-shadow-[0_0_8px_#00D9FF]" />
+                    <span className="text-slate-100">{ev.date}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-cyan-400 shrink-0" />
-                    <span className="truncate">{ev.location}</span>
+                    <MapPin className="h-4 w-4 text-[#00D9FF] shrink-0 drop-shadow-[0_0_8px_#00D9FF]" />
+                    <span className="text-slate-100 truncate">{ev.location}</span>
                   </div>
                 </div>
 
@@ -165,7 +165,7 @@ export function CetasHorizontalSlider({
                   {mode === "score" ? (
                     <Link
                       href={`/tournament-hub`}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] active:scale-95"
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#006BFF] to-[#00D9FF] hover:from-[#0055CC] hover:to-[#00C2E5] text-white font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-blue-500/40 transition-all hover:scale-[1.02] active:scale-95"
                     >
                       <span>BUKA LIVE SCORING</span>
                       <ArrowRight className="h-4 w-4" />
@@ -173,7 +173,7 @@ export function CetasHorizontalSlider({
                   ) : (
                     <Link
                       href={`/vote?eventId=${ev.id}`}
-                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-amber-500/30 transition-all hover:scale-[1.02] active:scale-95"
+                      className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black py-3 text-xs uppercase tracking-wider shadow-lg shadow-amber-500/40 transition-all hover:scale-[1.02] active:scale-95"
                     >
                       <span>BUKA BILIK VOTE</span>
                       <Vote className="h-4 w-4" />
@@ -198,10 +198,10 @@ export function CetasHorizontalSlider({
 
           {/* Headline */}
           <div className="relative z-10 space-y-2 mb-8">
-            <h3 className="text-2xl font-black text-white uppercase tracking-wider">
+            <h3 className="text-2xl font-black text-white uppercase tracking-wider drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
               LIHAT SEMUA EVENT
             </h3>
-            <p className="text-xs text-slate-300 max-w-[220px] mx-auto leading-relaxed">
+            <p className="text-xs text-slate-100 font-semibold max-w-[220px] mx-auto leading-relaxed drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
               Jelajahi seluruh arsip kompetisi, jadwal mendatang & live score turnamen.
             </p>
           </div>
@@ -209,7 +209,7 @@ export function CetasHorizontalSlider({
           {/* Action Button */}
           <Link
             href="/events"
-            className="relative z-10 inline-flex items-center justify-center gap-2 rounded-full bg-white hover:bg-slate-100 text-[#071A3D] font-black px-6 py-3 text-xs tracking-wider shadow-lg transition-all hover:scale-105 active:scale-95"
+            className="relative z-10 inline-flex items-center justify-center gap-2 rounded-full bg-white hover:bg-cyan-50 text-[#06132E] font-black px-6 py-3 text-xs tracking-wider shadow-xl transition-all hover:scale-105 active:scale-95"
           >
             <span>BUKA DIREKTORI</span>
             <ChevronRight className="h-4 w-4" />

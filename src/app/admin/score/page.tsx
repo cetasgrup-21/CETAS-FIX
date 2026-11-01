@@ -704,20 +704,13 @@ export default function AdminPage() {
       cancelDuplicateCategory();
 
       if (targetEventId === event?.id) {
-        if (newCategory) {
-          setEvent((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              categories: [...prev.categories, newCategory],
-            };
-          });
+        await load(true);
+        if (newCategory?.id) {
           setSelectedCategory(newCategory.id);
           if (newCategory.eventLevelId) {
             setSelectedLevelForEdit(newCategory.eventLevelId);
           }
         }
-        await load(true);
         alert(`Berhasil menduplikat kategori ke "${targetLevelName}"!`);
         setMessage(`Kategori "${duplicateTargetName.trim()}" berhasil diduplikat ke tingkatan "${targetLevelName}".`);
       } else {
@@ -1911,9 +1904,9 @@ export default function AdminPage() {
                                 <div>
                                   <b className="text-lg">{c.name}</b>
                                   <div className="text-xs text-slate-400">
-                                    {c.criteria.length +
-                                      c.subCategories.reduce(
-                                        (n, s) => n + s.criteria.length,
+                                    {(c.criteria?.length || 0) +
+                                      (c.subCategories || []).reduce(
+                                        (n, s) => n + (s.criteria?.length || 0),
                                         0
                                       )}{" "}
                                     materi
@@ -2154,8 +2147,10 @@ export default function AdminPage() {
 
             {/* SUBKATEGORI */}
             <div className="space-y-4">
-              {selectedCategoryData?.subCategories.map(
+              {(selectedCategoryData?.subCategories || []).map(
                 (s) => {
+                  const subList = selectedCategoryData?.subCategories || [];
+                  const subIndex = subList.findIndex((item) => item.id === s.id);
                   const isAdding =
                     activeMaterialSubCategory === s.id;
 
@@ -2183,18 +2178,12 @@ export default function AdminPage() {
                             onClick={() =>
                               moveSubCategory(
                                 selectedCategory,
-                                selectedCategoryData?.subCategories || [],
-                                selectedCategoryData?.subCategories.findIndex(
-                                  (item) => item.id === s.id
-                                ) ?? -1,
+                                subList,
+                                subIndex,
                                 -1
                               )
                             }
-                            disabled={
-                              (selectedCategoryData?.subCategories.findIndex(
-                                (item) => item.id === s.id
-                              ) ?? 0) === 0
-                            }
+                            disabled={subIndex <= 0}
                             className="rounded-lg border px-3 py-1.5 text-sm font-bold text-[#071a3d] disabled:cursor-not-allowed disabled:opacity-30"
                             title="Naikkan subkategori"
                           >
@@ -2206,19 +2195,12 @@ export default function AdminPage() {
                             onClick={() =>
                               moveSubCategory(
                                 selectedCategory,
-                                selectedCategoryData?.subCategories || [],
-                                selectedCategoryData?.subCategories.findIndex(
-                                  (item) => item.id === s.id
-                                ) ?? -1,
+                                subList,
+                                subIndex,
                                 1
                               )
                             }
-                            disabled={
-                              (selectedCategoryData?.subCategories.findIndex(
-                                (item) => item.id === s.id
-                              ) ?? -1) ===
-                              (selectedCategoryData?.subCategories.length ?? 1) - 1
-                            }
+                            disabled={subIndex === -1 || subIndex >= subList.length - 1}
                             className="rounded-lg border px-3 py-1.5 text-sm font-bold text-[#071a3d] disabled:cursor-not-allowed disabled:opacity-30"
                             title="Turunkan subkategori"
                           >
@@ -2276,12 +2258,12 @@ export default function AdminPage() {
 
                       {/* DAFTAR MATERI */}
                       <div className="mt-3 space-y-2">
-                        {s.criteria.length === 0 ? (
+                        {(s.criteria || []).length === 0 ? (
                           <div className="rounded-lg border border-dashed bg-white px-4 py-4 text-center text-sm text-slate-400">
                             Belum ada materi
                           </div>
                         ) : (
-                          s.criteria.map((m, i) => (
+                          (s.criteria || []).map((m, i) => (
                             <div key={m.id} className="space-y-2">
                               <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
                                 <div className="min-w-0">

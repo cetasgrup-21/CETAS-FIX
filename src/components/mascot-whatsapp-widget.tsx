@@ -77,8 +77,8 @@ export function MascotWhatsAppWidget() {
     if (pathname.startsWith("/admin")) {
       return {
         tag: "Helpdesk Admin",
-        speech: "Halo Rekan Cetas! Perlu bantuan teknis sistem atau integrasi DOKU Direct API?",
-        defaultPrompt: "Halo Lead Developer Cetas, saya membutuhkan asistensi teknis backoffice admin.",
+        speech: "Halo Rekan Cetas! Perlu bantuan teknis sistem scoring, tiket, atau kendala operasional?",
+        defaultPrompt: "Halo Tim Teknis Cetas, saya membutuhkan asistensi teknis seputar sistem backoffice admin.",
       };
     }
     return {
@@ -92,28 +92,28 @@ export function MascotWhatsAppWidget() {
 
   const quickActions: QuickAction[] = [
     {
-      id: "ticket",
-      label: "Beli / Bantuan Tiket Event",
-      icon: Ticket,
-      message: "Halo Anty, saya ingin menanyakan ketersediaan tiket dan bantuan verifikasi pembayaran e-tiket.",
-    },
-    {
-      id: "vote",
-      label: "Bantuan Bilik Voting & QRIS",
+      id: "vote_error",
+      label: "Vote Gagal / Koin Belum Masuk",
       icon: Award,
-      message: "Halo Anty, saya ingin meminta panduan e-voting Cetas Vote dan konfirmasi pembayaran suara via QRIS.",
+      message: "Halo CS Cetas, saya mengalami kendala pada Cetas Vote: pembayaran sudah berhasil tetapi suara / vote belum masuk atau bertambah. Mohon bantuannya.",
     },
     {
-      id: "production",
-      label: "Sewa Sound, Lighting & LED",
-      icon: ShoppingBag,
-      message: "Halo Tim Cetas Production, saya butuh penawaran paket sewa sound system, lighting, videotron & panggung.",
+      id: "ticket_missing",
+      label: "E-Tiket QR Belum Diterima",
+      icon: Ticket,
+      message: "Halo Tim Tiket Cetas, saya sudah menyelesaikan pembayaran tiket event tetapi belum menerima file e-tiket / QR code di WhatsApp atau email saya. Mohon dicekkan pesanan saya.",
     },
     {
-      id: "ajukan",
-      label: "Kerjasama & Pengajuan Event",
+      id: "payment_issue",
+      label: "Kendala Pembayaran / QRIS",
+      icon: Zap,
+      message: "Halo CS Cetas, pembayaran saya mengalami kendala (transaksi tertunda / QRIS tidak muncul / status belum terverifikasi). Mohon bantuan teknisnya.",
+    },
+    {
+      id: "reg_issue",
+      label: "Kendala Pendaftaran Peserta",
       icon: SendIcon,
-      message: "Halo Tim Cetas, kami dari panitia event ingin mengajukan proposal kerjasama ticketing & publikasi.",
+      message: "Halo Panitia Cetas, saya mengalami kendala teknis saat registrasi peserta / upload berkas kontingen lomba. Mohon panduan.",
     },
   ];
 
@@ -343,7 +343,7 @@ export function MascotWhatsAppWidget() {
                 </div>
                 <div className="p-2 rounded-lg bg-red-50/60 border border-red-100">
                   <div className="text-[10px] text-slate-500">Payment Gateway</div>
-                  <div className="text-xs font-bold text-[#E1251B]">DOKU QRIS & E-Wallet</div>
+                  <div className="text-xs font-bold text-blue-700">QRIS & E-Wallet</div>
                 </div>
                 <div className="p-2 rounded-lg bg-blue-50/60 border border-blue-100">
                   <div className="text-[10px] text-slate-500">Vendor Terpercaya</div>

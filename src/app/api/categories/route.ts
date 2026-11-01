@@ -339,10 +339,30 @@ export async function POST(req: Request) {
         console.warn("Background regenerate options warning on duplicate:", err);
       });
 
+      const fullCategory = await db.category.findUnique({
+        where: { id: newCategory.id },
+        include: {
+          subCategories: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              criteria: {
+                orderBy: { sortOrder: "asc" },
+                include: { material: true },
+              },
+            },
+          },
+          criteria: {
+            where: { subCategoryId: null },
+            orderBy: { sortOrder: "asc" },
+            include: { material: true },
+          },
+        },
+      });
+
       return NextResponse.json(
         {
           success: true,
-          category: newCategory,
+          category: fullCategory || newCategory,
           message: `Kategori "${targetName}" berhasil diduplikat${
             targetEventId !== event.id ? ` ke event "${targetEvent.name}"` : ""
           }.`,

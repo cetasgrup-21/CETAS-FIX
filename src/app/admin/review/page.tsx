@@ -97,7 +97,8 @@ function formatNumber(value: number) {
 
 /* =========================================================
    DEFAULT PEMBAGIAN LEMBAR
-   PBB + DANTON otomatis digabung.
+   Sesuai konfigurasi admin (default 1 kategori per lembar,
+   admin bebas menggabungkan atau memisahkan di Atur Lembar).
 ========================================================= */
 
 function defaultSheets(categories: Category[]): SheetConfig[] {
@@ -124,30 +125,7 @@ function defaultSheets(categories: Category[]): SheetConfig[] {
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
-    const pbb = sorted.find((c) => normalize(c.name) === "PBB");
-    const danton = sorted.find(
-      (c) =>
-        normalize(c.name) === "DANTON" ||
-        normalize(c.name) === "KOMANDAN" ||
-        normalize(c.name).includes("DANTON") ||
-        normalize(c.name).includes("KOMANDAN")
-    );
-    const used = new Set<string>();
-    const levelId = sorted[0]?.eventLevelId || null;
-
-    if (pbb && danton) {
-      sheets.push({
-        id: `sheet-${sheetIndex++}`,
-        levelId,
-        categoryIds: [pbb.id, danton.id],
-      });
-      used.add(pbb.id);
-      used.add(danton.id);
-    }
-
     for (const category of sorted) {
-      if (used.has(category.id)) continue;
-
       sheets.push({
         id: `sheet-${sheetIndex++}`,
         levelId: category.eventLevelId || null,
@@ -1309,11 +1287,9 @@ export default function AdminReviewPage() {
             </b>
 
             <p>
-              Default: PBB +
-              Danton digabung.
-              Pembagian dapat
-              diubah sesuai
-              kebutuhan admin.
+              Atur pembagian kategori ke dalam lembar
+              sesuai kebutuhan. Kategori dapat digabung
+              atau dipisah per lembar.
             </p>
           </div>
 

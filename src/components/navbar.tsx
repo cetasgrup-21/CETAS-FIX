@@ -51,14 +51,14 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* ================= BRAND LOGO ================= */}
         <Link href="/" className="flex items-center gap-3 group select-none">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+          <div className="relative h-11 w-11 shrink-0 rounded-full bg-white p-1.5 shadow-lg shadow-cyan-500/25 border-2 border-white flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
             <Image
               src="/logo/cetas_logo_transparent.png"
               alt="CETAS Official Logo"
-              width={40}
-              height={40}
+              width={34}
+              height={34}
               priority
-              className="object-contain drop-shadow-[0_0_15px_rgba(0,217,255,0.45)]"
+              className="object-contain"
             />
           </div>
           <div className="flex flex-col">

@@ -9,14 +9,14 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Info with Official Logo */}
           <div className="space-y-4 lg:col-span-2">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="relative h-10 w-10 shrink-0">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative h-11 w-11 shrink-0 rounded-full bg-white p-1.5 shadow-lg shadow-cyan-500/25 border-2 border-white flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
                 <Image
                   src="/logo/cetas_logo_transparent.png"
                   alt="CETAS Official Logo"
-                  width={40}
-                  height={40}
-                  className="object-contain drop-shadow-[0_0_15px_rgba(0,217,255,0.5)]"
+                  width={34}
+                  height={34}
+                  className="object-contain"
                 />
               </div>
               <div className="flex flex-col">
@@ -129,27 +129,43 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Kolom 3: Business Information */}
+          {/* Kolom 3: Kontak & Media Sosial */}
           <div className="space-y-3">
             <h4 className="text-xs font-black text-[#00D9FF] tracking-wider uppercase mb-4 font-mono">
-              Informasi Bisnis
+              Kontak &amp; Media Sosial
             </h4>
-            <div className="space-y-2 text-xs text-slate-200">
+            <div className="space-y-3 text-xs text-slate-200">
               <div>
-                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Badan Usaha</span>
-                <span className="font-semibold text-white">Perseroan Perorangan CETAS</span>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Instagram Resmi</span>
+                <a
+                  href="https://www.instagram.com/cetas__id/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-white hover:text-cyan-300 transition flex items-center gap-1.5 mt-0.5"
+                >
+                  <span>@cetas__id</span>
+                  <ExternalLink className="h-3 w-3 text-cyan-400" />
+                </a>
               </div>
               <div>
-                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Status AHU</span>
-                <span className="font-medium text-slate-100">Terdaftar Kemenkumham RI</span>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Email Bantuan</span>
+                <a
+                  href="mailto:support@cetas.co.id"
+                  className="font-bold text-white hover:text-cyan-300 transition mt-0.5 block"
+                >
+                  support@cetas.co.id
+                </a>
               </div>
               <div>
-                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Status NIB</span>
-                <span className="font-medium text-slate-100">Terdaftar Sistem OSS</span>
-              </div>
-              <div>
-                <span className="block text-[10px] text-cyan-300 font-mono uppercase">Status PSE</span>
-                <span className="font-medium text-slate-100">Penyelenggara Sistem Elektronik</span>
+                <span className="block text-[10px] text-cyan-300 font-mono uppercase">WhatsApp CS 24/7</span>
+                <a
+                  href="https://wa.me/6281584682345"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-emerald-400 hover:text-emerald-300 transition mt-0.5 block"
+                >
+                  +62 815-8468-2345
+                </a>
               </div>
               <div className="pt-1">
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-2.5 py-0.5 text-[10px] font-black text-emerald-300 shadow-sm">

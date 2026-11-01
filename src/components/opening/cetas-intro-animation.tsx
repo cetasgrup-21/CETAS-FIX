@@ -212,20 +212,20 @@ export function CetasIntroAnimation() {
             {/* Glowing Logo Backdrop */}
             <div className="absolute inset-0 bg-[#00D9FF]/20 rounded-2xl blur-xl animate-pulse" />
 
-            {/* Official Transparent CETAS Logo */}
-            <div className="relative z-10 flex items-center justify-center">
+            {/* Official Transparent CETAS Logo with White Floating Badge */}
+            <div className="relative z-10 flex items-center justify-center rounded-full bg-white p-3.5 sm:p-4 shadow-[0_0_35px_rgba(0,217,255,0.7)] border-2 border-white">
               <Image
                 src="/logo/cetas_logo_transparent.png"
                 alt="CETAS Official Logo"
                 width={120}
                 height={120}
                 priority
-                className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-[0_0_25px_rgba(0,217,255,0.7)]"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
               />
 
               {/* Laser Scanning Line (Sweeps across logo) */}
               <div
-                className="absolute inset-y-0 -inset-x-4 pointer-events-none overflow-hidden"
+                className="absolute inset-y-0 -inset-x-2 pointer-events-none overflow-hidden rounded-full"
               >
                 <div
                   className="w-full h-1 bg-gradient-to-r from-transparent via-[#00D9FF] to-transparent shadow-[0_0_15px_#00D9FF] animate-laser-scan"

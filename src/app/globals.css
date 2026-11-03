@@ -211,3 +211,149 @@ body {
     color: #000000 !important;
   }
 }
+
+/* =====================================================
+   PRELOADER CETAS: Official Futuristic Preloader
+   ===================================================== */
+html.cp-lock, html.cp-lock body { overflow: hidden; }
+
+#cetas-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+  color: #fff;
+  font-family: var(--font-sans), "Inter", system-ui, -apple-system, sans-serif;
+  background: radial-gradient(ellipse at 50% 38%, #061a4d 0%, #030b24 48%, #020617 100%);
+  transition: opacity .7s ease, transform .7s ease, visibility .7s;
+}
+#cetas-preloader.cp-hide {
+  opacity: 0;
+  transform: scale(1.04);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* gelombang cahaya di pojok */
+.cp-wave { position: absolute; pointer-events: none; width: clamp(300px, 48vw, 760px); height: auto; }
+.cp-wave-tl { top: 0; left: 0; animation: cp-float-a 9s ease-in-out infinite; }
+.cp-wave-br { bottom: 0; right: 0; transform: rotate(180deg); animation: cp-float-b 11s ease-in-out infinite; }
+@keyframes cp-float-a { 50% { transform: translate(14px, 10px); } }
+@keyframes cp-float-b { 50% { transform: rotate(180deg) translate(14px, 10px); } }
+
+/* isi tengah */
+.cp-center {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: clamp(14px, 2.4vh, 26px);
+}
+.cp-logo-wrap { position: relative; display: grid; place-items: center; }
+.cp-glow {
+  position: absolute;
+  width: 150%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20, 110, 255, .45) 0%, rgba(0, 190, 255, .12) 40%, transparent 70%);
+  filter: blur(18px);
+  animation: cp-pulse 3.2s ease-in-out infinite;
+}
+@keyframes cp-pulse { 50% { opacity: .55; transform: scale(1.08); } }
+
+.cp-logo {
+  position: relative;
+  width: clamp(200px, 32vw, 420px);
+  height: auto;
+  animation: cp-reveal 1.1s cubic-bezier(.2, .7, .2, 1) both;
+}
+.cp-logo-text {
+  position: relative;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: .04em;
+  animation: cp-reveal 1.1s cubic-bezier(.2, .7, .2, 1) both;
+}
+@keyframes cp-reveal {
+  from { opacity: 0; transform: scale(.9); filter: blur(10px); }
+  to   { opacity: 1; transform: scale(1);  filter: blur(0); }
+}
+
+.cp-tagline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 22px);
+  max-width: 100%;
+  font-size: clamp(.55rem, 1.05vw, .82rem);
+  font-weight: 500;
+  letter-spacing: .3em;
+  text-align: center;
+  color: rgba(235, 242, 255, .92);
+  animation: cp-in .8s ease .6s both;
+}
+.cp-tagline::before, .cp-tagline::after {
+  content: "";
+  flex: 0 0 clamp(18px, 5vw, 60px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00d4ff);
+}
+.cp-tagline::after { transform: scaleX(-1); }
+
+.cp-bar-wrap {
+  width: clamp(240px, 42vw, 700px);
+  animation: cp-in .8s ease .9s both;
+}
+.cp-bar {
+  height: 16px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(14, 50, 130, .28);
+  border: 1px solid rgba(60, 140, 255, .28);
+}
+.cp-fill {
+  position: relative;
+  height: 100%;
+  width: 0%;
+  min-width: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #0a5cff 0%, #1e90ff 55%, #00e5ff 100%);
+  box-shadow: 0 0 18px rgba(0, 150, 255, .85), 0 0 4px rgba(0, 229, 255, .9);
+}
+.cp-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  animation: cp-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes cp-shimmer { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+
+.cp-status {
+  margin-top: 14px;
+  text-align: center;
+  font-size: clamp(.95rem, 1.5vw, 1.15rem);
+  animation: cp-in .8s ease 1.1s both;
+}
+@keyframes cp-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 520px) {
+  .cp-tagline { letter-spacing: .18em; line-height: 1.7; }
+  .cp-tagline::before, .cp-tagline::after { flex-basis: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #cetas-preloader *, #cetas-preloader { animation: none !important; }
+  #cetas-preloader { transition: opacity .3s ease; }
+  #cetas-preloader.cp-hide { transform: none; }
+}
+

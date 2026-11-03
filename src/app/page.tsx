@@ -31,7 +31,6 @@ import {
   Scale,
 } from "lucide-react";
 import { AntmanMascot } from "@/components/antman-mascot";
-import { CetasIntroAnimation } from "@/components/opening/cetas-intro-animation";
 import { CetasHorizontalSlider } from "@/components/home/cetas-horizontal-slider";
 import { UnifiedEvent, getStoredEvents, saveStoredEvents } from "@/lib/events-unified-data";
 import { formatRupiah } from "@/lib/utils";
@@ -69,11 +68,6 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#06132E] text-white selection:bg-[#00D9FF] selection:text-[#06132E] font-sans">
-      {/* ============================================================== */}
-      {/* 0. WEBSITE OPENING ANIMATED INTRO                              */}
-      {/* ============================================================== */}
-      <CetasIntroAnimation />
-
       {/* ============================================================== */}
       {/* 1. HALAMAN BERANDA (HERO SECTION) — DEEP NAVY (#06132E)         */}
       {/* ============================================================== */}

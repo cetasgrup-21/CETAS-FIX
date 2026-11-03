@@ -78,7 +78,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
             {/* Left Column: Brand & Editorial Headline — RATA TENGAH (GAMBAR 2) */}
-            <div className="lg:col-span-7 space-y-6 text-center">
+            <div className="lg:col-span-7 space-y-6 text-center order-2 lg:order-1">
               {/* Tagline Pill */}
               <div className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-[#00D9FF]/15 border border-[#00D9FF]/40 px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs font-bold text-[#00D9FF] font-mono shadow-xs mx-auto max-w-full text-center">
                 <Sparkles className="h-3.5 w-3.5 text-[#00D9FF] shrink-0" />
@@ -140,7 +140,7 @@ export default function HomePage() {
             </div>
 
             {/* Right Column: Official Mascot & Interaction */}
-            <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
+            <div className="lg:col-span-5 flex flex-col items-center justify-center relative order-1 lg:order-2">
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] sm:w-[480px] h-[380px] sm:h-[480px] bg-gradient-to-tr from-[#00D9FF]/20 via-[#126BDE]/20 to-transparent rounded-full blur-3xl pointer-events-none" />
 
               {/* Mascot Speech Bubble */}

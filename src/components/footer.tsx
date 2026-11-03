@@ -68,14 +68,6 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/score"
-                  className="text-slate-200 hover:text-cyan-300 transition block py-0.5"
-                >
-                  CETAS.SCORE (Engine Juri)
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/pelatih"
                   className="text-slate-200 hover:text-cyan-300 transition block py-0.5"
                 >
@@ -368,14 +360,6 @@ export function Footer() {
                   className="text-slate-300 hover:text-cyan-300 transition"
                 >
                   CETAS.PRODUCTION (Rental Alat)
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/score"
-                  className="text-slate-300 hover:text-cyan-300 transition"
-                >
-                  CETAS.SCORE (Engine Juri)
                 </Link>
               </li>
               <li>

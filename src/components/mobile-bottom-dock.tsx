@@ -5,10 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
-  ShieldCheck,
   Ticket,
   Award,
-  UserCheck,
   MessageCircle,
   Trophy,
 } from "lucide-react";
@@ -41,12 +39,6 @@ export function MobileBottomDock() {
       label: "E-Vote",
       icon: Award,
       isActive: pathname.startsWith("/vote"),
-    },
-    {
-      href: "/score",
-      label: "Score",
-      icon: ShieldCheck,
-      isActive: pathname.startsWith("/score"),
     },
     {
       href: "https://wa.me/6281584682345?text=Halo%20Admin%20CETAS%2C%20saya%20ingin%20konsultasi%20turnamen.",

@@ -287,6 +287,15 @@ export default function AdminDashboardPage() {
 
                 <button
                   onClick={() =>
+                    router.push("/score")
+                  }
+                  className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+                >
+                  ⚡ Hub CETAS.SCORE
+                </button>
+
+                <button
+                  onClick={() =>
                     router.push("/admin/score")
                   }
                   className="rounded-xl bg-[#071a3d] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90"

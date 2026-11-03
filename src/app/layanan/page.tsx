@@ -92,9 +92,9 @@ export default function LayananPage() {
         "Cetak Berita Acara resmi format standar Folio / F4",
         "Sinkronisasi panggung arena live tracker & podium 3D",
       ],
-      href: "/score",
-      cta: "Buka Cetas.Score Engine",
-      badge: "Rekap Juri 0 Detik",
+      href: "/admin",
+      cta: "Akses Admin & Tim Juri",
+      badge: "Eksklusif Panitia / Admin",
       accentBg: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
     },
   ];

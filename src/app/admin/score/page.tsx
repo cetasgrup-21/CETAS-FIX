@@ -1563,6 +1563,16 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => {
+                  router.push("/score");
+                }}
+                className="rounded-lg border border-cyan-400/40 bg-cyan-500/20 px-4 py-2 text-sm font-bold text-cyan-300 hover:bg-cyan-500/30"
+              >
+                ⚡ Hub Score
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   router.push("/admin/dashboard");
                 }}
                 className="rounded-lg border border-white/20 px-4 py-2 text-sm font-bold text-white/80 hover:bg-white/10"

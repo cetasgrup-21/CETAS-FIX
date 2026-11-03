@@ -177,7 +177,7 @@ export default function RootLayout({
       lang="id"
       className={`dark ${generalSans.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#06132E] text-white selection:bg-[#00D9FF] selection:text-[#06132E] font-sans">
+      <body className="min-h-screen flex flex-col bg-[#06132E] text-white selection:bg-[#00D9FF] selection:text-[#06132E] font-sans">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

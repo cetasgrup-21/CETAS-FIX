@@ -34,7 +34,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
-import { XenditPaymentModal } from "@/components/xendit-payment-modal";
+import { DokuPaymentModal } from "@/components/doku-payment-modal";
 import { playVoteNotificationSound } from "@/lib/sound";
 import { getEventTheme, EventThemePreset } from "@/lib/event-theme";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
@@ -144,6 +144,8 @@ function VotePageContent() {
     candidate?: VoteCandidate;
     voteCount?: number;
     invoiceUrl?: string;
+    qrDataUrl?: string;
+    qrContent?: string;
   } | null>(null);
 
   // Fetch initial data
@@ -412,14 +414,7 @@ function VotePageContent() {
         throw new Error(data.message || data.errors?.[0]?.message || "Gagal memproses checkout pembayaran");
       }
 
-      // Sukses: Jika Xendit Invoice URL tersedia, langsung arahkan ke checkout resmi Xendit
-      const targetInvoiceUrl = data.invoiceUrl || data.xendit?.invoiceUrl;
-      if (targetInvoiceUrl) {
-        window.location.href = targetInvoiceUrl;
-        return;
-      }
-
-      // Fallback modal jika tidak ada direct URL
+      // Direct API: Langsung buka modal pembayaran DOKU di layar (Zero Redirect)
       const cand = selectedCandidate;
       const count = safeVoteCount;
       setSelectedCandidate(null);
@@ -430,7 +425,9 @@ function VotePageContent() {
         orderType: "VOTE",
         candidate: cand,
         voteCount: count,
-        invoiceUrl: targetInvoiceUrl,
+        invoiceUrl: data.paymentUrl || data.invoiceUrl,
+        qrDataUrl: data.qrDataUrl,
+        qrContent: data.qrContent,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
@@ -606,19 +603,15 @@ function VotePageContent() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      // Langsung arahkan pengguna ke Halaman Checkout Resmi Xendit (Tanpa modal barcode perantara)
-      if (data.invoiceUrl) {
-        window.location.href = data.invoiceUrl;
-        return;
-      }
-
-      // Fallback jika invoiceUrl tidak tersedia langsung
+      // Direct API: Langsung buka modal pembayaran DOKU di layar (Zero Redirect)
       setSimulatorData({
         orderNumber: data.orderNumber,
         grossAmount: selectedTier.price * ticketQty,
         customerName: buyerName,
         orderType: "TICKET",
-        invoiceUrl: data.invoiceUrl || data.xendit?.invoiceUrl,
+        invoiceUrl: data.paymentUrl || data.invoiceUrl,
+        qrDataUrl: data.qrDataUrl,
+        qrContent: data.qrContent,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
@@ -1865,14 +1858,16 @@ function VotePageContent() {
         </div>
       )}
 
-      {/* Xendit Gateway Modal (QRIS & E-Wallet) */}
-      <XenditPaymentModal
+      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
+      <DokuPaymentModal
         isOpen={Boolean(simulatorData)}
         onClose={() => setSimulatorData(null)}
         orderNumber={simulatorData?.orderNumber || ""}
         grossAmount={simulatorData?.grossAmount || 0}
         customerName={simulatorData?.customerName || ""}
-        invoiceUrl={(simulatorData as any)?.invoiceUrl}
+        paymentUrl={(simulatorData as any)?.invoiceUrl}
+        qrDataUrl={(simulatorData as any)?.qrDataUrl}
+        qrContent={(simulatorData as any)?.qrContent}
         successTitle={
           simulatorData?.orderType === "VOTE"
             ? `${simulatorData?.voteCount || voteCount} Vote Telah Berhasil Ditambahkan!`
@@ -1880,7 +1875,7 @@ function VotePageContent() {
         }
         successSubtitle={
           simulatorData?.orderType === "VOTE"
-            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh Xendit Gateway dan langsung masuk ke leaderboard realtime.`
+            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh DOKU Direct API dan langsung masuk ke leaderboard realtime.`
             : `E-tiket resmi acara telah terbit dan siap digunakan.`
         }
         onSuccess={async (verifiedTickets?: any[]) => {

@@ -5,6 +5,10 @@
 
 export type PaymentLifecycleStep =
   | "ORDER_CREATED"
+  | "DOKU_REQUEST_INITIATED"
+  | "DOKU_API_SUCCESS"
+  | "DOKU_WEBHOOK_RECEIVED"
+  | "DOKU_ORDER_SETTLED"
   | "XENDIT_REQUEST_SENT"
   | "XENDIT_RESPONSE_RECEIVED"
   | "XENDIT_REQUEST_FAILED"
@@ -30,6 +34,7 @@ export interface PaymentLogPayload {
   correlationId: string;
   step: PaymentLifecycleStep;
   orderNumber?: string;
+  gatewayTransactionId?: string;
   xenditInvoiceId?: string;
   paymentMethod?: string;
   amountExpected?: number;

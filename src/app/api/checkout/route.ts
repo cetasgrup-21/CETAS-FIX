@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createXenditPayment, XenditPaymentMethod } from "@/lib/xendit";
+import { createDokuPayment, DokuPaymentMethod } from "@/lib/doku";
 import {
   validateAndCalculateItems,
   createOrderRecord,
@@ -96,11 +96,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Buat transaksi resmi di Xendit Payment Gateway (Invoice API)
-    const xenditResult = await createXenditPayment({
+    // 4. Buat transaksi resmi di DOKU Direct API (Jokul Checkout / QRIS ASPI)
+    const dokuResult = await createDokuPayment({
       orderId: orderNumber,
       grossAmount: totalAmount,
-      paymentMethod: validatedData.paymentMethod as XenditPaymentMethod,
+      paymentMethod: (validatedData.paymentMethod as DokuPaymentMethod) || "QRIS",
       ovoPhoneNumber: validatedData.ovoPhoneNumber,
       customerDetails: {
         first_name: validatedData.customerName,
@@ -124,30 +124,29 @@ export async function POST(req: NextRequest) {
       customerEmail: validatedData.customerEmail,
       customerPhone: validatedData.customerPhone,
       totalAmount,
-      paymentGateway: "XENDIT",
+      paymentGateway: "DOKU",
       paymentMethod: validatedData.paymentMethod || "QRIS",
-      xenditInvoiceId: xenditResult?.invoiceId,
-      xenditExternalId: orderNumber,
-      xenditQrId: xenditResult?.qrId,
       items: verifiedItems,
       metadata: {
-        invoiceUrl: xenditResult?.invoiceUrl,
-        qrId: xenditResult?.qrId,
+        paymentUrl: dokuResult?.paymentUrl,
+        tokenId: dokuResult?.tokenId,
+        sessionId: dokuResult?.sessionId,
+        qrContent: dokuResult?.qrContent,
       },
     });
 
     return NextResponse.json({
       success: true,
       orderNumber,
-      paymentGateway: "XENDIT",
+      paymentGateway: "DOKU",
       paymentMethod: validatedData.paymentMethod || "QRIS",
       grossAmount: totalAmount,
-      xendit: xenditResult,
-      isSimulated: xenditResult?.isSimulated,
-      invoiceUrl: xenditResult?.invoiceUrl,
-      qrDataUrl: xenditResult?.qrDataUrl,
-      qrContent: xenditResult?.qrContent,
-      expiredAt: xenditResult?.expiredAt,
+      paymentUrl: dokuResult?.paymentUrl,
+      invoiceUrl: dokuResult?.paymentUrl,
+      qrDataUrl: dokuResult?.qrDataUrl,
+      qrContent: dokuResult?.qrContent,
+      isSimulated: dokuResult?.isSimulated,
+      expiredAt: dokuResult?.expiredAt,
     });
   } catch (error: any) {
     console.error("[Checkout API Error]:", error?.message);

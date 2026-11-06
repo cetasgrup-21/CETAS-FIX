@@ -6001,7 +6001,7 @@ export default function AdminDashboardPage() {
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Metode Bayar Otomatis</span>
                       <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                        Xendit QRIS &amp; E-Wallet
+                        DOKU Direct QRIS &amp; E-Wallet
                       </div>
                     </div>
                   </div>
@@ -6818,13 +6818,13 @@ export default function AdminDashboardPage() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-black mb-1.5">
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                Laporan Keuangan & Arus Kas Xendit Gateway (Real-Time)
+                Laporan Keuangan & Arus Kas Payment Gateway (Real-Time)
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">
                 Rekonsiliasi Keuangan & Transaksi Seluruh Event
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Data terhubung langsung dengan database PostgreSQL transaksi paid dan webhook resmi Xendit Payment Gateway.
+                Data terhubung langsung dengan database PostgreSQL transaksi paid dan webhook resmi DOKU Direct API.
               </p>
             </div>
 

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { formatRupiah, formatDate } from "@/lib/utils";
 import { createTicketQRString, generateQRCodeDataUrl } from "@/lib/ticket-security";
-import { XenditPaymentModal } from "@/components/xendit-payment-modal";
+import { DokuPaymentModal } from "@/components/doku-payment-modal";
 import {
   INITIAL_UNIFIED_EVENTS,
   DEFAULT_MASCOT_URL,
@@ -136,6 +136,8 @@ export default function EventsPage() {
     grossAmount: number;
     customerName: string;
     invoiceUrl?: string;
+    qrDataUrl?: string;
+    qrContent?: string;
   } | null>(null);
 
   const generateTicketPass = async (
@@ -250,19 +252,14 @@ export default function EventsPage() {
         throw new Error(data.message || "Gagal membuat transaksi tiket");
       }
 
-      // Jika Xendit Invoice URL tersedia, langsung arahkan ke checkout resmi Xendit
-      const targetInvoiceUrl = data.invoiceUrl || data.xendit?.invoiceUrl;
-      if (targetInvoiceUrl) {
-        window.location.href = targetInvoiceUrl;
-        return;
-      }
-
-      // Fallback jika direct redirect tidak tersedia (misal offline)
+      // Direct API: Langsung buka modal pembayaran DOKU di layar (Zero Redirect)
       setSimulatorData({
         orderNumber: data.orderNumber,
         grossAmount: selectedTier.tier.price * ticketQty,
         customerName: buyerName,
-        invoiceUrl: targetInvoiceUrl,
+        invoiceUrl: data.paymentUrl || data.invoiceUrl,
+        qrDataUrl: data.qrDataUrl,
+        qrContent: data.qrContent,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Kesalahan koneksi";
@@ -645,15 +642,17 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Xendit Gateway Modal (QRIS & E-Wallet) */}
+      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
       {simulatorData && selectedTier && (
-        <XenditPaymentModal
+        <DokuPaymentModal
           isOpen={!!simulatorData}
           orderNumber={simulatorData.orderNumber}
           grossAmount={simulatorData.grossAmount}
           customerName={simulatorData.customerName}
           customerEmail={buyerEmail}
-          invoiceUrl={simulatorData.invoiceUrl}
+          paymentUrl={simulatorData.invoiceUrl}
+          qrDataUrl={simulatorData.qrDataUrl}
+          qrContent={simulatorData.qrContent}
           onClose={() => setSimulatorData(null)}
           onSuccess={async (verifiedTickets?: any[]) => {
             try {

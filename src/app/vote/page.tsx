@@ -636,7 +636,7 @@ function VotePageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20">
+    <div className="min-h-screen bg-[#06132E] text-white pb-20">
       {/* ============================================================= */}
       {/* KONDISI 1: HALAMAN KATALOG EVENT (LEVEL 1: PILIH DULU EVENT)  */}
       {/* ============================================================= */}
@@ -644,20 +644,20 @@ function VotePageContent() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
           {/* Header Banner Katalog */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-sm">
-              <Sparkles className="h-4 w-4 text-purple-600" />
+            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold bg-[#00D9FF]/15 text-[#00D9FF] border border-[#00D9FF]/30 shadow-sm backdrop-blur-md">
+              <Sparkles className="h-4 w-4 text-[#00D9FF]" />
               Direktori Resmi CETAS - Centralized Electronic Tournament & Award System
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-              Papan Event & Pemilihan Favorit
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight drop-shadow-md">
+              Papan Event &amp; Pemilihan Favorit
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Pilih event di bawah untuk langsung masuk ke <strong>Dashboard Resmi Event Tersebut</strong> yang memuat bilik voting multi-kategori, pembelian tiket masuk resmi, serta pendaftaran peserta online.
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-2xl mx-auto">
+              Pilih event di bawah untuk langsung masuk ke <strong className="text-[#00D9FF]">Dashboard Resmi Event Tersebut</strong> yang memuat bilik voting multi-kategori, pembelian tiket masuk resmi, serta pendaftaran peserta online.
             </p>
           </div>
 
           {/* Search Bar & Filter Chips */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="rounded-3xl border border-blue-500/25 bg-[#08183A]/90 backdrop-blur-xl p-4 sm:p-6 shadow-xl space-y-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="relative w-full md:max-w-md">
                 <input
@@ -665,9 +665,9 @@ function VotePageContent() {
                   placeholder="Cari event (nama acara, tema, lokasi, atau EO)..."
                   value={eventSearch}
                   onChange={(e) => setEventSearch(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-3 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full rounded-2xl border border-blue-400/30 bg-[#030A1A] pl-10 pr-4 py-3 text-xs font-semibold text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D9FF]"
                 />
-                <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-[#00D9FF]" />
               </div>
 
               {/* Filter Chips */}
@@ -683,8 +683,8 @@ function VotePageContent() {
                     onClick={() => setEventFilter(chip.id as typeof eventFilter)}
                     className={`px-3.5 py-2 rounded-xl text-xs font-bold transition ${
                       eventFilter === chip.id
-                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 shadow-sm"
-                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                        ? "bg-gradient-to-r from-[#00D9FF] to-[#006BFF] text-slate-950 font-black shadow-md"
+                        : "bg-blue-950/70 hover:bg-blue-900/60 text-slate-200 border border-blue-400/20"
                     }`}
                   >
                     {chip.label}
@@ -696,19 +696,19 @@ function VotePageContent() {
 
           {/* Grid Katalog Event */}
           {filteredEvents.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 p-16 text-center space-y-3 bg-white dark:bg-slate-900">
-              <Calendar className="h-10 w-10 text-slate-300 mx-auto" />
-              <div className="text-base font-bold text-slate-700 dark:text-slate-300">
+            <div className="rounded-3xl border border-dashed border-blue-400/30 p-16 text-center space-y-3 bg-[#08183A]/60">
+              <Calendar className="h-10 w-10 text-cyan-400/50 mx-auto" />
+              <div className="text-base font-bold text-white">
                 {mergedEventsList.length === 0 ? "Belum ada event atau bilik pemilihan aktif saat ini" : "Tidak ada event yang cocok dengan pencarian Anda"}
               </div>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              <p className="text-xs text-slate-300 max-w-sm mx-auto">
                 {mergedEventsList.length === 0 ? "Event, kategori voting, dan peserta dapat ditambahkan langsung melalui Lingkup Kerja Admin." : "Silakan ganti kata kunci atau reset filter pencarian di atas."}
               </p>
               {mergedEventsList.length === 0 && (
                 <div className="pt-2">
                   <Link
                     href="/admin"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00D9FF] to-[#006BFF] text-slate-950 font-black text-xs shadow-md transition hover:scale-105"
                   >
                     Buka Lingkup Kerja Admin →
                   </Link>
@@ -731,16 +731,16 @@ function VotePageContent() {
                 return (
                   <div
                     key={ev.id}
-                    className="group rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between"
+                    className="group rounded-3xl border border-blue-500/25 bg-[#08183A]/90 overflow-hidden shadow-lg hover:shadow-cyan-500/15 hover:border-[#00D9FF]/50 transition-all duration-300 flex flex-col justify-between"
                   >
                     {/* Event Banner */}
-                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-900">
                       <img
                         src={ev.bannerUrl}
                         alt={ev.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#08183A] via-transparent to-black/20" />
 
                       {/* Theme Tag Floating */}
                       <div className="absolute top-3 left-3 flex items-center gap-1.5">
@@ -752,17 +752,17 @@ function VotePageContent() {
                       {/* Feature Tags Floating */}
                       <div className="absolute bottom-3 left-3 right-3 flex items-center gap-1.5 flex-wrap">
                         {ev.categories.length > 0 && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-500 text-white shadow">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-amber-500 text-slate-950 shadow">
                             🗳️ {ev.categories.length} Kategori Vote
                           </span>
                         )}
                         {ev.isOpenTicketing && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-emerald-500 text-white shadow">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-emerald-500 text-slate-950 shadow">
                             🎟️ Tiket Buka
                           </span>
                         )}
                         {ev.isOpenOnlineRegistration && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-blue-500 text-white shadow">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-[#00D9FF] text-slate-950 shadow">
                             📝 Registrasi Buka
                           </span>
                         )}
@@ -781,40 +781,40 @@ function VotePageContent() {
                     {/* Card Content */}
                     <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
                       <div className="space-y-2">
-                        <h3 className="text-base font-black text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-orange-500 transition-colors">
+                        <h3 className="text-base font-black text-white line-clamp-2 leading-snug group-hover:text-[#00D9FF] transition-colors">
                           {ev.title}
                         </h3>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">
+                        <p className="text-[11px] text-cyan-200/70 line-clamp-1">
                           Oleh {ev.organizer}
                         </p>
 
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                        <div className="pt-2 border-t border-blue-500/20 space-y-1 text-xs text-slate-200 font-medium">
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                            <Calendar className="h-3.5 w-3.5 text-[#00D9FF] shrink-0" />
                             <span>{ev.date}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                            <MapPin className="h-3.5 w-3.5 text-[#00D9FF] shrink-0" />
                             <span className="line-clamp-1">{ev.location}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Stats Box */}
-                      <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-3 border border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-center text-xs">
+                      <div className="rounded-2xl bg-[#050E24] p-3 border border-blue-500/20 grid grid-cols-2 gap-2 text-center text-xs">
                         <div>
                           <span className="text-[10px] text-slate-400 font-bold block uppercase">
                             Peserta Lomba
                           </span>
-                          <span className="text-sm font-black text-slate-800 dark:text-slate-200">
+                          <span className="text-sm font-black text-white">
                             {totalCandidates} Peserta
                           </span>
                         </div>
-                        <div className="border-l border-slate-200 dark:border-slate-700">
+                        <div className="border-l border-blue-500/20">
                           <span className="text-[10px] text-slate-400 font-bold block uppercase">
                             Total Suara Sah
                           </span>
-                          <span className="text-sm font-black text-orange-600 dark:text-orange-400 font-mono">
+                          <span className="text-sm font-black text-[#00D9FF] font-mono">
                             {totalVotes.toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -1484,7 +1484,7 @@ function VotePageContent() {
               </div>
               <button
                 onClick={() => setSelectedCandidate(null)}
-                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                className="text-slate-400 hover:text-white text-xs font-bold p-1 rounded-lg"
               >
                 ✕
               </button>
@@ -1650,7 +1650,7 @@ function VotePageContent() {
                   <button
                     type="button"
                     onClick={() => setSelectedCandidate(null)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-600"
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition"
                   >
                     Batal
                   </button>
@@ -1685,7 +1685,7 @@ function VotePageContent() {
               </div>
               <button
                 onClick={() => setSelectedTier(null)}
-                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+                className="text-slate-400 hover:text-white text-xs font-bold p-1 rounded-lg"
               >
                 ✕
               </button>
@@ -1780,7 +1780,7 @@ function VotePageContent() {
                   <button
                     type="button"
                     onClick={() => setSelectedTier(null)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-600"
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition"
                   >
                     Batal
                   </button>

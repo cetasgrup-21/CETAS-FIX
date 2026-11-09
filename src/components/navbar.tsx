@@ -27,7 +27,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: "Beranda" },
     { href: "/tournament-hub", label: "Tournament Hub", badge: "LIVE" },
-    { href: "/vote", label: "Vote", badge: "HOT" },
+    { href: "/vote", label: "Vote", badge: "NEW" },
     { href: "/events", label: "Event & Tiket" },
     { href: "/layanan", label: "Layanan" },
     { href: "/tentang", label: "Tentang" },
@@ -99,7 +99,13 @@ export function Navbar() {
               >
                 <span>{link.label}</span>
                 {link.badge && (
-                  <span className="rounded-full bg-[#00D9FF]/20 text-[#00D9FF] border border-[#00D9FF]/40 px-1.5 py-0.2 text-[8px] font-mono font-black animate-pulse">
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[8px] font-mono font-black shadow-xs ${
+                      link.badge === "NEW"
+                        ? "bg-gradient-to-r from-[#00D9FF] to-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(0,217,255,0.5)]"
+                        : "bg-[#00D9FF]/20 text-[#00D9FF] border border-[#00D9FF]/40 animate-pulse"
+                    }`}
+                  >
                     {link.badge}
                   </span>
                 )}
@@ -184,7 +190,13 @@ export function Navbar() {
               <div className="flex items-center gap-2">
                 <span>{link.label}</span>
                 {link.badge && (
-                  <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[9px] font-black text-cyan-400 border border-cyan-400/30">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-black ${
+                      link.badge === "NEW"
+                        ? "bg-gradient-to-r from-[#00D9FF] to-emerald-400 text-slate-950 shadow-sm"
+                        : "bg-cyan-500/20 text-cyan-400 border border-cyan-400/30"
+                    }`}
+                  >
                     {link.badge}
                   </span>
                 )}

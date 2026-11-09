@@ -20,6 +20,8 @@ import {
   Heart,
   Layers,
   ExternalLink,
+  Trophy,
+  GraduationCap,
 } from "lucide-react";
 import {
   EventRegistrationItem,
@@ -76,11 +78,25 @@ function mapUnifiedToReg(list: UnifiedEvent[]): EventRegistrationItem[] {
 
 const DEFAULT_REG_EVENTS = mapUnifiedToReg(INITIAL_UNIFIED_EVENTS);
 
+export function isCompetitionEvent(ev?: EventRegistrationItem | null): boolean {
+  if (!ev) return true;
+  const cat = (ev.category || "").toLowerCase();
+  const title = (ev.title || "").toLowerCase();
+  return (
+    cat.includes("lkbb") ||
+    cat.includes("kompetisi") ||
+    title.includes("lkbb") ||
+    title.includes("baravos") ||
+    title.includes("tournament")
+  );
+}
+
 export default function RegisterEventPage() {
   const [events, setEvents] = useState<EventRegistrationItem[]>(DEFAULT_REG_EVENTS);
   const [selectedEventId, setSelectedEventId] = useState<string>(
     DEFAULT_REG_EVENTS[0]?.id || ""
   );
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<"ALL" | "KOMPETISI" | "NON_KOMPETISI">("ALL");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [badgeResult, setBadgeResult] = useState<{
@@ -537,9 +553,56 @@ export default function RegisterEventPage() {
               </span>
             </div>
 
+            {/* Filter Tabs Jenis Event: Cegah Tertukar Lomba vs Non-Lomba */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedTypeFilter("ALL")}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-center transition ${
+                  selectedTypeFilter === "ALL"
+                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                Semua ({events.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTypeFilter("KOMPETISI")}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-center transition flex items-center justify-center gap-1 ${
+                  selectedTypeFilter === "KOMPETISI"
+                    ? "bg-cyan-500 text-slate-950 font-black shadow-sm"
+                    : "text-slate-500 hover:text-cyan-400"
+                }`}
+              >
+                <Trophy className="h-3 w-3" />
+                <span>Kompetisi LKBB ({events.filter((e) => isCompetitionEvent(e)).length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTypeFilter("NON_KOMPETISI")}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-center transition flex items-center justify-center gap-1 ${
+                  selectedTypeFilter === "NON_KOMPETISI"
+                    ? "bg-indigo-500 text-white font-black shadow-sm"
+                    : "text-slate-500 hover:text-indigo-400"
+                }`}
+              >
+                <GraduationCap className="h-3 w-3" />
+                <span>Pelantikan ({events.filter((e) => !isCompetitionEvent(e)).length})</span>
+              </button>
+            </div>
+
             <div className="space-y-3">
-              {events.map((ev) => {
+              {events
+                .filter((ev) => {
+                  const isComp = isCompetitionEvent(ev);
+                  if (selectedTypeFilter === "KOMPETISI") return isComp;
+                  if (selectedTypeFilter === "NON_KOMPETISI") return !isComp;
+                  return true;
+                })
+                .map((ev) => {
                 const isSelected = ev.id === selectedEventId;
+                const isComp = isCompetitionEvent(ev);
                 const evCats = ev.registrationCategories || [];
                 return (
                   <div
@@ -550,31 +613,48 @@ export default function RegisterEventPage() {
                     }}
                     className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 relative overflow-hidden ${
                       isSelected
-                        ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 shadow-md ring-2 ring-emerald-500/20"
+                        ? isComp
+                          ? "border-cyan-500 bg-cyan-500/10 dark:bg-cyan-950/30 shadow-md ring-2 ring-cyan-500/30"
+                          : "border-indigo-500 bg-indigo-500/10 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/30"
                         : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Distinct Badge Tipe Acara */}
+                          {isComp ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-700 dark:text-cyan-300 text-[10px] font-black uppercase font-mono">
+                              <Trophy className="h-3 w-3 text-cyan-500" />
+                              Kompetisi LKBB
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase font-mono">
+                              <GraduationCap className="h-3 w-3 text-indigo-500" />
+                              Pelantikan / Workshop
+                            </span>
+                          )}
+
                           {ev.isOpenOnlineRegistration ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 text-[10px] font-bold">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Pendaftaran Online Buka
+                              Buka Online
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300 text-[10px] font-bold">
-                              Tidak Buka Online
+                              Tutup Online
                             </span>
                           )}
-                          <span className="text-[10px] font-mono text-slate-400 uppercase">
-                            {ev.category}
-                          </span>
                         </div>
 
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                          {ev.title}
-                        </h3>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                            {ev.title}
+                          </h3>
+                          <span className={`text-[10px] font-semibold block ${isComp ? "text-cyan-600 dark:text-cyan-400" : "text-indigo-600 dark:text-indigo-400"}`}>
+                            {isComp ? "Jalur Pendaftaran Pasukan / Tim Pleton Lomba" : "Jalur Pendaftaran Peserta Acara Internal"}
+                          </span>
+                        </div>
 
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           {ev.organizer}
@@ -582,12 +662,12 @@ export default function RegisterEventPage() {
                       </div>
 
                       <div className="shrink-0 text-right">
-                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 block">
+                        <span className={`text-xs font-black block ${isComp ? "text-cyan-600 dark:text-cyan-400" : "text-indigo-600 dark:text-indigo-400"}`}>
                           {ev.price === 0 ? "GRATIS" : ev.priceLabel}
                         </span>
                         {ev.isOpenOnlineRegistration && (
                           <span className="text-[10px] text-slate-400">
-                            Total Sisa:{" "}
+                            Sisa:{" "}
                             <strong className="text-slate-700 dark:text-slate-200">
                               {ev.quotaRemaining}
                             </strong>{" "}
@@ -605,12 +685,12 @@ export default function RegisterEventPage() {
                             key={cat.id}
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
                               cat.quotaRemaining > 0
-                                ? "bg-white dark:bg-slate-800 border-emerald-200 dark:border-emerald-800/60 text-slate-700 dark:text-slate-200"
+                                ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                                 : "bg-rose-50 dark:bg-rose-950/50 border-rose-200 text-rose-600"
                             }`}
                           >
                             {cat.name}:{" "}
-                            <strong className="text-emerald-600 dark:text-emerald-400">
+                            <strong className={isComp ? "text-cyan-600 dark:text-cyan-400" : "text-indigo-600 dark:text-indigo-400"}>
                               {cat.quotaRemaining}/{cat.quotaTotal}
                             </strong>
                           </span>
@@ -622,7 +702,11 @@ export default function RegisterEventPage() {
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {ev.date}
                       </span>
-                      <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className={`flex items-center gap-1 font-bold ${
+                        isSelected
+                          ? isComp ? "text-cyan-600 dark:text-cyan-400" : "text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-400 hover:text-white"
+                      }`}>
                         {isSelected ? "Sedang Dipilih ✓" : "Pilih Event →"}
                       </span>
                     </div>
@@ -638,9 +722,19 @@ export default function RegisterEventPage() {
             <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-sm space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                    Acara Yang Anda Daftarkan
-                  </span>
+                  <div className="flex items-center gap-2 mb-1">
+                    {isCompetitionEvent(activeEvent) ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-700 dark:text-cyan-300 text-[10px] font-black uppercase font-mono">
+                        <Trophy className="h-3 w-3 text-cyan-500" />
+                        Jalur Kompetisi LKBB Resmi
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase font-mono">
+                        <GraduationCap className="h-3 w-3 text-indigo-500" />
+                        Jalur Kegiatan Pelantikan (Non-Lomba)
+                      </span>
+                    )}
+                  </div>
                   <h2 className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
                     {activeEvent.title}
                   </h2>
@@ -660,16 +754,55 @@ export default function RegisterEventPage() {
                 </div>
 
                 <div className="shrink-0">
-                  <div className="px-3.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-center">
-                    <div className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400">
+                  <div className={`px-3.5 py-1.5 rounded-xl border text-center ${
+                    isCompetitionEvent(activeEvent)
+                      ? "bg-cyan-50 dark:bg-cyan-950/50 border-cyan-200 dark:border-cyan-800"
+                      : "bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800"
+                  }`}>
+                    <div className={`text-[10px] uppercase font-bold ${
+                      isCompetitionEvent(activeEvent) ? "text-cyan-700 dark:text-cyan-400" : "text-indigo-700 dark:text-indigo-400"
+                    }`}>
                       Biaya Pendaftaran
                     </div>
-                    <div className="text-sm font-black text-emerald-600 dark:text-emerald-300">
+                    <div className={`text-sm font-black ${
+                      isCompetitionEvent(activeEvent) ? "text-cyan-600 dark:text-cyan-300" : "text-indigo-600 dark:text-indigo-300"
+                    }`}>
                       {activeEvent.price === 0 ? "100% GRATIS" : activeEvent.priceLabel}
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Banner Penegas Jenis Acara (Mencegah Salah Kamar / Salah Daftar) */}
+              {isCompetitionEvent(activeEvent) ? (
+                <div className="rounded-2xl bg-gradient-to-r from-cyan-500/15 via-emerald-500/10 to-transparent border border-cyan-500/30 p-3.5 flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400">
+                    <Trophy className="h-4 w-4" />
+                  </div>
+                  <div className="text-xs">
+                    <span className="font-black text-cyan-700 dark:text-cyan-300 block text-xs uppercase tracking-wider font-mono">
+                      🏆 Jalur Pendaftaran Pleton Kontingen Lomba LKBB
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed text-[11px]">
+                      Anda sedang mendaftarkan <strong>Pasukan / Pleton Kontingen Lomba LKBB</strong>. Tim yang terdaftar akan dinilai langsung oleh dewan juri resmi, masuk ke klasemen live di <strong>3D Tournament Hub</strong>, dan otomatis memiliki profil di <strong>Bilik Vote Favorit</strong>.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-transparent border border-indigo-500/30 p-3.5 flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400">
+                    <GraduationCap className="h-4 w-4" />
+                  </div>
+                  <div className="text-xs">
+                    <span className="font-black text-indigo-700 dark:text-indigo-300 block text-xs uppercase tracking-wider font-mono">
+                      🎓 Jalur Pendaftaran Kegiatan Pelantikan / Diklat (Bukan Lomba LKBB)
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed text-[11px]">
+                      Acara ini adalah <strong>Kegiatan Pelantikan Internal &amp; Pembekalan</strong>, BUKAN kompetisi adu baris-berbaris antar pleton. Peserta akan mendapatkan E-Badge Pass QR resmi untuk verifikasi kehadiran acara.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Deskripsi & Fasilitas */}
               <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -806,13 +939,23 @@ export default function RegisterEventPage() {
                   </div>
 
                   {/* Info Auto-Sync ke Cetas Vote & Cetas.Score */}
-                  <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 text-[11px] text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
-                    <Sparkles className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>Sinkronisasi Otomatis ke Voting &amp; Score:</strong> Setelah klik daftar, tim/peserta Anda otomatis masuk ke{" "}
-                      <strong>Cetas Vote</strong> dan <strong>Cetas.Score</strong> sesuai kategori yang dipilih (misal: SD, SMP, atau SMA), dan penentuan juara dipisahkan per masing-masing kategori.
+                  {isCompetitionEvent(activeEvent) ? (
+                    <div className="p-3.5 rounded-2xl bg-cyan-50/70 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/60 text-[11px] text-cyan-950 dark:text-cyan-200 flex items-start gap-2.5">
+                      <Trophy className="h-4 w-4 text-cyan-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Sinkronisasi Otomatis ke Voting &amp; Score:</strong> Setelah klik daftar, tim pleton Anda otomatis masuk ke{" "}
+                        <strong>Cetas Vote</strong> dan <strong>3D Tournament Hub</strong> sesuai kategori yang dipilih (SD, SMP, atau SMA).
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 text-[11px] text-indigo-950 dark:text-indigo-200 flex items-start gap-2.5">
+                      <GraduationCap className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Pendaftaran Pelantikan:</strong> Setelah klik daftar, peserta akan terdaftar secara sah dan mendapatkan{" "}
+                        <strong>E-Badge Pass QR</strong> resmi untuk verifikasi kehadiran acara pelantikan.
+                      </div>
+                    </div>
+                  )}
 
                   {errorMessage && (
                     <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-semibold">
@@ -823,12 +966,18 @@ export default function RegisterEventPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Nama Lengkap Peserta / Nama Pasukan *
+                        {isCompetitionEvent(activeEvent)
+                          ? "Nama Pasukan / Pleton Kontingen *"
+                          : "Nama Lengkap Peserta *"}
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="Contoh: Paskibra Garuda Muda / Nama Peserta"
+                        placeholder={
+                          isCompetitionEvent(activeEvent)
+                            ? "Contoh: Tim Nyai Mirah (Pasukan A)"
+                            : "Contoh: Nama Lengkap Peserta"
+                        }
                         value={form.fullName}
                         onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                         className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -837,12 +986,18 @@ export default function RegisterEventPage() {
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Asal Sekolah / Instansi / Kampus *
+                        {isCompetitionEvent(activeEvent)
+                          ? "Asal Pangkalan / Sekolah *"
+                          : "Asal Organisasi / Pangkalan Sekolah *"}
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="Contoh: SDN 01 Jakarta / SMPN 1 / SMAN 2"
+                        placeholder={
+                          isCompetitionEvent(activeEvent)
+                            ? "Contoh: SMPN 220 Jakarta"
+                            : "Contoh: SAKAPADU / SMPN 1"
+                        }
                         value={form.institution}
                         onChange={(e) => setForm({ ...form, institution: e.target.value })}
                         className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"

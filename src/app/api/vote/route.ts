@@ -111,7 +111,16 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
   // Pastikan seluruh peserta kontingen yang terkonfirmasi (CONFIRMED) otomatis masuk ke Cetas Vote publik
   for (const a of attendees) {
     if (a.status !== "CONFIRMED") continue;
-    const targetVoting = cleanVotings.find((v) => v.eventId === a.eventId) || cleanVotings[0];
+
+    // ABAIKAN jika merupakan pembeli tiket penonton / spectator ticket (bukan tim kontingen lomba)
+    const isTicketHolder =
+      (a.institution && a.institution.startsWith("Pemegang Tiket")) ||
+      (a.notes && a.notes.includes("Kode Tiket:")) ||
+      (a.category && a.category.toLowerCase().includes("ticket"));
+    if (isTicketHolder) continue;
+
+    // Pastikan eventId cocok persis, jangan asal fallback ke cleanVotings[0] jika beda event
+    const targetVoting = cleanVotings.find((v) => v.eventId === a.eventId);
     if (!targetVoting) continue;
 
     let targetCat = (targetVoting.categories || []).find(

@@ -166,7 +166,7 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
           institution: a.institution,
           photoUrl:
             uploadedPhoto ||
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
+            "/logo/cetas_logo.png",
           tagline: `Kontingen Resmi ${a.category || "Kompetisi"} — ${a.institution}`,
           totalVotes: 0,
         });
@@ -393,7 +393,7 @@ export async function POST(req: NextRequest) {
         photoUrl:
           photoUrl && photoUrl.length <= 400000
             ? photoUrl
-            : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+            : "/logo/cetas_logo.png",
         tagline: tagline || "Visi misi peserta voting.",
         totalVotes: 0,
       };

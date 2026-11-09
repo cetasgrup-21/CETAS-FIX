@@ -720,9 +720,19 @@ export function TournamentHubView() {
 
                         {cand.photoUrl && (
                           <img
-                            src={cand.photoUrl}
+                            src={
+                              !cand.photoUrl || cand.photoUrl.includes("photo-1534528741775")
+                                ? "/logo/cetas_logo.png"
+                                : cand.photoUrl
+                            }
                             alt={cand.name}
-                            className="h-9 w-9 rounded-lg object-cover border border-slate-700 shrink-0"
+                            className={`h-9 w-9 rounded-lg border border-slate-700 shrink-0 ${
+                              !cand.photoUrl ||
+                              cand.photoUrl.includes("photo-1534528741775") ||
+                              cand.photoUrl.includes("cetas_logo")
+                                ? "object-contain p-1 bg-slate-900"
+                                : "object-cover"
+                            }`}
                           />
                         )}
 

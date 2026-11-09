@@ -2494,7 +2494,7 @@ export default function AdminDashboardPage() {
       candidateNumber: nextNum,
       name: "",
       institution: instansiPlaceholder,
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+      photoUrl: "/logo/cetas_logo.png",
       tagline: "Visi misi peserta untuk kemajuan dan prestasi.",
       totalVotes: 0,
     });
@@ -2537,7 +2537,7 @@ export default function AdminDashboardPage() {
     const safePhoto =
       candidateForm.photoUrl && candidateForm.photoUrl.trim()
         ? candidateForm.photoUrl
-        : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80";
+        : "/logo/cetas_logo.png";
 
     if (editingCandidateId) {
       // EDIT PESERTA (Optimistic 0ms + Backend Sync)

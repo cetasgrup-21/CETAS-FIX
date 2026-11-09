@@ -1159,6 +1159,14 @@ function VotePageContent() {
                               ? Math.round((cand.totalVotes / totalVotesInCat) * 100)
                               : 0;
 
+                          const isDefaultPhoto =
+                            !cand.photoUrl ||
+                            cand.photoUrl.includes("photo-1534528741775") ||
+                            cand.photoUrl.includes("cetas_logo");
+                          const displayPhoto = isDefaultPhoto
+                            ? "/logo/cetas_logo.png"
+                            : cand.photoUrl;
+
                           return (
                             <div
                               key={cand.id}
@@ -1166,13 +1174,17 @@ function VotePageContent() {
                             >
                               <div>
                                 {/* Candidate Photo & Number */}
-                                <div className="relative aspect-square w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                                <div className="relative aspect-square w-full overflow-hidden bg-slate-900 flex items-center justify-center">
                                   <img
-                                    src={cand.photoUrl}
+                                    src={displayPhoto}
                                     alt={cand.name}
-                                    className="w-full h-full object-cover"
+                                    className={`w-full h-full transition-transform duration-300 ${
+                                      isDefaultPhoto
+                                        ? "object-contain p-8 drop-shadow-[0_0_15px_rgba(255,107,0,0.15)]"
+                                        : "object-cover hover:scale-105"
+                                    }`}
                                   />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20 pointer-events-none" />
 
                                   {/* Badge Nomor Urut */}
                                   <div className="absolute top-3 left-3 h-10 w-10 rounded-2xl bg-orange-500 text-white font-black text-sm flex items-center justify-center shadow-lg">

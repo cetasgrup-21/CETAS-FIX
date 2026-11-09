@@ -580,7 +580,7 @@ export async function POST(req: NextRequest) {
     const defaultCandidatePhoto =
       isUploadedImage && validated.portfolioUrl!.length <= 250000
         ? validated.portfolioUrl!
-        : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80";
+        : "/logo/cetas_logo.png";
 
     if (targetVoteCatIdx !== -1) {
       const targetCat = voteCategories[targetVoteCatIdx];
@@ -768,7 +768,7 @@ export async function PATCH(req: NextRequest) {
                     d.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) ||
                     d.fileUrl.startsWith("data:image"))
               )?.fileUrl ||
-              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80";
+              "/logo/cetas_logo.png";
 
             const nextVoteNum =
               attendees[idx].candidateNumber ||

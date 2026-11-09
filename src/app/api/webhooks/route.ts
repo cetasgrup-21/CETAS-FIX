@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import { POST as xenditPost } from "./xendit/route";
+import { POST as dokuPost } from "./doku/route";
 
-// Direct root webhook handler that forwards to Xendit
+// Direct root webhook handler that forwards to DOKU
 export async function POST(req: NextRequest) {
-  return await xenditPost(req);
+  return await dokuPost(req);
 }
 
 export async function GET() {
-  return new Response("CETAS Webhook Endpoint Active", { status: 200 });
+  return new Response("CETAS DOKU Webhook Endpoint Active", { status: 200 });
 }

@@ -68,18 +68,18 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/pelatih"
-                  className="text-slate-200 hover:text-cyan-300 transition block py-0.5"
+                  href="/tournament-hub"
+                  className="text-cyan-300 font-bold hover:underline transition flex items-center gap-1 py-0.5"
                 >
-                  Portal Pelatih &amp; Kontingen
+                  <span>🏆 Tournament Hub &amp; Pelatih</span>
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/tournament-hub"
-                  className="text-cyan-300 font-bold hover:underline transition flex items-center gap-1 py-0.5"
+                  href="/vote"
+                  className="text-amber-300 font-bold hover:underline transition flex items-center gap-1 py-0.5"
                 >
-                  <span>🏆 Tournament Hub 3D</span>
+                  <span>🔥 Vote Peserta Publik</span>
                 </Link>
               </li>
               <li>

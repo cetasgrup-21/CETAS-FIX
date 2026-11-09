@@ -404,10 +404,10 @@ export function TournamentHubView() {
 
             <Link
               href="/pelatih"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/50 bg-amber-500/15 hover:bg-amber-500/25 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-amber-300 transition shadow-sm"
             >
               <UserCheck className="h-3.5 w-3.5 text-amber-400" />
-              <span>Portal Pelatih</span>
+              <span>Portal Pelatih &amp; Kontingen</span>
             </Link>
 
             <Link

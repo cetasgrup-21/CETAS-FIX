@@ -27,8 +27,8 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: "Beranda" },
     { href: "/tournament-hub", label: "Tournament Hub", badge: "LIVE" },
+    { href: "/vote", label: "Vote", badge: "HOT" },
     { href: "/events", label: "Event & Tiket" },
-    { href: "/pelatih", label: "Portal Pelatih", badge: "KONTINGEN" },
     { href: "/layanan", label: "Layanan" },
     { href: "/tentang", label: "Tentang" },
   ];
@@ -84,7 +84,8 @@ export function Navbar() {
                 ? pathname === "/"
                 : link.href.startsWith("/#")
                 ? false
-                : pathname.startsWith(link.href);
+                : pathname.startsWith(link.href) ||
+                  (link.href === "/tournament-hub" && pathname.startsWith("/pelatih"));
 
             return (
               <Link
@@ -180,10 +181,30 @@ export function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center justify-between rounded-xl p-2.5 text-xs font-bold text-slate-100 hover:bg-blue-900/50 hover:text-[#00D9FF]"
             >
-              <span>{link.label}</span>
+              <div className="flex items-center gap-2">
+                <span>{link.label}</span>
+                {link.badge && (
+                  <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[9px] font-black text-cyan-400 border border-cyan-400/30">
+                    {link.badge}
+                  </span>
+                )}
+              </div>
               <ArrowRight className="h-3.5 w-3.5 text-[#00D9FF]" />
             </Link>
           ))}
+
+          {/* Akses Khusus Portal Pelatih & Kontingen di Mobile */}
+          <Link
+            href="/pelatih"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center justify-between rounded-xl p-2.5 text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition"
+          >
+            <span className="flex items-center gap-2">
+              <span>📋</span>
+              <span>Portal Pelatih &amp; Kontingen</span>
+            </span>
+            <span className="text-[10px] text-amber-400/80">Masuk Tim →</span>
+          </Link>
 
           <div className="pt-2 border-t border-blue-500/20 flex gap-2">
             <button

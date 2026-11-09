@@ -34,6 +34,7 @@ import {
   Phone,
   QrCode,
   ArrowRight,
+  ArrowLeft,
   ExternalLink,
   Trophy,
   Edit3,
@@ -740,6 +741,22 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
   if (!authAttendee) {
     return (
       <div className="min-h-screen bg-[#FCFBFE] text-slate-800 pb-28">
+        {/* Unification Navigation Bar back to Tournament Hub */}
+        <div className="bg-[#050B1A] border-b border-cyan-500/20 px-4 py-2.5">
+          <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
+            <Link
+              href="/tournament-hub"
+              className="inline-flex items-center gap-1.5 font-bold text-cyan-400 hover:text-cyan-300 transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Kembali ke Tournament Hub</span>
+            </Link>
+            <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
+              Ekosistem Terintegrasi CETAS Next-Gen
+            </span>
+          </div>
+        </div>
+
         {/* Hero Header */}
         <section className="relative overflow-hidden bg-gradient-to-b from-purple-900 via-purple-950 to-slate-950 pt-16 pb-20 text-white border-b border-purple-800/40">
           <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
@@ -1230,6 +1247,22 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
         </div>
       )}
 
+      {/* Unification Navigation Bar back to Tournament Hub */}
+      <div className="bg-[#050B1A] border-b border-cyan-500/20 px-4 py-2.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
+          <Link
+            href="/tournament-hub"
+            className="inline-flex items-center gap-1.5 font-bold text-cyan-400 hover:text-cyan-300 transition"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Kembali ke Tournament Hub</span>
+          </Link>
+          <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
+            Ekosistem Terintegrasi CETAS Next-Gen
+          </span>
+        </div>
+      </div>
+
       {/* Top Banner Header */}
       <section className="relative overflow-hidden bg-gradient-to-b from-purple-900 via-purple-950 to-slate-950 pt-10 pb-16 text-white border-b border-purple-800/40">
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
@@ -1364,6 +1397,74 @@ Untuk pertanyaan teknis, silakan hubungi sekretariat panitia lomba.
                     : "Nilai final resmi akan dibuka oleh Admin CETAS setelah rekap dewan juri disahkan"}
                 </p>
               </div>
+            </div>
+
+            {/* Foto Profil Kontingen untuk Bilik Vote Publik */}
+            <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-slate-900 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  Foto Kontingen (Cetas Vote)
+                </h3>
+                <Link
+                  href="/vote"
+                  className="text-[11px] font-bold text-cyan-600 hover:underline flex items-center gap-1"
+                >
+                  <span>Lihat di Vote</span>
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+
+              {authAttendee.portfolioUrl ? (
+                <div className="relative rounded-2xl overflow-hidden border-2 border-purple-200 bg-slate-900 aspect-video group shadow-sm">
+                  <img
+                    src={authAttendee.portfolioUrl}
+                    alt={authAttendee.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                    <span className="text-[11px] font-black text-white bg-slate-950/80 px-3 py-1 rounded-full border border-white/20">
+                      ✓ Foto Aktif di Halaman Vote
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border-2 border-dashed border-purple-200 p-4 text-center bg-purple-50/50">
+                  <p className="text-xs font-semibold text-slate-500">
+                    Belum ada foto khusus. Unggah foto kontingen Anda agar tampil di bilik voting publik.
+                  </p>
+                </div>
+              )}
+
+              <FileUpload
+                label="Unggah / Ganti Foto Tim Vote"
+                description="Format PNG, JPG, WEBP (Otomatis langsung sinkron ke halaman Cetas Vote)"
+                accept="image/*"
+                onChange={async (dataUrl) => {
+                  if (!dataUrl) return;
+                  try {
+                    const res = await fetch("/api/attendees", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        action: "UPDATE_TEAM_PHOTO",
+                        badgeCode: authAttendee.badgeCode,
+                        photoUrl: dataUrl,
+                      }),
+                    });
+                    const d = await res.json();
+                    if (d.success && d.attendee) {
+                      setAuthAttendee(d.attendee);
+                      setEmailSentToast("✓ Foto resmi kontingen berhasil diperbarui & disinkronkan ke halaman vote publik!");
+                      setTimeout(() => setEmailSentToast(null), 4500);
+                    } else {
+                      alert(d.message || "Gagal memperbarui foto kontingen");
+                    }
+                  } catch (err: any) {
+                    alert("Gagal mengunggah foto: " + (err?.message || "Kesalahan jaringan"));
+                  }
+                }}
+              />
             </div>
 
             {/* Quick Actions Card */}

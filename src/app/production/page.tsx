@@ -616,7 +616,7 @@ export default function ProductionPage() {
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] text-slate-500">Total Tagihan (DOKU Direct API)</div>
+                  <div className="text-[10px] text-slate-500">Total Tagihan (DOKU Checkout)</div>
                   <div className="text-base font-black text-blue-700">
                     {formatRupiah(cartTotal)}
                   </div>

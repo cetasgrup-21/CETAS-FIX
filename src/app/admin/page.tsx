@@ -5678,7 +5678,7 @@ export default function AdminDashboardPage() {
                           Kategori & Peserta Voting
                         </h3>
                         <p className="text-xs text-slate-500 mt-1">
-                          Atur kategori (misal: SMP, SMA, Purna) dan daftarkan peserta di masing-masing kategori. Pembayaran langsung via Xendit QRIS & E-Wallet.
+                          Atur kategori (misal: SMP, SMA, Purna) dan daftarkan peserta di masing-masing kategori. Pembayaran langsung via DOKU QRIS & E-Wallet.
                         </p>
                       </div>
 
@@ -6214,7 +6214,7 @@ export default function AdminDashboardPage() {
                         Laporan Keuangan &amp; Arus Kas: {selectedEvent.title}
                       </h3>
                       <p className="text-xs text-slate-500">
-                        Transparansi seluruh pendapatan tiket, voting, kuota, dan transaksi Xendit Gateway untuk event ini.
+                        Transparansi seluruh pendapatan tiket, voting, kuota, dan transaksi DOKU Gateway untuk event ini.
                       </p>
                     </div>
 
@@ -6246,7 +6246,7 @@ export default function AdminDashboardPage() {
                         {formatRupiah(effectiveCurrentEventTotalRevenue)}
                       </div>
                       <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
-                        100% Settlement Xendit Masuk
+                        100% Settlement DOKU Masuk
                       </div>
                     </div>
 
@@ -6328,10 +6328,10 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Transaksi Pembayaran Xendit Terbaru untuk Event Ini */}
+                  {/* Transaksi Pembayaran DOKU Terbaru untuk Event Ini */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                      Daftar Transaksi Pembayaran Xendit Terverifikasi (PAID)
+                      Daftar Transaksi Pembayaran DOKU Terverifikasi (PAID)
                     </h4>
                     <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
                       <table className="w-full text-left text-xs">
@@ -6361,7 +6361,7 @@ export default function AdminDashboardPage() {
                                 <td className="p-3.5 text-slate-500">{ord.customerPhone || ord.customerEmail || "-"}</td>
                                 <td className="p-3.5">
                                   <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
-                                    {ord.paymentChannel || "XENDIT"}
+                                    {ord.paymentChannel || "DOKU"}
                                   </span>
                                 </td>
                                 <td className="p-3.5 text-slate-500">{formatDateTime(ord.createdAt)}</td>
@@ -6824,7 +6824,7 @@ export default function AdminDashboardPage() {
                 Rekonsiliasi Keuangan & Transaksi Seluruh Event
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Data terhubung langsung dengan database PostgreSQL transaksi paid dan webhook resmi DOKU Direct API.
+                Data terhubung langsung dengan database PostgreSQL transaksi paid dan webhook resmi DOKU Checkout.
               </p>
             </div>
 
@@ -6855,7 +6855,7 @@ export default function AdminDashboardPage() {
                 {formatRupiah(effectiveTotalOmzet)}
               </div>
               <div className="text-[11px] text-emerald-600 font-semibold mt-1">
-                ✓ Dana bersih terverifikasi Xendit
+                ✓ Dana bersih terverifikasi DOKU
               </div>
             </div>
 
@@ -6971,12 +6971,12 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Tabel Riwayat Transaksi Lunas Xendit */}
+          {/* Tabel Riwayat Transaksi Lunas DOKU */}
           <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4 shadow-sm">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Ticket className="h-4 w-4 text-blue-500" />
-                Riwayat Transaksi Paid Xendit Gateway (Terbaru)
+                Riwayat Transaksi Paid DOKU Gateway (Terbaru)
               </h4>
               <span className="text-xs text-slate-400">
                 {globalRecentOrders.length} transaksi tercatat
@@ -7025,7 +7025,7 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="p-3.5">
                           <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold text-[10px] text-slate-700 dark:text-slate-300">
-                            {ord.paymentChannel || "XENDIT"}
+                            {ord.paymentChannel || "DOKU"}
                           </span>
                         </td>
                         <td className="p-3.5">
@@ -7342,8 +7342,8 @@ export default function AdminDashboardPage() {
               },
               {
                 time: "15 menit lalu",
-                action: "XENDIT_SETTLEMENT",
-                detail: "Pembayaran paket suara voting diverifikasi otomatis via Xendit Payment Gateway (QRIS/E-Wallet).",
+                action: "DOKU_SETTLEMENT",
+                detail: "Pembayaran paket suara voting diverifikasi otomatis via DOKU Payment Gateway (QRIS/E-Wallet).",
               },
             ].map((log, idx) => (
               <div
@@ -7501,7 +7501,7 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                      Peserta baru otomatis dimulai dari <strong>0 suara sah</strong>. Jumlah suara <strong>tidak dapat dimanipulasi manual</strong> oleh admin dan hanya akan bertambah secara transparan dan realtime saat publik melakukan voting resmi via Xendit Payment Gateway (QRIS & E-Wallet).
+                      Peserta baru otomatis dimulai dari <strong>0 suara sah</strong>. Jumlah suara <strong>tidak dapat dimanipulasi manual</strong> oleh admin dan hanya akan bertambah secara transparan dan realtime saat publik melakukan voting resmi via DOKU Payment Gateway (QRIS & E-Wallet).
                     </p>
                   </div>
                 </div>
@@ -7519,7 +7519,7 @@ export default function AdminDashboardPage() {
                         </span>
                       </div>
                       <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Murni hasil voting publik via Xendit Payment Gateway (Tidak dapat diedit atau dimanipulasi manual)
+                        Murni hasil voting publik via DOKU Payment Gateway (Tidak dapat diedit atau dimanipulasi manual)
                       </div>
                     </div>
                   </div>

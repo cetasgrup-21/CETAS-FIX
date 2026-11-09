@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createDokuPayment, DokuPaymentMethod } from "@/lib/doku";
+import { createDokuPayment } from "@/lib/doku";
 import {
   validateAndCalculateItems,
   createOrderRecord,
@@ -18,7 +18,7 @@ const checkoutSchema = z.object({
     .string()
     .optional()
     .transform((val) => (val && val.trim().length >= 8 ? val.trim() : "081234567890")),
-  paymentMethod: z.enum(["QRIS", "OVO", "SHOPEEPAY", "DANA"]).optional().default("QRIS"),
+  paymentMethod: z.enum(["QRIS", "CHECKOUT"]).optional().default("CHECKOUT"),
   ovoPhoneNumber: z.string().optional(),
   items: z
     .array(
@@ -96,12 +96,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Buat transaksi resmi di DOKU Direct API (Jokul Checkout / QRIS ASPI)
+    // 4. Create a hosted DOKU Checkout session. Customers choose from the
+    // payment methods enabled for this merchant in the DOKU dashboard.
     const dokuResult = await createDokuPayment({
       orderId: orderNumber,
       grossAmount: totalAmount,
-      paymentMethod: (validatedData.paymentMethod as DokuPaymentMethod) || "QRIS",
-      ovoPhoneNumber: validatedData.ovoPhoneNumber,
       customerDetails: {
         first_name: validatedData.customerName,
         email: validatedData.customerEmail,
@@ -116,7 +115,7 @@ export async function POST(req: NextRequest) {
       description: `CETAS ${validatedData.orderType} - ${orderNumber}`,
     });
 
-    // 5. Simpan pesanan ke database PostgreSQL Supabase dengan status PENDING
+    // 5. Save the order as PENDING before returning the hosted payment URL.
     await createOrderRecord({
       orderNumber,
       orderType: validatedData.orderType,
@@ -125,13 +124,14 @@ export async function POST(req: NextRequest) {
       customerPhone: validatedData.customerPhone,
       totalAmount,
       paymentGateway: "DOKU",
-      paymentMethod: validatedData.paymentMethod || "QRIS",
+      paymentMethod: "DOKU_CHECKOUT",
       items: verifiedItems,
       metadata: {
-        paymentUrl: dokuResult?.paymentUrl,
-        tokenId: dokuResult?.tokenId,
-        sessionId: dokuResult?.sessionId,
-        qrContent: dokuResult?.qrContent,
+        dokuRequestId: dokuResult.requestId,
+        dokuSessionId: dokuResult.sessionId,
+        dokuPaymentUrl: dokuResult.paymentUrl,
+        expiredAt: dokuResult.expiredAt,
+        paymentMethodTypes: dokuResult.paymentMethodTypes,
       },
     });
 
@@ -139,14 +139,10 @@ export async function POST(req: NextRequest) {
       success: true,
       orderNumber,
       paymentGateway: "DOKU",
-      paymentMethod: validatedData.paymentMethod || "QRIS",
+      paymentMethod: "CHECKOUT",
       grossAmount: totalAmount,
-      paymentUrl: dokuResult?.paymentUrl,
-      invoiceUrl: dokuResult?.paymentUrl,
-      qrDataUrl: dokuResult?.qrDataUrl,
-      qrContent: dokuResult?.qrContent,
-      isSimulated: dokuResult?.isSimulated,
-      expiredAt: dokuResult?.expiredAt,
+      paymentUrl: dokuResult.paymentUrl,
+      expiredAt: dokuResult.expiredAt,
     });
   } catch (error: any) {
     console.error("[Checkout API Error]:", error?.message);

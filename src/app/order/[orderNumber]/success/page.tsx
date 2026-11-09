@@ -170,7 +170,7 @@ export default function OrderSuccessPage({
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-extrabold backdrop-blur-xs border border-white/30">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Xendit Gateway Settlement Terverifikasi</span>
+                <span>DOKU Checkout Settlement Terverifikasi</span>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
@@ -248,7 +248,7 @@ export default function OrderSuccessPage({
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Saluran Pembayaran:</span>
-                  <span className="font-bold text-blue-700">{orderData.paymentChannel || "Xendit Gateway"}</span>
+                  <span className="font-bold text-blue-700">{orderData.paymentChannel || "DOKU Checkout"}</span>
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Waktu Settlement:</span>
@@ -314,7 +314,7 @@ export default function OrderSuccessPage({
             <div className="space-y-1">
               <h1 className="text-xl font-black text-slate-900">Menunggu Pembayaran Terverifikasi</h1>
               <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                Kami sedang menunggu konfirmasi pembayaran dari Xendit Payment Gateway untuk pesanan <strong>{orderNumber}</strong>.
+                Kami sedang menunggu konfirmasi pembayaran dari DOKU Checkout untuk pesanan <strong>{orderNumber}</strong>.
               </p>
             </div>
 

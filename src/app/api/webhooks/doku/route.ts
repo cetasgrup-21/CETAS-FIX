@@ -1,136 +1,114 @@
 import { NextRequest, NextResponse } from "next/server";
+import { findOrder, markOrderAsPaid } from "@/lib/order-store";
 import { verifyDokuWebhookSignature } from "@/lib/doku";
-import { findOrder, markOrderAsPaid, ensureOrderTables } from "@/lib/order-store";
-import { prisma } from "@/lib/prisma";
 import { logPaymentTrace } from "@/lib/payment-logger";
 
 export const dynamic = "force-dynamic";
 
+interface DokuCheckoutNotification {
+  order?: { invoice_number?: string; amount?: string | number };
+  transaction?: {
+    status?: string;
+    original_request_id?: string;
+    date?: string;
+  };
+  channel?: { id?: string };
+  service?: { id?: string };
+}
+
+function acknowledgeNotification() {
+  return NextResponse.json({ message: "SUCCESS" }, { status: 200 });
+}
+
 export async function POST(req: NextRequest) {
-  try {
-    const rawBody = await req.text();
-    let notification: Record<string, any> = {};
-    try {
-      notification = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ message: "Invalid JSON body" }, { status: 400 });
-    }
+  const rawBody = await req.text();
+  const url = new URL(req.url);
+  const requestTarget = `${url.pathname}${url.search}`;
+  const clientId = req.headers.get("client-id") || "";
+  const requestId = req.headers.get("request-id") || "";
+  const requestTimestamp = req.headers.get("request-timestamp") || "";
+  const signature = req.headers.get("signature") || "";
 
-    const clientId = req.headers.get("client-id") || req.headers.get("Client-Id") || "";
-    const requestId = req.headers.get("request-id") || req.headers.get("Request-Id") || "";
-    const requestTimestamp = req.headers.get("request-timestamp") || req.headers.get("Request-Timestamp") || "";
-    const incomingSignature = req.headers.get("signature") || req.headers.get("Signature") || "";
-
-    // 1. Verifikasi Signature Webhook DOKU (jika header dikirimkan)
-    if (clientId && incomingSignature) {
-      const isValid = verifyDokuWebhookSignature(
-        clientId,
-        requestId,
-        requestTimestamp,
-        "/api/webhooks/doku",
-        rawBody,
-        incomingSignature
-      );
-      if (!isValid) {
-        console.warn(`[DOKU Webhook] Signature mismatch for Request-Id: ${requestId}`);
-        // Log trace but allow sandbox testing if needed
-      }
-    }
-
-    // 2. Ekstraksi Data Pesanan dari Payload DOKU
-    const orderObj = (notification.order as Record<string, any>) || {};
-    const transactionObj = (notification.transaction as Record<string, any>) || {};
-    const channelObj = (notification.channel as Record<string, any>) || {};
-    const paymentObj = (notification.payment as Record<string, any>) || {};
-
-    const orderNumber =
-      orderObj.invoice_number ||
-      notification.invoice_number ||
-      orderObj.order_id ||
-      notification.order_id ||
-      "";
-
-    const rawStatus = (
-      transactionObj.status ||
-      notification.status ||
-      orderObj.status ||
-      ""
-    ).toUpperCase();
-
-    const amountPaid = Number(orderObj.amount || notification.amount || 0);
-    const paymentChannel =
-      channelObj.id ||
-      paymentObj.channel ||
-      notification.payment_channel ||
-      "DOKU_QRIS";
-
-    const gatewayTxId =
-      transactionObj.id ||
-      transactionObj.original_request_id ||
-      requestId ||
-      `DOKU-TX-${Date.now()}`;
-
+  const isValid = verifyDokuWebhookSignature({
+    clientId,
+    requestId,
+    requestTimestamp,
+    requestTarget,
+    body: rawBody,
+    signature,
+  });
+  if (!isValid) {
     logPaymentTrace({
-      correlationId: orderNumber || gatewayTxId,
-      step: "DOKU_WEBHOOK_RECEIVED",
-      gatewayTransactionId: gatewayTxId,
-      statusBefore: rawStatus,
-      amountReceived: amountPaid,
-      paymentMethod: paymentChannel,
-      message: `DOKU Webhook notification received for ${orderNumber} with status ${rawStatus}`,
+      correlationId: requestId || "DOKU_WEBHOOK",
+      step: "WEBHOOK_AUTH_FAILED",
+      error: "Invalid DOKU Checkout notification signature",
     });
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
 
-    if (!orderNumber) {
-      // DOKU ping test
-      return NextResponse.json(
-        { message: "SUCCESS", detail: "Ping received without invoice_number" },
-        { status: 200 }
-      );
+  let notification: DokuCheckoutNotification;
+  try {
+    notification = JSON.parse(rawBody) as DokuCheckoutNotification;
+  } catch {
+    return NextResponse.json({ message: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const orderNumber = notification.order?.invoice_number;
+  const status = notification.transaction?.status?.toUpperCase();
+  const amountPaid = Number(notification.order?.amount);
+  if (!orderNumber || !status || !Number.isFinite(amountPaid)) {
+    return NextResponse.json({ message: "Incomplete DOKU notification" }, { status: 400 });
+  }
+
+  try {
+    const order = await findOrder(orderNumber);
+    if (!order || order.paymentGateway !== "DOKU") {
+      // Authenticated but unrelated or legacy notification: acknowledge without settlement.
+      return acknowledgeNotification();
     }
 
-    await ensureOrderTables();
+    const expectedRequestId = order.metadata?.dokuRequestId;
+    const notificationRequestId = notification.transaction?.original_request_id;
+    if (
+      amountPaid !== order.totalAmount ||
+      (typeof expectedRequestId === "string" &&
+        typeof notificationRequestId === "string" &&
+        expectedRequestId !== notificationRequestId)
+    ) {
+      logPaymentTrace({
+        correlationId: orderNumber,
+        step: "TRANSACTION_MISMATCH",
+        amountExpected: order.totalAmount,
+        amountReceived: amountPaid,
+        error: "DOKU Checkout invoice, amount, or request reference mismatch",
+      });
+      return NextResponse.json({ message: "Transaction mismatch" }, { status: 409 });
+    }
 
-    // 3. Evaluasi Status Pembayaran DOKU
-    const isSuccess =
-      rawStatus === "SUCCESS" ||
-      rawStatus === "SETTLED" ||
-      rawStatus === "PAID" ||
-      rawStatus === "CAPTURE";
-
-    if (isSuccess) {
-      const settlement = await markOrderAsPaid(orderNumber, {
-        gatewayTxId,
-        paymentChannel: `DOKU_${paymentChannel}`,
+    // DOKU Checkout allows customers to retry another method; do not treat a
+    // FAILED notification as final. Only signed SUCCESS events settle orders.
+    if (status === "SUCCESS") {
+      const settlement = await markOrderAsPaid(order.orderNumber, {
         amountPaid,
+        paymentChannel: notification.channel?.id || notification.service?.id || "DOKU_CHECKOUT",
+        gatewayTxId: notificationRequestId || requestId,
         rawPayload: rawBody,
       });
-
-      if (!settlement.success) {
-        console.warn(`[DOKU Webhook] Order ${orderNumber} not found in database`);
-      } else {
-        logPaymentTrace({
-          correlationId: orderNumber,
-          step: "DOKU_ORDER_SETTLED",
-          gatewayTransactionId: gatewayTxId,
-          amountReceived: amountPaid,
-          message: `Order ${orderNumber} marked as PAID via DOKU ${paymentChannel}`,
-        });
-      }
-    } else if (rawStatus === "EXPIRED") {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE "CetasOrder" SET "paymentStatus" = 'EXPIRED', "updatedAt" = CURRENT_TIMESTAMP WHERE "orderNumber" = $1`,
-          orderNumber
-        );
-      } catch (e) {
-        console.warn("Failed to mark order expired", e);
-      }
+      logPaymentTrace({
+        correlationId: orderNumber,
+        step: "DOKU_ORDER_SETTLED",
+        message: settlement.alreadyPaid ? "Duplicate success notification acknowledged" : undefined,
+        amountExpected: order.totalAmount,
+        amountReceived: amountPaid,
+        statusBefore: order.paymentStatus,
+        statusAfter: "PAID",
+        ticketsCount: settlement.tickets.length,
+      });
     }
 
-    // DOKU expects HTTP 200 with JSON { message: "SUCCESS" }
-    return NextResponse.json({ message: "SUCCESS" }, { status: 200 });
-  } catch (err: any) {
-    console.error("[DOKU Webhook Server Error]:", err);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return acknowledgeNotification();
+  } catch (error) {
+    console.error("[DOKU Checkout Webhook Error]:", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ message: "Notification processing failed" }, { status: 500 });
   }
 }

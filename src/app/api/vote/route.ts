@@ -8,6 +8,7 @@ import {
   getVotingsStore,
   saveVotingsStore,
   getEventsStore,
+  getAttendeesStore,
 } from "@/lib/cetas-store";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +23,10 @@ function safeBanner(url?: string): string {
 }
 
 async function getSyncedVotings(): Promise<EventVotingConfig[]> {
-  const [votings, events] = await Promise.all([
+  const [votings, events, attendees] = await Promise.all([
     getVotingsStore(),
     getEventsStore(),
+    getAttendeesStore(),
   ]);
 
   let updated = false;
@@ -58,7 +60,110 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
         updated = true;
       }
     }
+
+    // Sinkronkan foto & nomor kandidat dengan data peserta/kontingen yang di-upload
+    for (const cat of v.categories || []) {
+      for (const cand of cat.candidates || []) {
+        const matchedAttendee = attendees.find((a) => {
+          if (a.eventId && a.eventId !== v.eventId) return false;
+          const nameMatch = normTitle(a.fullName) === normTitle(cand.name);
+          const instMatch = normTitle(a.institution) === normTitle(cand.institution);
+          const numMatch =
+            (a.candidateNumber && a.candidateNumber === cand.candidateNumber) ||
+            (a.tmLotteryNumber && a.tmLotteryNumber === cand.candidateNumber);
+          return nameMatch || (instMatch && numMatch);
+        });
+
+        if (matchedAttendee) {
+          // Cari foto yang di-upload oleh peserta: portfolioUrl atau berkas foto
+          let uploadedPhoto = matchedAttendee.portfolioUrl?.trim();
+          if (!uploadedPhoto || uploadedPhoto.length < 10) {
+            const photoDoc = matchedAttendee.submittedDocuments?.find(
+              (d) =>
+                d.fileUrl &&
+                (d.title?.toLowerCase().includes("foto") ||
+                  d.title?.toLowerCase().includes("tim") ||
+                  d.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) ||
+                  d.fileUrl.startsWith("data:image"))
+            );
+            if (photoDoc?.fileUrl) {
+              uploadedPhoto = photoDoc.fileUrl;
+            }
+          }
+
+          if (uploadedPhoto && uploadedPhoto.length > 20 && cand.photoUrl !== uploadedPhoto) {
+            cand.photoUrl = uploadedPhoto;
+            updated = true;
+          }
+
+          const officialNumber = matchedAttendee.candidateNumber || matchedAttendee.tmLotteryNumber;
+          if (officialNumber && cand.candidateNumber !== officialNumber) {
+            cand.candidateNumber = officialNumber;
+            updated = true;
+          }
+        }
+      }
+    }
+
     cleanVotings.push(v);
+  }
+
+  // Pastikan seluruh peserta kontingen yang terkonfirmasi (CONFIRMED) otomatis masuk ke Cetas Vote publik
+  for (const a of attendees) {
+    if (a.status !== "CONFIRMED") continue;
+    const targetVoting = cleanVotings.find((v) => v.eventId === a.eventId) || cleanVotings[0];
+    if (!targetVoting) continue;
+
+    let targetCat = (targetVoting.categories || []).find(
+      (vc) =>
+        normTitle(vc.title) === normTitle(a.category) ||
+        (a.levelCode && normTitle(vc.title).includes(a.levelCode.toLowerCase()))
+    );
+    if (!targetCat && targetVoting.categories.length > 0) {
+      targetCat = targetVoting.categories[0];
+    }
+
+    if (targetCat) {
+      const candExists = (targetCat.candidates || []).some(
+        (c) =>
+          normTitle(c.name) === normTitle(a.fullName) ||
+          (normTitle(c.institution) === normTitle(a.institution) &&
+            a.candidateNumber &&
+            c.candidateNumber === a.candidateNumber)
+      );
+
+      if (!candExists) {
+        let uploadedPhoto = a.portfolioUrl?.trim();
+        if (!uploadedPhoto || uploadedPhoto.length < 10) {
+          const photoDoc = a.submittedDocuments?.find(
+            (d) =>
+              d.fileUrl &&
+              (d.title?.toLowerCase().includes("foto") ||
+                d.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) ||
+                d.fileUrl.startsWith("data:image"))
+          );
+          if (photoDoc?.fileUrl) uploadedPhoto = photoDoc.fileUrl;
+        }
+
+        targetCat.candidates.push({
+          id: `cand-${a.id || Date.now()}`,
+          eventId: targetVoting.eventId,
+          categoryId: targetCat.id,
+          candidateNumber:
+            a.candidateNumber ||
+            a.tmLotteryNumber ||
+            String((targetCat.candidates || []).length + 1).padStart(2, "0"),
+          name: a.fullName,
+          institution: a.institution,
+          photoUrl:
+            uploadedPhoto ||
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
+          tagline: `Kontingen Resmi ${a.category || "Kompetisi"} — ${a.institution}`,
+          totalVotes: 0,
+        });
+        updated = true;
+      }
+    }
   }
 
   // Pastikan setiap event di katalog memiliki minimal 1 bilik voting siap pakai
@@ -344,6 +449,23 @@ export async function POST(req: NextRequest) {
           { success: false, message: "Peserta tidak ditemukan" },
           { status: 404 }
         );
+      }
+
+      // Cegah duplikasi suara jika sudah dicatat via markOrderAsPaid settlement
+      if (orderNumber) {
+        try {
+          const { findOrder } = await import("@/lib/order-store");
+          const existingOrder = await findOrder(orderNumber);
+          if (existingOrder?.metadata && (existingOrder.metadata as any).voteRecorded) {
+            return NextResponse.json({
+              success: true,
+              message: `Suara sah untuk ${cand.name} telah diverifikasi otomatis via settlement (${orderNumber}).`,
+              candidate: cand,
+              totalVotes: cand.totalVotes,
+              eventVotings: votings,
+            });
+          }
+        } catch {}
       }
 
       const votesIncrement = Math.max(1, Number(addedVotes) || 1);

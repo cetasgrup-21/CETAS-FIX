@@ -18,7 +18,7 @@ const globalForCheckins = globalThis as unknown as {
   cetasCheckedInStore?: Map<string, CheckedInRecord>;
 };
 
-export const checkedInStore =
+const checkedInStore =
   globalForCheckins.cetasCheckedInStore ?? new Map<string, CheckedInRecord>();
 
 if (process.env.NODE_ENV !== "production") {

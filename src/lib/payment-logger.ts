@@ -9,9 +9,9 @@ export type PaymentLifecycleStep =
   | "DOKU_API_SUCCESS"
   | "DOKU_WEBHOOK_RECEIVED"
   | "DOKU_ORDER_SETTLED"
-  | "XENDIT_REQUEST_SENT"
-  | "XENDIT_RESPONSE_RECEIVED"
-  | "XENDIT_REQUEST_FAILED"
+  | "DOKU_REQUEST_SENT"
+  | "DOKU_RESPONSE_RECEIVED"
+  | "DOKU_REQUEST_FAILED"
   | "WEBHOOK_RECEIVED"
   | "WEBHOOK_AUTHENTICATED"
   | "WEBHOOK_AUTH_FAILED"
@@ -35,7 +35,7 @@ export interface PaymentLogPayload {
   step: PaymentLifecycleStep;
   orderNumber?: string;
   gatewayTransactionId?: string;
-  xenditInvoiceId?: string;
+  dokuInvoiceId?: string;
   paymentMethod?: string;
   amountExpected?: number;
   amountReceived?: number;
@@ -54,7 +54,7 @@ export function logPaymentTrace(payload: PaymentLogPayload): void {
     correlationId: payload.correlationId,
     step: payload.step,
     orderNumber: payload.orderNumber || payload.correlationId,
-    xenditInvoiceId: payload.xenditInvoiceId ? payload.xenditInvoiceId.slice(0, 10) + "..." : undefined,
+    dokuInvoiceId: payload.dokuInvoiceId ? payload.dokuInvoiceId.slice(0, 10) + "..." : undefined,
     paymentMethod: payload.paymentMethod,
     amountExpected: payload.amountExpected,
     amountReceived: payload.amountReceived,

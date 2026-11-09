@@ -532,7 +532,7 @@ export default function EventsPage() {
                   className="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-6 py-2.5 text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  {isBuying ? "Memproses..." : "Bayar via Xendit (QRIS / E-Wallet)"}
+                  {isBuying ? "Memproses..." : "Bayar via DOKU (QRIS / E-Wallet)"}
                 </button>
               </div>
             </form>
@@ -642,7 +642,7 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
+      {/* Hosted DOKU Checkout modal */}
       {simulatorData && selectedTier && (
         <DokuPaymentModal
           isOpen={!!simulatorData}

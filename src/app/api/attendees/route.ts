@@ -756,8 +756,40 @@ export async function PATCH(req: NextRequest) {
                 c.name.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
                 c.institution.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
             );
-            if (!alreadyInVote) {
-              const nextVoteNum = attendees[idx].tmLotteryNumber || String((targetVoteCat.candidates || []).length + 1).padStart(2, "0");
+            const attendeePhoto =
+              (attendees[idx].portfolioUrl && attendees[idx].portfolioUrl.trim().length > 10
+                ? attendees[idx].portfolioUrl.trim()
+                : undefined) ||
+              attendees[idx].submittedDocuments?.find(
+                (d) =>
+                  d.fileUrl &&
+                  (d.title?.toLowerCase().includes("foto") ||
+                    d.title?.toLowerCase().includes("tim") ||
+                    d.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) ||
+                    d.fileUrl.startsWith("data:image"))
+              )?.fileUrl ||
+              "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80";
+
+            const nextVoteNum =
+              attendees[idx].candidateNumber ||
+              attendees[idx].tmLotteryNumber ||
+              String((targetVoteCat.candidates || []).length + 1).padStart(2, "0");
+
+            if (alreadyInVote) {
+              const existingCand = targetVoteCat.candidates.find(
+                (c) =>
+                  c.name.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() &&
+                  c.institution.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase()
+              );
+              if (existingCand) {
+                if (attendeePhoto && !attendeePhoto.includes("unsplash")) {
+                  existingCand.photoUrl = attendeePhoto;
+                }
+                if (nextVoteNum) {
+                  existingCand.candidateNumber = nextVoteNum;
+                }
+              }
+            } else {
               targetVoteCat.candidates.push({
                 id: `cand-verif-${Date.now()}`,
                 eventId: attendees[idx].eventId,
@@ -765,12 +797,12 @@ export async function PATCH(req: NextRequest) {
                 candidateNumber: nextVoteNum,
                 name: attendees[idx].fullName,
                 institution: attendees[idx].institution,
-                photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
+                photoUrl: attendeePhoto,
                 tagline: `Kontingen Resmi ${attendees[idx].category} — ${attendees[idx].institution}`,
                 totalVotes: 0,
               });
-              await saveVotingsStore(votings);
             }
+            await saveVotingsStore(votings);
           }
         }
 
@@ -1189,6 +1221,16 @@ export async function PATCH(req: NextRequest) {
       }
 
       attendees[idx].submittedDocuments = docs;
+
+      // Jika berkas prasyarat yang diunggah adalah pas foto atau foto tim
+      const isPrereqPhoto =
+        title.toLowerCase().includes("foto") ||
+        fileName.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i) ||
+        fileUrl.startsWith("data:image");
+      if (isPrereqPhoto && fileUrl) {
+        attendees[idx].portfolioUrl = fileUrl;
+      }
+
       await saveAttendeesStore(attendees);
 
       return NextResponse.json({
@@ -1196,6 +1238,61 @@ export async function PATCH(req: NextRequest) {
         message: `Berkas "${title}" berhasil diunggah dan sedang menunggu verifikasi panitia.`,
         attendee: attendees[idx],
         submittedDocuments: attendees[idx].submittedDocuments,
+      });
+    }
+
+    // Aksi 1K-2: Update Foto Resmi Kontingen langsung dari Portal Pelatih
+    if (action === "UPDATE_TEAM_PHOTO") {
+      const attendees = await getAttendeesStore();
+      const idx = attendees.findIndex(
+        (a) => a.id === targetLookup || a.badgeCode === targetLookup || a.badgeCode === body.badgeCode
+      );
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, message: "Akun kontingen tidak ditemukan" },
+          { status: 404 }
+        );
+      }
+
+      const photoUrl = String(body.photoUrl || "").trim();
+      if (!photoUrl) {
+        return NextResponse.json(
+          { success: false, message: "URL foto atau file data gambar wajib disertakan" },
+          { status: 400 }
+        );
+      }
+
+      attendees[idx].portfolioUrl = photoUrl;
+      await saveAttendeesStore(attendees);
+
+      // Sinkronkan ke Cetas Vote
+      try {
+        const votings = await getVotingsStore();
+        let voteUpdated = false;
+        for (const ev of votings) {
+          for (const cat of ev.categories || []) {
+            for (const cand of cat.candidates || []) {
+              if (
+                cand.name.trim().toLowerCase() === attendees[idx].fullName.trim().toLowerCase() ||
+                (cand.institution.trim().toLowerCase() === attendees[idx].institution.trim().toLowerCase() &&
+                  cand.candidateNumber === (attendees[idx].candidateNumber || attendees[idx].tmLotteryNumber))
+              ) {
+                cand.photoUrl = photoUrl;
+                voteUpdated = true;
+              }
+            }
+          }
+        }
+        if (voteUpdated) {
+          await saveVotingsStore(votings);
+        }
+      } catch {}
+
+      return NextResponse.json({
+        success: true,
+        message: "Foto resmi tim berhasil diperbarui dan disinkronkan ke halaman vote publik!",
+        attendee: attendees[idx],
+        photoUrl,
       });
     }
 

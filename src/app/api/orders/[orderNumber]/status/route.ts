@@ -1,151 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findOrder, markOrderAsPaid, getTicketsByOrder, ensureOrderTables } from "@/lib/order-store";
-import { getXenditInvoice, getXenditQrCode } from "@/lib/xendit";
-import { prisma } from "@/lib/prisma";
+import { findOrder, markOrderAsPaid, getTicketsByOrder } from "@/lib/order-store";
+import { queryDokuCheckoutStatus } from "@/lib/doku";
 import { logPaymentTrace } from "@/lib/payment-logger";
 import QRCode from "qrcode";
 
 export const dynamic = "force-dynamic";
 
+declare global {
+  // Per-instance throttle prevents the UI's 3-second polling from becoming a
+  // DOKU Check Status API request on every poll.
+  var __cetasDokuCheckoutStatusChecks: Map<string, number> | undefined;
+}
+
+const statusChecks = globalThis.__cetasDokuCheckoutStatusChecks ?? new Map<string, number>();
+globalThis.__cetasDokuCheckoutStatusChecks = statusChecks;
+
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ orderNumber: string }> }
+  _req: NextRequest,
+  { params }: { params: Promise<{ orderNumber: string }> },
 ) {
   try {
-    const { orderNumber } = await params;
-    if (!orderNumber || !orderNumber.trim()) {
-      return NextResponse.json(
-        { success: false, message: "Nomor pesanan diperlukan" },
-        { status: 400 }
-      );
-    }
+    const { orderNumber: rawOrderNumber } = await params;
+    const orderNumber = rawOrderNumber?.trim();
+    if (!orderNumber) return NextResponse.json({ success: false, message: "Nomor pesanan diperlukan" }, { status: 400 });
 
-    let order = await findOrder(orderNumber.trim());
-    if (!order) {
-      return NextResponse.json(
-        { success: false, message: "Pesanan tidak ditemukan di database" },
-        { status: 404 }
-      );
-    }
+    let order = await findOrder(orderNumber);
+    if (!order) return NextResponse.json({ success: false, message: "Pesanan tidak ditemukan" }, { status: 404 });
 
-    logPaymentTrace({
-      correlationId: order.orderNumber,
-      step: "STATUS_CHECK_POLL",
-      statusBefore: order.paymentStatus,
-      message: `Status poll query for ${order.orderNumber}`,
-    });
+    if (order.paymentStatus === "PENDING" && order.paymentGateway === "DOKU") {
+      const ageMs = Date.now() - new Date(order.createdAt).getTime();
+      const lastCheckAt = statusChecks.get(order.orderNumber) || 0;
+      const shouldQueryDoku = ageMs >= 60_000 && Date.now() - lastCheckAt >= 60_000;
 
-    // Jika status masih PENDING di database lokal, lakukan verifikasi ganda langsung ke Xendit API
-    if (order.paymentStatus === "PENDING") {
-      let isVerifiedPaid = false;
-      let paymentChannel = order.paymentMethod || "QRIS";
-      let amountPaid = order.totalAmount;
+      if (shouldQueryDoku) {
+        statusChecks.set(order.orderNumber, Date.now());
+        try {
+          const result = await queryDokuCheckoutStatus(order.orderNumber);
+          const amount = Number(result.order?.amount);
+          const expectedRequestId = order.metadata?.dokuRequestId;
+          const verified =
+            result.transaction?.status === "SUCCESS" &&
+            result.order?.invoice_number === order.orderNumber &&
+            amount === order.totalAmount &&
+            (typeof expectedRequestId !== "string" ||
+              typeof result.transaction?.original_request_id !== "string" ||
+              result.transaction.original_request_id === expectedRequestId);
 
-      // 1. Cek status Invoice Resmi Xendit
-      if (order.xenditInvoiceId) {
-        const inv = await getXenditInvoice(order.xenditInvoiceId);
-        if (inv && (inv.status === "PAID" || inv.status === "SETTLED")) {
-          isVerifiedPaid = true;
-          paymentChannel = inv.payment_method || paymentChannel;
-          amountPaid = Number(inv.paid_amount || amountPaid);
-          logPaymentTrace({
-            correlationId: order.orderNumber,
-            step: "DOUBLE_VERIFY_SUCCESS",
-            xenditInvoiceId: order.xenditInvoiceId,
-            message: "Invoice verified as PAID directly via Xendit API",
-          });
-        } else if (inv && inv.status === "EXPIRED") {
-          await ensureOrderTables();
-          await prisma.$executeRawUnsafe(
-            `UPDATE "CetasOrder" SET "paymentStatus" = 'EXPIRED', "updatedAt" = CURRENT_TIMESTAMP WHERE "orderNumber" = $1`,
-            order.orderNumber
-          );
-          order.paymentStatus = "EXPIRED";
-          logPaymentTrace({
-            correlationId: order.orderNumber,
-            step: "ORDER_EXPIRED",
-            xenditInvoiceId: order.xenditInvoiceId,
-            message: "Invoice expired directly from Xendit API",
-          });
-        }
-      }
-
-      // 2. Cek status QR Code jika invoiceId tidak tersedia
-      if (!isVerifiedPaid && order.xenditQrId) {
-        const qr = await getXenditQrCode(order.xenditQrId);
-        if (qr && (qr.status === "COMPLETED" || qr.status === "SUCCEEDED")) {
-          isVerifiedPaid = true;
-          paymentChannel = "QRIS";
-          amountPaid = Number(qr.amount || amountPaid);
-        } else if (qr && qr.status === "INACTIVE") {
-          await ensureOrderTables();
-          await prisma.$executeRawUnsafe(
-            `UPDATE "CetasOrder" SET "paymentStatus" = 'EXPIRED', "updatedAt" = CURRENT_TIMESTAMP WHERE "orderNumber" = $1`,
-            order.orderNumber
-          );
-          order.paymentStatus = "EXPIRED";
-        }
-      }
-
-      // 3. Jika terverifikasi lunas di Xendit, perbarui database dan terbitkan tiket secara atomik
-      if (isVerifiedPaid) {
-        await markOrderAsPaid(order.orderNumber, {
-          paymentChannel,
-          amountPaid,
-          gatewayTxId: order.xenditInvoiceId || order.xenditQrId,
-        });
-        order = await findOrder(orderNumber);
-      }
-    }
-
-    // Jika pembayaran sah dan lunas (PAID), kembalikan e-tiket yang telah diterbitkan
-    if (order && order.paymentStatus === "PAID") {
-      const dbTickets = await getTicketsByOrder(order.orderNumber);
-
-      const ticketsWithQr = await Promise.all(
-        dbTickets.map(async (t) => {
-          let qrDataUrl = "";
-          try {
-            qrDataUrl = await QRCode.toDataURL(t.qrString, {
-              errorCorrectionLevel: "M",
-              margin: 1,
-              width: 280,
-              color: { dark: "#0F172A", light: "#FFFFFF" },
+          if (verified) {
+            await markOrderAsPaid(order.orderNumber, {
+              amountPaid: amount,
+              paymentChannel: result.channel?.id || result.service?.id || "DOKU_CHECKOUT",
+              gatewayTxId: result.transaction?.original_request_id,
             });
-          } catch {}
-          return {
-            ...t,
-            qrDataUrl,
-          };
-        })
-      );
-
-      return NextResponse.json({
-        success: true,
-        orderNumber: order.orderNumber,
-        isPaid: true,
-        paymentStatus: "PAID",
-        paymentChannel: order.paymentChannel || order.paymentMethod,
-        totalAmount: order.totalAmount,
-        settledAt: order.settledAt,
-        tickets: ticketsWithQr,
-      });
+            order = await findOrder(orderNumber);
+          }
+        } catch (error) {
+          // A status check is a fallback; keep the local PENDING state and let
+          // a later poll or signed DOKU notification resolve the order.
+          console.warn("[DOKU Checkout status check failed]:", error instanceof Error ? error.message : "unknown error");
+        }
+      }
     }
 
-    // Jika belum lunas, pastikan TIDAK ADA tiket yang diterbitkan
+    logPaymentTrace({ correlationId: orderNumber, step: "STATUS_CHECK_POLL", statusBefore: order?.paymentStatus });
+    const tickets = order?.paymentStatus === "PAID" ? await getTicketsByOrder(order.orderNumber) : [];
+    const ticketsWithQr = await Promise.all(tickets.map(async (ticket) => {
+      let qrDataUrl = "";
+      try { qrDataUrl = await QRCode.toDataURL(ticket.qrString, { errorCorrectionLevel: "M", margin: 1, width: 280 }); } catch {}
+      return { ...ticket, qrDataUrl };
+    }));
+
     return NextResponse.json({
       success: true,
       orderNumber: order?.orderNumber,
-      isPaid: false,
+      isPaid: order?.paymentStatus === "PAID",
       paymentStatus: order?.paymentStatus || "PENDING",
+      paymentChannel: order?.paymentChannel || order?.paymentMethod,
       totalAmount: order?.totalAmount,
-      tickets: [],
+      settledAt: order?.settledAt,
+      tickets: ticketsWithQr,
     });
-  } catch (error: any) {
-    console.error("[Order Status API Error]:", error?.message);
-    return NextResponse.json(
-      { success: false, message: "Gagal memeriksa status pesanan" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[Order Status API Error]:", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ success: false, message: "Gagal memeriksa status pesanan" }, { status: 502 });
   }
 }

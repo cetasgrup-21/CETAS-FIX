@@ -306,7 +306,7 @@ function VotePageContent() {
         isOpenOnlineRegistration: false,
         quotaRemaining: 0,
         registrationCategories: [],
-        facilities: ["Bilik Voting Digital", "Verifikasi Xendit Gateway Realtime"],
+        facilities: ["Bilik Voting Digital", "Verifikasi DOKU Gateway Realtime"],
       });
     }
   });
@@ -374,7 +374,7 @@ function VotePageContent() {
   };
 
   // -------------------------------------------------------------
-  // LOGIKA PEMBAYARAN VOTE (XENDIT GATEWAY - TANPA DISKON)
+  // LOGIKA PEMBAYARAN VOTE (DOKU GATEWAY - TANPA DISKON)
   // -------------------------------------------------------------
   const pricePerVote = activeCategory?.pricePerVote || 2000;
   const safeVoteCount = Math.max(1, voteCount);
@@ -1229,7 +1229,7 @@ function VotePageContent() {
                                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-black text-white shadow-md flex items-center justify-center gap-1.5 transition active:scale-95 ${activeTheme.buttonClass}`}
                                 >
                                   <Heart className="h-4 w-4" />
-                                  Vote Sekarang (QRIS Xendit)
+                                  Vote Sekarang (QRIS DOKU)
                                 </button>
                               </div>
                             </div>
@@ -1468,7 +1468,7 @@ function VotePageContent() {
       )}
 
       {/* ============================================================= */}
-      {/* MODAL CHECKOUT VOTE VIA XENDIT                                */}
+      {/* MODAL CHECKOUT VOTE VIA DOKU                                  */}
       {/* ============================================================= */}
       {selectedCandidate && activeCategory && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
@@ -1789,7 +1789,7 @@ function VotePageContent() {
                     disabled={isBuyingTicket}
                     className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition"
                   >
-                    {isBuyingTicket ? "Memproses..." : "Bayar Tiket (QRIS Xendit / E-Wallet) →"}
+                    {isBuyingTicket ? "Memproses..." : "Bayar Tiket (QRIS DOKU / E-Wallet) →"}
                   </button>
                 </div>
               </div>
@@ -1858,7 +1858,7 @@ function VotePageContent() {
         </div>
       )}
 
-      {/* DOKU Direct API Modal (QRIS & E-Wallet) */}
+      {/* Hosted DOKU Checkout modal */}
       <DokuPaymentModal
         isOpen={Boolean(simulatorData)}
         onClose={() => setSimulatorData(null)}
@@ -1875,7 +1875,7 @@ function VotePageContent() {
         }
         successSubtitle={
           simulatorData?.orderType === "VOTE"
-            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh DOKU Direct API dan langsung masuk ke leaderboard realtime.`
+            ? `Selamat! ${simulatorData?.voteCount || voteCount} suara untuk #${simulatorData?.candidate?.candidateNumber || ""} ${simulatorData?.candidate?.name || ""} telah terverifikasi resmi oleh DOKU Checkout dan langsung masuk ke leaderboard realtime.`
             : `E-tiket resmi acara telah terbit dan siap digunakan.`
         }
         onSuccess={async (verifiedTickets?: any[]) => {

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createTicketQRString } from "@/lib/ticket-security";
-import { getEventsStore, saveEventsStore } from "@/lib/cetas-store";
+import { getEventsStore, saveEventsStore, getVotingsStore, saveVotingsStore } from "@/lib/cetas-store";
 import { UnifiedEvent } from "@/lib/events-unified-data";
 import { sendTicketWhatsAppNotification } from "@/lib/whatsapp";
 
@@ -71,7 +71,7 @@ export async function ensureOrderTables(): Promise<void> {
         "customerPhone" TEXT,
         "totalAmount" DOUBLE PRECISION NOT NULL,
         "paymentStatus" TEXT NOT NULL DEFAULT 'PENDING',
-        "paymentGateway" TEXT DEFAULT 'XENDIT',
+        "paymentGateway" TEXT DEFAULT 'DOKU',
         "paymentMethod" TEXT DEFAULT 'QRIS',
         "paymentChannel" TEXT,
         "xenditInvoiceId" TEXT,
@@ -224,7 +224,7 @@ export async function createOrderRecord(order: {
     order.customerEmail,
     order.customerPhone || "-",
     order.totalAmount,
-    order.paymentGateway || "XENDIT",
+    order.paymentGateway || "DOKU",
     order.paymentMethod || "QRIS",
     order.xenditInvoiceId || null,
     order.xenditExternalId || order.orderNumber,
@@ -242,7 +242,7 @@ export async function createOrderRecord(order: {
     customerPhone: order.customerPhone || "-",
     totalAmount: order.totalAmount,
     paymentStatus: "PENDING",
-    paymentGateway: order.paymentGateway || "XENDIT",
+    paymentGateway: order.paymentGateway || "DOKU",
     paymentMethod: order.paymentMethod || "QRIS",
     xenditInvoiceId: order.xenditInvoiceId,
     xenditExternalId: order.xenditExternalId || order.orderNumber,
@@ -255,7 +255,7 @@ export async function createOrderRecord(order: {
 }
 
 /**
- * Find order by orderNumber, xenditInvoiceId, or xenditQrId
+ * Find order by orderNumber or external gateway reference
  */
 export async function findOrder(reference: string): Promise<StoredOrder | null> {
   await ensureOrderTables();
@@ -306,16 +306,29 @@ export async function markOrderAsPaid(
   }
 
   // Update order status to PAID
-  await prisma.$executeRawUnsafe(
+  const updatedRows = await prisma.$executeRawUnsafe(
     `UPDATE "CetasOrder"
      SET "paymentStatus" = 'PAID',
          "paymentChannel" = $1,
          "settledAt" = CURRENT_TIMESTAMP,
          "updatedAt" = CURRENT_TIMESTAMP
-     WHERE "orderNumber" = $2`,
+     WHERE "orderNumber" = $2 AND "paymentStatus" <> 'PAID'`,
     paymentDetails.paymentChannel || "QRIS",
     order.orderNumber
   );
+
+  // A webhook and a status poll can race. Only the request that changed the
+  // status may issue tickets; the other one returns the current records.
+  if (updatedRows === 0) {
+    const currentOrder = await findOrder(order.orderNumber);
+    const existingTickets = await getTicketsByOrder(order.orderNumber);
+    return {
+      success: currentOrder?.paymentStatus === "PAID",
+      order: currentOrder,
+      tickets: existingTickets,
+      alreadyPaid: currentOrder?.paymentStatus === "PAID",
+    };
+  }
 
   order.paymentStatus = "PAID";
   order.paymentChannel = paymentDetails.paymentChannel || "QRIS";
@@ -408,6 +421,48 @@ export async function markOrderAsPaid(
       } catch (err) {
         console.error("Gagal mengirim WhatsApp otomatis dari Admin CETAS:", err);
       }
+    }
+  }
+
+  // If VOTE order, atomically increment candidate votes in votings store
+  if (order.orderType === "VOTE") {
+    try {
+      const votings = await getVotingsStore();
+      let updatedVotings = false;
+
+      for (const item of order.items) {
+        const candidateId = item.id;
+        const votesToAdd = Math.max(1, Number(item.quantity) || 1);
+
+        for (const ev of votings) {
+          for (const cat of ev.categories || []) {
+            const cand = cat.candidates?.find(
+              (c) =>
+                c.id === candidateId ||
+                c.candidateNumber === candidateId ||
+                (item.name && item.name.includes(c.name))
+            );
+            if (cand) {
+              cand.totalVotes = (cand.totalVotes || 0) + votesToAdd;
+              updatedVotings = true;
+            }
+          }
+        }
+      }
+
+      if (updatedVotings) {
+        await saveVotingsStore(votings);
+      }
+
+      // Mark voteRecorded in order metadata
+      await prisma.$executeRawUnsafe(
+        `UPDATE "CetasOrder"
+         SET "metadata" = COALESCE("metadata", '{}'::jsonb) || '{"voteRecorded": true}'::jsonb
+         WHERE "orderNumber" = $1`,
+        order.orderNumber
+      );
+    } catch (err) {
+      console.error("[Order Store]: Failed to atomically increment votes on settlement:", err);
     }
   }
 

@@ -162,12 +162,12 @@ export function Footer() {
                   INSTAGRAM RESMI
                 </span>
                 <a
-                  href="https://www.instagram.com/cetas__id/"
+                  href="https://www.instagram.com/cetas.co.id/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-bold text-white hover:text-cyan-300 transition inline-flex items-center gap-1 mt-0.5"
                 >
-                  <span>@cetas__id</span>
+                  <span>@cetas.co.id</span>
                   <ExternalLink className="h-3 w-3 text-cyan-400" />
                 </a>
               </div>
@@ -273,7 +273,7 @@ export function Footer() {
             {/* Social Icons */}
             <div className="flex items-center gap-2.5 pt-2">
               <a
-                href="https://www.instagram.com/cetas__id/"
+                href="https://www.instagram.com/cetas.co.id/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram Resmi CETAS"

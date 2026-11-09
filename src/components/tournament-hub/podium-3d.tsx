@@ -8,12 +8,15 @@ import { launchConfettiShower } from "./confetti-shower";
 interface Podium3DProps {
   topTeams: TournamentTeam[];
   onSelectTeam?: (team: TournamentTeam) => void;
+  mode?: "score" | "vote";
+  scoreUnit?: string;
 }
 
-export function Podium3D({ topTeams, onSelectTeam }: Podium3DProps) {
+export function Podium3D({ topTeams, onSelectTeam, mode = "score", scoreUnit }: Podium3DProps) {
   const first = topTeams[0] || null;
   const second = topTeams[1] || null;
   const third = topTeams[2] || null;
+  const unitLabel = scoreUnit || (mode === "vote" ? "suara" : "pts");
 
   return (
     <div className="relative w-full rounded-2xl border border-slate-800/80 bg-gradient-to-b from-slate-900/90 via-slate-950 to-[#0B0F19] p-4 sm:p-8 backdrop-blur-xl shadow-2xl overflow-hidden">
@@ -31,7 +34,7 @@ export function Podium3D({ topTeams, onSelectTeam }: Podium3DProps) {
             </h3>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Leaderboard 3 Besar Teratas — Realtime CETAS.SCORE Engine
+            Leaderboard 3 Besar Teratas — Realtime {mode === "vote" ? "CETAS.VOTE Engine" : "CETAS.SCORE Engine"}
           </p>
         </div>
 
@@ -75,7 +78,7 @@ export function Podium3D({ topTeams, onSelectTeam }: Podium3DProps) {
                   {second.school || second.name}
                 </div>
                 <div className="text-[11px] font-extrabold text-slate-300 font-mono mt-0.5">
-                  {second.finalScore.toLocaleString("id-ID")} pts
+                  {second.finalScore.toLocaleString("id-ID")} {unitLabel}
                 </div>
               </div>
             </div>
@@ -125,7 +128,7 @@ export function Podium3D({ topTeams, onSelectTeam }: Podium3DProps) {
                   {first.school || first.name}
                 </div>
                 <div className="text-xs sm:text-sm font-black text-amber-400 font-mono mt-0.5 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">
-                  {first.finalScore.toLocaleString("id-ID")} pts
+                  {first.finalScore.toLocaleString("id-ID")} {unitLabel}
                 </div>
               </div>
             </div>
@@ -173,7 +176,7 @@ export function Podium3D({ topTeams, onSelectTeam }: Podium3DProps) {
                   {third.school || third.name}
                 </div>
                 <div className="text-[11px] font-extrabold text-amber-500 font-mono mt-0.5">
-                  {third.finalScore.toLocaleString("id-ID")} pts
+                  {third.finalScore.toLocaleString("id-ID")} {unitLabel}
                 </div>
               </div>
             </div>

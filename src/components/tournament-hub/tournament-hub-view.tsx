@@ -49,14 +49,43 @@ interface VoteCandidateSummary {
   totalVotes: number;
   percentage: number;
   rank: number;
+  candidateNumber?: string;
+  categoryTitle?: string;
+}
+
+interface VoteCategoryOption {
+  id: string;
+  title: string;
 }
 
 export function TournamentHubView() {
   const [leaderboardMode, setLeaderboardMode] = useState<"score" | "vote">("score");
 
-  // Dynamic Event Switcher state
-  const [allEvents, setAllEvents] = useState<SimpleEventOption[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  // Dynamic Event Switcher state with instant session/URL hydration
+  const [allEvents, setAllEvents] = useState<SimpleEventOption[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("cetas_hub_events");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+
+  const [selectedEventId, setSelectedEventId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParam = new URLSearchParams(window.location.search).get("eventId");
+        if (urlParam) return urlParam;
+        const cached = sessionStorage.getItem("cetas_hub_selected_event");
+        if (cached) return cached;
+      } catch {}
+    }
+    return "";
+  });
 
   const [selectedLevel, setSelectedLevel] = useState<string>("ALL");
   const [eventData, setEventData] = useState<TournamentEvent | null>(null);
@@ -70,14 +99,29 @@ export function TournamentHubView() {
 
   // Vote Leaderboard State
   const [voteCandidates, setVoteCandidates] = useState<VoteCandidateSummary[]>([]);
+  const [voteCategoriesList, setVoteCategoriesList] = useState<VoteCategoryOption[]>([]);
+  const [selectedVoteCategory, setSelectedVoteCategory] = useState<string>("ALL");
   const [voteCategoryName, setVoteCategoryName] = useState<string>("");
 
   // Keep ref of previous teams to detect rank changes and score updates
   const previousTeamsMapRef = useRef<Map<string, { rank: number | null; finalScore: number }>>(new Map());
 
-  // 1. Fetch available events list on mount
+  // Handle Event Change with persistence & URL update
+  const handleSelectEvent = (eventId: string) => {
+    setSelectedEventId(eventId);
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("cetas_hub_selected_event", eventId);
+        const url = new URL(window.location.href);
+        url.searchParams.set("eventId", eventId);
+        window.history.replaceState(null, "", url.toString());
+      } catch {}
+    }
+  };
+
+  // 1. Fetch available events list on mount (lightweight summary for ultra-fast loading)
   useEffect(() => {
-    fetch("/api/events", { cache: "no-store" })
+    fetch("/api/events?summary=true", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events)) {
@@ -88,9 +132,20 @@ export function TournamentHubView() {
             category: e.category,
           }));
           setAllEvents(list);
-          if (!selectedEventId && list.length > 0) {
-            setSelectedEventId(list[0].id);
-          }
+          try {
+            sessionStorage.setItem("cetas_hub_events", JSON.stringify(list));
+          } catch {}
+
+          setSelectedEventId((prev) => {
+            if (prev && list.some((e: any) => e.id === prev)) return prev;
+            const fallback = list[0]?.id || "";
+            if (fallback && typeof window !== "undefined") {
+              try {
+                sessionStorage.setItem("cetas_hub_selected_event", fallback);
+              } catch {}
+            }
+            return fallback;
+          });
         }
       })
       .catch((err) => console.warn("Failed to load events list:", err));
@@ -229,38 +284,84 @@ export function TournamentHubView() {
   // 3. Fetch Vote Data for Vote Leaderboard
   const fetchVoteData = useCallback(async () => {
     try {
-      const res = await fetch("/api/vote", { cache: "no-store" });
+      const query = selectedEventId ? `?eventId=${encodeURIComponent(selectedEventId)}` : "";
+      const res = await fetch(`/api/vote${query}`, { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.success && Array.isArray(data.votings)) {
-        const matchedConfig =
-          data.votings.find((v: any) => v.eventId === selectedEventId) || data.votings[0];
-        if (matchedConfig && matchedConfig.categories && matchedConfig.categories.length > 0) {
-          const firstCat = matchedConfig.categories[0];
-          setVoteCategoryName(firstCat.name || "Kategori Terfavorit");
-          const cands = firstCat.candidates || [];
-          const totalVotes = cands.reduce((sum: number, c: any) => sum + (c.totalVotes || 0), 0);
+      if (!data.success) return;
 
-          const sorted = [...cands]
-            .sort((a, b) => b.totalVotes - a.totalVotes)
-            .map((c, idx) => ({
-              id: c.id,
-              name: c.name,
-              school: c.school || c.name,
-              photoUrl: c.photoUrl,
-              totalVotes: c.totalVotes,
-              percentage: totalVotes > 0 ? Math.round((c.totalVotes / totalVotes) * 100) : 0,
-              rank: idx + 1,
-            }));
-          setVoteCandidates(sorted);
+      const rawList: any[] =
+        data.eventVotings || data.votings || (data.eventVoting ? [data.eventVoting] : []);
+      const matchedConfig =
+        (selectedEventId ? rawList.find((v: any) => v.eventId === selectedEventId) : undefined) ||
+        rawList[0];
+
+      if (matchedConfig && Array.isArray(matchedConfig.categories)) {
+        const catOptions: VoteCategoryOption[] = matchedConfig.categories.map((c: any) => ({
+          id: c.id,
+          title: c.title || c.name || "Kategori",
+        }));
+        setVoteCategoriesList(catOptions);
+
+        let filteredCandidates: any[] = [];
+        if (selectedVoteCategory === "ALL") {
+          matchedConfig.categories.forEach((cat: any) => {
+            (cat.candidates || []).forEach((c: any) => {
+              filteredCandidates.push({
+                ...c,
+                categoryTitle: cat.title || cat.name || "Kategori",
+              });
+            });
+          });
+          setVoteCategoryName("Semua Kategori");
+        } else {
+          const activeCat =
+            matchedConfig.categories.find((c: any) => c.id === selectedVoteCategory) ||
+            matchedConfig.categories[0];
+          if (activeCat) {
+            setVoteCategoryName(activeCat.title || activeCat.name || "Kategori Terfavorit");
+            (activeCat.candidates || []).forEach((c: any) => {
+              filteredCandidates.push({
+                ...c,
+                categoryTitle: activeCat.title || activeCat.name || "Kategori Terfavorit",
+              });
+            });
+          }
         }
+
+        const totalVotes = filteredCandidates.reduce(
+          (sum: number, c: any) => sum + (Number(c.totalVotes) || 0),
+          0
+        );
+
+        const sorted: VoteCandidateSummary[] = [...filteredCandidates]
+          .sort((a, b) => (Number(b.totalVotes) || 0) - (Number(a.totalVotes) || 0))
+          .map((c, idx) => ({
+            id: c.id,
+            name: c.name,
+            school: c.institution || c.school || c.tagline || c.name,
+            photoUrl: c.photoUrl,
+            candidateNumber: c.candidateNumber,
+            categoryTitle: c.categoryTitle,
+            totalVotes: Number(c.totalVotes) || 0,
+            percentage:
+              totalVotes > 0
+                ? Math.round(((Number(c.totalVotes) || 0) / totalVotes) * 100)
+                : 0,
+            rank: idx + 1,
+          }));
+
+        setVoteCandidates(sorted);
+      } else {
+        setVoteCandidates([]);
+        setVoteCategoriesList([]);
       }
     } catch (err) {
       console.warn("Failed to fetch vote data:", err);
     }
-  }, [selectedEventId]);
+  }, [selectedEventId, selectedVoteCategory]);
 
-  // Initial load when selectedEventId changes
+  // Initial load when selectedEventId or selectedVoteCategory changes
   useEffect(() => {
     fetchData();
     fetchVoteData();
@@ -284,10 +385,10 @@ export function TournamentHubView() {
   // Convert top 3 vote candidates to tournament teams shape for Podium3D
   const topVoteTeams: TournamentTeam[] = voteCandidates.slice(0, 3).map((v) => ({
     id: v.id,
-    number: v.rank,
+    number: Number(v.candidateNumber) || v.rank,
     name: v.name,
     school: v.school || v.name,
-    level: "FAVORIT",
+    level: v.categoryTitle || "FAVORIT",
     eventLevelId: null,
     displayOrder: v.rank,
     rawScore: v.totalVotes,
@@ -299,8 +400,8 @@ export function TournamentHubView() {
     categories: [
       {
         categoryId: "vote",
-        categoryName: "Perolehan Vote",
-        percentage: 100,
+        categoryName: "Perolehan Suara",
+        percentage: v.percentage,
         maximum: 1000,
         score: v.totalVotes,
         complete: true,
@@ -337,11 +438,11 @@ export function TournamentHubView() {
             </Link>
 
             {/* Dynamic Event Switcher Dropdown */}
-            {allEvents.length > 0 && (
+            {allEvents.length > 0 ? (
               <div className="relative">
                 <select
                   value={selectedEventId}
-                  onChange={(e) => setSelectedEventId(e.target.value)}
+                  onChange={(e) => handleSelectEvent(e.target.value)}
                   className="rounded-xl border border-slate-700 bg-slate-900/90 pl-3 pr-8 py-1.5 text-xs font-bold text-white focus:border-cyan-500 focus:outline-none cursor-pointer max-w-[140px] xs:max-w-[180px] sm:max-w-xs truncate"
                 >
                   {allEvents.map((ev) => (
@@ -351,6 +452,11 @@ export function TournamentHubView() {
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 text-xs text-slate-400">
+                <RefreshCw className="h-3 w-3 animate-spin text-cyan-400" />
+                <span className="font-mono text-[11px] hidden sm:inline">Memuat Event...</span>
               </div>
             )}
           </div>
@@ -531,7 +637,7 @@ export function TournamentHubView() {
         {leaderboardMode === "vote" && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* 3D Podium for Top Vote Winners */}
-            <Podium3D topTeams={topVoteTeams} />
+            <Podium3D topTeams={topVoteTeams} mode="vote" scoreUnit="suara" />
 
             {/* Vote Ranking List & Quick Vote Action */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-4">
@@ -556,6 +662,35 @@ export function TournamentHubView() {
                   <span>Beri Vote Sekarang</span>
                 </Link>
               </div>
+
+              {/* Category Filter Tabs */}
+              {voteCategoriesList.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  <button
+                    onClick={() => setSelectedVoteCategory("ALL")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition whitespace-nowrap ${
+                      selectedVoteCategory === "ALL"
+                        ? "bg-amber-400 text-slate-950 shadow-sm"
+                        : "bg-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Semua Kategori
+                  </button>
+                  {voteCategoriesList.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedVoteCategory(cat.id)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition whitespace-nowrap ${
+                        selectedVoteCategory === cat.id
+                          ? "bg-amber-400 text-slate-950 shadow-sm"
+                          : "bg-slate-800 text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {cat.title}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {voteCandidates.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 text-xs">
@@ -583,9 +718,27 @@ export function TournamentHubView() {
                           #{cand.rank}
                         </span>
 
+                        {cand.photoUrl && (
+                          <img
+                            src={cand.photoUrl}
+                            alt={cand.name}
+                            className="h-9 w-9 rounded-lg object-cover border border-slate-700 shrink-0"
+                          />
+                        )}
+
                         <div className="min-w-0">
-                          <h4 className="text-sm font-bold text-white truncate">{cand.school}</h4>
-                          <p className="text-xs text-slate-400 truncate mt-0.5">{cand.name}</p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-white truncate">{cand.school}</h4>
+                            {selectedVoteCategory === "ALL" && cand.categoryTitle && (
+                              <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-mono text-amber-300 shrink-0">
+                                {cand.categoryTitle}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 truncate mt-0.5">
+                            {cand.candidateNumber ? `[No. ${cand.candidateNumber}] ` : ""}
+                            {cand.name}
+                          </p>
                         </div>
                       </div>
 

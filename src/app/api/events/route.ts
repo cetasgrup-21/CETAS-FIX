@@ -83,10 +83,39 @@ function normalizeEventCategoriesAndQuota(
 }
 
 // GET: Ambil daftar seluruh event dari PostgreSQL CetasStore (Paralel & Dioptimalkan)
-export async function GET() {
-  const soldCountsMap = new Map<string, number>();
-
+export async function GET(req?: NextRequest) {
   try {
+    const isLite = req
+      ? new URL(req.url).searchParams.get("summary") === "true" ||
+        new URL(req.url).searchParams.get("lite") === "1"
+      : false;
+
+    if (isLite) {
+      const rawEvents = await getEventsStore();
+      const events = rawEvents.map((ev) => ({
+        id: ev.id,
+        title: ev.title,
+        date: ev.date,
+        category: ev.category,
+        themePreset: ev.themePreset,
+        location: ev.location,
+        status: ev.status,
+      }));
+      return NextResponse.json(
+        {
+          success: true,
+          total: events.length,
+          events,
+        },
+        {
+          headers: {
+            "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10",
+          },
+        }
+      );
+    }
+
+    const soldCountsMap = new Map<string, number>();
     const [rawEvents, soldRows] = await Promise.all([
       getEventsStore(),
       prisma

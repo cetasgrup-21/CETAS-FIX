@@ -220,7 +220,13 @@ export async function GET(req: NextRequest) {
   if (eventId) {
     const single = result.find((ev) => ev.eventId === eventId) || result[0];
     return NextResponse.json(
-      { success: true, eventVoting: single },
+      {
+        success: true,
+        eventVoting: single,
+        voting: single,
+        eventVotings: single ? [single] : [],
+        votings: single ? [single] : [],
+      },
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   }
@@ -230,6 +236,7 @@ export async function GET(req: NextRequest) {
       success: true,
       totalEvents: result.length,
       eventVotings: result,
+      votings: result,
     },
     { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
   );

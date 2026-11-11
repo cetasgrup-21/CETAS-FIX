@@ -85,10 +85,14 @@ function normalizeEventCategoriesAndQuota(
 // GET: Ambil daftar seluruh event dari PostgreSQL CetasStore (Paralel & Dioptimalkan)
 export async function GET(req?: NextRequest) {
   try {
-    const isLite = req
-      ? new URL(req.url).searchParams.get("summary") === "true" ||
-        new URL(req.url).searchParams.get("lite") === "1"
+    const searchParams = req ? new URL(req.url).searchParams : null;
+    const isLite = searchParams
+      ? searchParams.get("summary") === "true" || searchParams.get("lite") === "1"
       : false;
+    const isFresh = searchParams ? searchParams.get("fresh") === "1" : false;
+    const cacheHeader = isFresh
+      ? "no-store, no-cache, must-revalidate"
+      : "public, s-maxage=15, stale-while-revalidate=30";
 
     if (isLite) {
       const rawEvents = await getEventsStore();
@@ -109,7 +113,7 @@ export async function GET(req?: NextRequest) {
         },
         {
           headers: {
-            "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10",
+            "Cache-Control": cacheHeader,
           },
         }
       );
@@ -145,7 +149,7 @@ export async function GET(req?: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=2, stale-while-revalidate=5",
+          "Cache-Control": cacheHeader,
         },
       }
     );

@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  outputFileTracingExcludes: {
+    "/*": ["./public/**/*", "./.cetas_data/**/*"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "50mb",

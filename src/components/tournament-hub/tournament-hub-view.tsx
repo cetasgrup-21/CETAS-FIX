@@ -121,7 +121,7 @@ export function TournamentHubView() {
 
   // 1. Fetch available events list on mount (lightweight summary for ultra-fast loading)
   useEffect(() => {
-    fetch("/api/events?summary=true", { cache: "no-store" })
+    fetch("/api/events?summary=true")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events)) {
@@ -158,7 +158,7 @@ export function TournamentHubView() {
 
       try {
         const query = selectedEventId ? `?eventId=${encodeURIComponent(selectedEventId)}` : "";
-        const res = await fetch(`/api/rekap${query}`, { cache: "no-store" });
+        const res = await fetch(`/api/rekap${query}`);
         if (!res.ok) throw new Error("Gagal mengambil data rekap");
 
         const data = await res.json();
@@ -281,11 +281,13 @@ export function TournamentHubView() {
     [selectedEventId]
   );
 
-  // 3. Fetch Vote Data for Vote Leaderboard
+  // 3. Fetch Vote Data for Vote Leaderboard (lightweight mode)
   const fetchVoteData = useCallback(async () => {
     try {
-      const query = selectedEventId ? `?eventId=${encodeURIComponent(selectedEventId)}` : "";
-      const res = await fetch(`/api/vote${query}`, { cache: "no-store" });
+      const query = selectedEventId
+        ? `?eventId=${encodeURIComponent(selectedEventId)}&lite=1`
+        : "?lite=1";
+      const res = await fetch(`/api/vote${query}`);
       if (!res.ok) return;
       const data = await res.json();
       if (!data.success) return;
@@ -367,13 +369,26 @@ export function TournamentHubView() {
     fetchVoteData();
   }, [fetchData, fetchVoteData]);
 
-  // Live polling every 5 seconds
+  // Live polling every 15 seconds (pauses automatically when tab is hidden)
   useEffect(() => {
     const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       fetchData(true);
       fetchVoteData();
-    }, 5000);
-    return () => clearInterval(timer);
+    }, 15000);
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        fetchData(true);
+        fetchVoteData();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [fetchData, fetchVoteData]);
 
   // Sorted top 3 for score podium

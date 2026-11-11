@@ -945,6 +945,11 @@ export async function GET(req: Request) {
       },
       levels: event.levels,
       rows: rankedRows,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=4, stale-while-revalidate=10",
+      },
     });
   } catch (error) {
     console.error(

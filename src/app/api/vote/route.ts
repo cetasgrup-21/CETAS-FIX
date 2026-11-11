@@ -223,31 +223,60 @@ async function getSyncedVotings(): Promise<EventVotingConfig[]> {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
+  const isLite = searchParams.get("lite") === "1" || searchParams.get("summary") === "true";
+  const isFresh = searchParams.get("fresh") === "1";
 
-  const result = await getSyncedVotings();
+  const cacheHeader = isFresh
+    ? "no-store, no-cache, must-revalidate"
+    : "public, s-maxage=5, stale-while-revalidate=15";
+
+  // Jika mode lite (untuk polling leaderboard realtime), baca store voting langsung tanpa sync berat
+  const result = isLite ? await getVotingsStore() : await getSyncedVotings();
+
+  const formatVoting = (ev: EventVotingConfig) => {
+    if (!isLite) return ev;
+    return {
+      eventId: ev.eventId,
+      eventTitle: ev.eventTitle,
+      themePreset: ev.themePreset,
+      categories: (ev.categories || []).map((c) => ({
+        id: c.id,
+        eventId: c.eventId,
+        title: c.title,
+        pricePerVote: c.pricePerVote,
+        candidates: (c.candidates || []).map((cand) => ({
+          id: cand.id,
+          candidateNumber: cand.candidateNumber,
+          name: cand.name,
+          institution: cand.institution,
+          photoUrl: cand.photoUrl,
+          totalVotes: cand.totalVotes,
+        })),
+      })),
+    };
+  };
 
   if (eventId) {
     const single = result.find((ev) => ev.eventId === eventId) || result[0];
+    const formatted = single ? [formatVoting(single)] : [];
     return NextResponse.json(
       {
         success: true,
-        eventVoting: single,
-        voting: single,
-        eventVotings: single ? [single] : [],
-        votings: single ? [single] : [],
+        totalEvents: formatted.length,
+        eventVotings: formatted,
       },
-      { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+      { headers: { "Cache-Control": cacheHeader } }
     );
   }
 
+  const formattedAll = result.map(formatVoting);
   return NextResponse.json(
     {
       success: true,
-      totalEvents: result.length,
-      eventVotings: result,
-      votings: result,
+      totalEvents: formattedAll.length,
+      eventVotings: formattedAll,
     },
-    { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+    { headers: { "Cache-Control": cacheHeader } }
   );
 }
 

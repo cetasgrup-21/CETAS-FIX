@@ -6,6 +6,11 @@ import { INITIAL_EVENT_VOTINGS, EventVotingConfig } from "@/lib/vote-unified-dat
 import { INITIAL_UNIFIED_PRODUCTS, UnifiedProduct } from "@/lib/production-unified-data";
 import { INITIAL_ATTENDEES, RegisteredAttendee } from "@/lib/events-registration-data";
 import { INITIAL_STAFF_ACCOUNTS, StaffAccountRecord } from "@/lib/admin-auth";
+import {
+  sanitizeEventMedia,
+  sanitizeVotingMedia,
+  sanitizeAttendeeMedia,
+} from "@/lib/media-store";
 
 declare global {
   var __cetasTableInitialized: boolean | undefined;
@@ -30,12 +35,13 @@ function readDiskBackup<T>(key: string): T | null {
 }
 
 function writeDiskBackup<T>(key: string, value: T): void {
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
   try {
     if (!fs.existsSync(DISK_BACKUP_DIR)) {
       fs.mkdirSync(DISK_BACKUP_DIR, { recursive: true });
     }
     const filePath = path.join(DISK_BACKUP_DIR, `${key}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
+    fs.writeFileSync(filePath, JSON.stringify(value), "utf-8");
   } catch {}
 }
 
@@ -72,7 +78,6 @@ export async function getStoreData<T>(key: string, defaultValue: T): Promise<T> 
         } catch {}
       }
       global.__cetasMemoryFallback![key] = parsedVal;
-      writeDiskBackup(key, parsedVal);
       return parsedVal;
     }
 
@@ -127,7 +132,8 @@ export async function getEventsStore(): Promise<UnifiedEvent[]> {
 }
 
 export async function saveEventsStore(events: UnifiedEvent[]): Promise<void> {
-  await setStoreData<UnifiedEvent[]>("cetas_events_v1", events);
+  const sanitized = await Promise.all(events.map((ev) => sanitizeEventMedia(ev)));
+  await setStoreData<UnifiedEvent[]>("cetas_events_v1", sanitized);
 }
 
 export async function getVotingsStore(): Promise<EventVotingConfig[]> {
@@ -135,7 +141,8 @@ export async function getVotingsStore(): Promise<EventVotingConfig[]> {
 }
 
 export async function saveVotingsStore(votings: EventVotingConfig[]): Promise<void> {
-  await setStoreData<EventVotingConfig[]>("cetas_votings_v1", votings);
+  const sanitized = await Promise.all(votings.map((v) => sanitizeVotingMedia(v)));
+  await setStoreData<EventVotingConfig[]>("cetas_votings_v1", sanitized);
 }
 
 export async function getProductsStore(): Promise<UnifiedProduct[]> {
@@ -151,7 +158,8 @@ export async function getAttendeesStore(): Promise<RegisteredAttendee[]> {
 }
 
 export async function saveAttendeesStore(attendees: RegisteredAttendee[]): Promise<void> {
-  await setStoreData<RegisteredAttendee[]>("cetas_attendees_v1", attendees);
+  const sanitized = await Promise.all(attendees.map((a) => sanitizeAttendeeMedia(a)));
+  await setStoreData<RegisteredAttendee[]>("cetas_attendees_v1", sanitized);
 }
 
 export async function getStaffStore(): Promise<StaffAccountRecord[]> {

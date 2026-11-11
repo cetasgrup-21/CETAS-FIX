@@ -600,7 +600,7 @@ export default function AdminDashboardPage() {
         }
       }
     }
-    fetch("/api/events", { cache: "no-store" })
+    fetch("/api/events?fresh=1", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events)) {
@@ -666,7 +666,7 @@ export default function AdminDashboardPage() {
         setSelectedVoteCategoryId(localVotes[0].categories[0].id);
       }
     }
-    fetch("/api/vote", { cache: "no-store" })
+    fetch("/api/vote?fresh=1", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.eventVotings) && data.eventVotings.length > 0) {
@@ -1214,7 +1214,7 @@ export default function AdminDashboardPage() {
           if (syncedEvent.registrationCategories) {
             setEventRegCategories(syncedEvent.registrationCategories);
           }
-          fetch("/api/vote", { cache: "no-store" })
+          fetch("/api/vote?fresh=1", { cache: "no-store" })
             .then((r) => r.json())
             .then((vData) => {
               if (vData.success && Array.isArray(vData.eventVotings)) {
@@ -1245,7 +1245,7 @@ export default function AdminDashboardPage() {
             return next;
           });
           // Refresh votings agar bilik vote event baru langsung tampil
-          fetch("/api/vote", { cache: "no-store" })
+          fetch("/api/vote?fresh=1", { cache: "no-store" })
             .then((r) => r.json())
             .then((vData) => {
               if (vData.success && Array.isArray(vData.eventVotings)) {

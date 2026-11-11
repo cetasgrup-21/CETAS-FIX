@@ -34,7 +34,7 @@ export async function GET(
         headers: {
           "Content-Type": contentType,
           "Content-Disposition": `inline; filename="${sanitizedFilename}"`,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
         },
       });
     }
@@ -48,7 +48,7 @@ export async function GET(
         headers: {
           "Content-Type": contentType,
           "Content-Disposition": `inline; filename="${sanitizedFilename}"`,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
         },
       });
     }
@@ -62,7 +62,7 @@ export async function GET(
         headers: {
           "Content-Type": contentType,
           "Content-Disposition": `inline; filename="${sanitizedFilename}"`,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
         },
       });
     }
@@ -93,7 +93,7 @@ export async function GET(
             headers: {
               "Content-Type": record.contentType || contentType,
               "Content-Disposition": `inline; filename="${sanitizedFilename}"`,
-              "Cache-Control": "public, max-age=31536000, immutable",
+              "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
             },
           });
         }

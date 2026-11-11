@@ -110,7 +110,7 @@ export default function EventsPage() {
       setIsLoadingEvents(false);
     }
 
-    fetch("/api/events", { cache: "no-store" })
+    fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events)) {

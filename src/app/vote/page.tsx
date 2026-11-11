@@ -157,7 +157,7 @@ function VotePageContent() {
     if (localEvents && localEvents.length > 0) setUnifiedEvents(localEvents);
 
     // 1. Fetch Voting Configs
-    fetch("/api/vote", { cache: "no-store" })
+    fetch("/api/vote")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.eventVotings)) {
@@ -168,7 +168,7 @@ function VotePageContent() {
       .catch(() => {});
 
     // 2. Fetch Unified Events (Ticketing & Registration)
-    fetch("/api/events", { cache: "no-store" })
+    fetch("/api/events")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.events)) {
